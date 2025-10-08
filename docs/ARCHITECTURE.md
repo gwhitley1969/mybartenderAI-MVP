@@ -10,13 +10,14 @@
 ```mermaid
 sequenceDiagram
   participant App as Flutter (Mobile)
-  participant Func as Azure Function (HTTP)
+  participant Func as Azure Functions (HTTP)
   participant PG as Azure PostgreSQL
   participant Blob as Azure Blob
   App->>App: Query local SQLite (recipes, indexes)
-  App->>Func: POST /v1/recommend (inventory,tasteProfile)
+  App->>Func: POST /v1/recommend (inventory, tasteProfile)
   Func->>PG: SELECT candidate recipes
   Func-->>App: 200 application/json (Recommendation[])
+
 
 ## AI Model & Cost Strategy
 - Models: use OpenAI GPT-4.1 family via backend-only calls (never from the device).

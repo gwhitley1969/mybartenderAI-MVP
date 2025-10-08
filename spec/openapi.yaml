@@ -49,3 +49,86 @@
            content:
              application/json:
                schema: { $ref: '#/components/schemas/Error' }
+paths:
+  /v1/snapshots/latest:
+    get:
+      summary: Get latest SQLite snapshot for on-device catalog
+      operationId: getLatestSnapshot
+      tags: [catalog]
+      responses:
+        '200':
+          description: Snapshot metadata with signed URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotInfo'
+        '503':
+          description: Snapshot not available
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/changes:
+    get:
+      summary: Incremental changes since a snapshot
+      operationId: getChangesSince
+      tags: [catalog]
+      parameters:
+        - in: query
+          name: since
+          required: true
+          schema: { type: string, example: "20251008.1" }
+      responses:
+        '200':
+          description: NDJSON stream of changes (one JSON object per line)
+          content:
+            application/x-ndjson:
+              schema:
+                type: string
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/admin/sync:
+    post:
+      summary: Manually trigger CocktailDB sync (admin only)
+      operationId: triggerSync
+      tags: [admin]
+      security: [{ function_key: [] }]
+      responses:
+        '202':
+          description: Sync started
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    function_key:
+      type: apiKey
+      in: header
+      name: x-functions-key
+
+  schemas:
+    SnapshotInfo:
+      type: object
+      required: [schemaVersion, snapshotVersion, sizeBytes, sha256, signedUrl, createdAtUtc]
+      properties:
+        schemaVersion: { type: string, example: "1" }
+        snapshotVersion: { type: string, example: "20251008.1" }
+        sizeBytes: { type: integer, example: 104857600 }
+        sha256: { type: string, example: "b3f5..." }
+        signedUrl: { type: string, description: "Short-lived SAS URL to the snapshot file" }
+        createdAtUtc: { type: string, format: date-time }
+        counts:
+          type: object
+          properties:
+            drinks: { type: integer }
+            ingredients: { type: integer }
+            measures: { type: integer }
+            categories: { type: integer }
+            glasses: { type: integer }

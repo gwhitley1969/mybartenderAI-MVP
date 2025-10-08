@@ -41,3 +41,47 @@ sequenceDiagram
 - Token caps enforced in app.
 + Token caps enforced in app + server. Server rejects over-quota calls early. Prompt Caching reduces marginal cost for
 + premium tiers; see PLAN for tests.
+
+## Feature: CocktailDB Mirror & SQLite Snapshot Service
+
+**Goal:** Pull premium TheCocktailDB data on a schedule into Azure Database for PostgreSQL (normalized), then publish a versioned, read-only SQLite snapshot to Azure Blob for the mobile app to download and cache locally. Optionally publish deltas for smaller updates.
+
+### Components
+- **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC; manual HTTP trigger available for admins)
+- **HTTP Function** `GET /v1/snapshots/latest` → returns snapshot metadata + signed URL
+- **HTTP Function** `GET /v1/changes?since={version}` → NDJSON of upserts/deletes (optional for MVP)
+- **PostgreSQL**: canonical schema (drinks, ingredients, measures, categories, glasses, tags)
+- **Blob Storage**: `/snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst` (and `.sha256`)
+- **Key Vault**: `COCKTAILDB_API_KEY` (premium), DB creds via MI + KV references
+- **App**: On first run (or when `snapshotVersion` changes), download+decompress SQLite, hydrate local cache
+
+### Sequence (Mermaid)
+```mermaid
+sequenceDiagram
+  autonumber
+  participant T as Timer Function (sync-cocktaildb)
+  participant CDB as TheCocktailDB (premium)
+  participant PG as Azure DB for PostgreSQL
+  participant BL as Azure Blob Storage
+  participant H as HTTP Function (/v1/snapshots/latest)
+  participant M as Mobile App (Flutter)
+
+  T->>CDB: Fetch drinks/ingredients/categories (paged, with ETags)
+  CDB-->>T: 200 OK (JSON batches)
+  T->>PG: Upsert normalized rows (COPY/UPSERT)
+  T->>T: Build SQLite from PG (read-only; VACUUM; ANALYZE)
+  T->>BL: Upload snapshot .db.zst + .sha256 (versioned)
+  Note over T: Write metadata: {schemaVersion, snapshotVersion, counts, createdAt}
+  M->>H: GET /v1/snapshots/latest
+  H-->>M: { snapshotVersion, signedUrl, size, sha256 }
+  M->>BL: Download snapshot
+  M->>M: Verify sha256 → replace local DB atomically
+
+- No PII persisted; only public catalog data.
+- Secrets: `COCKTAILDB_API_KEY` and DB creds in Key Vault; app settings use `@Microsoft.KeyVault(SecretUri=...)`.
+- Redaction: remove querystrings from logs; never log upstream response bodies; log only counts/hashes.
+- Authorization:
+  - `/v1/snapshots/latest`: anonymous OK (returns **signed URL** with short expiry).
+  - `/v1/changes`: same as above (or gated later).
+  - `/v1/admin/sync`: requires `x-functions-key` (function auth) or Entra claim `role=admin` if you enable Easy Auth later.
+- Rate limiting upstream calls (respect TheCocktailDB ToS): page-size throttle, If-Modified-Since/ETag, 429 retry with backoff.

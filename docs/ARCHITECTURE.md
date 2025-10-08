@@ -85,3 +85,39 @@ sequenceDiagram
   - `/v1/changes`: same as above (or gated later).
   - `/v1/admin/sync`: requires `x-functions-key` (function auth) or Entra claim `role=admin` if you enable Easy Auth later.
 - Rate limiting upstream calls (respect TheCocktailDB ToS): page-size throttle, If-Modified-Since/ETag, 429 retry with backoff.
+
+## Feature: CocktailDB V2 Mirror → SQLite Snapshots
+
+**Goal:** Nightly import from TheCocktailDB (V2, Premium key in URL path) into Azure Database for PostgreSQL, build a read‑only SQLite snapshot, publish to Azure Blob, and serve a short‑lived SAS URL to the app for offline use.
+
+**Source endpoints (examples):**
+- Search/listing: `search.php?f=a..z`, `list.php?c=list|g=list|i=list|a=list`, `filter.php?i=<ingredient>|a=<alcoholic>|c=<category>|g=<glass>` (base semantics) :contentReference[oaicite:1]{index=1}
+- Premium: `latest.php` (recent cocktails) and multi‑ingredient filters (Premium only). :contentReference[oaicite:2]{index=2}
+- Image sizes: thumb/medium/large URLs provided by CocktailDB if needed. :contentReference[oaicite:3]{index=3}
+
+**Pipeline**
+```mermaid
+sequenceDiagram
+  autonumber
+  participant T as Timer Function (sync-cocktaildb)
+  participant CDB as TheCocktailDB V2
+  participant PG as Azure PostgreSQL
+  participant BL as Azure Blob
+  participant H as HTTP /v1/snapshots/latest
+  participant M as Mobile App (Flutter)
+
+  T->>CDB: Fetch categories, glasses, ingredients lists + A..Z drinks, latest.php (throttled)
+  CDB-->>T: JSON batches (drink IDs + partials)
+  T->>CDB: lookup.php?i={id} for details (batched, throttled)
+  T->>PG: UPSERT normalized rows (drinks, ingredients, measures, xrefs)
+  T->>T: Build SQLite (FKs+indexes) → VACUUM/ANALYZE → zstd compress + sha256
+  T->>BL: Upload snapshot: snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst (+ .sha256)
+  T->>PG: Upsert metadata (schemaVersion, snapshotVersion, counts, createdAt)
+  M->>H: GET /v1/snapshots/latest
+  H-->>M: { snapshotVersion, signedUrl, sizeBytes, sha256, counts }
+  M->>BL: Download, verify sha256, atomic swap local DB
+
+- Treat the email/API key as a **secret**. Do **not** check it into Git, CI logs, or mobile app code.
+- Store `COCKTAILDB_API_KEY` in **Azure Key Vault**; reference it in Function App settings via `@Microsoft.KeyVault(SecretUri=...)`.
+- Server‑side only access to TheCocktailDB; the app never calls CocktailDB directly.
+- Redaction: strip querystrings and headers from logs. Log counts and hashes only.

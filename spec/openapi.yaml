@@ -3,6 +3,65 @@
    title: MyBartenderAI API
    version: 1.0.0
  paths:
+  /v1/snapshots/latest:
+    get:
+      summary: Get latest on-device catalog snapshot
+      operationId: getLatestSnapshot
+      tags: [catalog]
+      responses:
+        '200':
+          description: Snapshot metadata with signed URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotInfo'
+        '503':
+          description: Snapshot not available
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /v1/admin/sync:
+    post:
+      summary: Manually trigger CocktailDB sync (admin only)
+      operationId: triggerCocktailDbSync
+      tags: [admin]
+      security: [{ function_key: [] }]
+      responses:
+        '202': { description: Sync started }
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+components:
+  securitySchemes:
+    function_key:
+      type: apiKey
+      in: header
+      name: x-functions-key
+
+  schemas:
+    SnapshotInfo:
+      type: object
+      required: [schemaVersion, snapshotVersion, sizeBytes, sha256, signedUrl, createdAtUtc]
+      properties:
+        schemaVersion: { type: string, example: "1" }
+        snapshotVersion: { type: string, example: "20251008.1" }
+        sizeBytes: { type: integer, example: 104857600 }
+        sha256: { type: string, example: "b3f50c..." }
+        signedUrl: { type: string, description: "Short-lived SAS URL to the snapshot .db.zst" }
+        createdAtUtc: { type: string, format: date-time }
+        counts:
+          type: object
+          properties:
+            drinks: { type: integer }
+            ingredients: { type: integer }
+            measures: { type: integer }
+            categories: { type: integer }
+            glasses: { type: integer }
+paths:
    /v1/recommend:
      post:
        summary: Recommend cocktails from inventory and taste profile

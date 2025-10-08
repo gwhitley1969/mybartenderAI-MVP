@@ -1,0 +1,21 @@
+# Cursor Rules — Implementer Guardrails
+
+- Authority order: `/spec` > `/docs/adr` > `/docs/ARCHITECTURE.md` > `/docs/PLAN.md`.
+- Do NOT invent endpoints, params, or fields not in `/spec`.
+- Mobile:
+  - State: Riverpod (no Bloc/Cubit)
+  - Navigation: GoRouter
+  - Networking: dio; generated DTOs via Freezed/json_serializable from `/spec`
+  - Local data: Drift/SQLite for cocktail cache; never log secrets
+- Backend:
+  - Azure Functions (HTTP). One function per route.
+  - Secrets only via Key Vault references.
+- Telemetry: add correlation-id to every request/response.
+- Tests: add golden tests for UI and contract conformance tests for DTOs.
+
++## OpenAI Usage Rules
++- Default model: gpt-4.1-mini.
++- Avoid Assistant API abstractions; use plain Chat Completions with structured JSON outputs that match `/spec`.
++- Always pass a stable system prompt from `/prompts/*` and attempt Prompt Caching on the server.
++- Never call OpenAI from Flutter code; all calls go through Functions with Key Vault–backed secrets.
++- Do not include user PII in prompts. Strip/normalize inventory strings before sending.

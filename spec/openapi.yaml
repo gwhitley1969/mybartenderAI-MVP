@@ -1,0 +1,72 @@
+openapi: 3.0.3
+info:
+  title: MyBartenderAI API
+  version: 1.0.0
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: api.mybartender.ai
+components:
+  schemas:
+    Error:
+      type: object
+      required: [code, message, traceId]
+      properties:
+        code: { type: string, example: bad_request }
+        message: { type: string }
+        traceId: { type: string }
+        details: { type: object, additionalProperties: true }
+    Inventory:
+      type: object
+      properties:
+        spirits: { type: array, items: { type: string } }
+        mixers:  { type: array, items: { type: string } }
+    Recommendation:
+      type: object
+      required: [id, name, ingredients, instructions]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        reason: { type: string, description: why this matches taste/inventory }
+        ingredients:
+          type: array
+          items:
+            type: object
+            required: [name, amount, unit]
+            properties:
+              name: { type: string }
+              amount: { type: number }
+              unit: { type: string, example: oz }
+        instructions: { type: string }
+        glassware: { type: string }
+        garnish: { type: string }
+paths:
+  /v1/recommend:
+    post:
+      summary: Recommend cocktails from inventory and taste profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inventory]
+              properties:
+                inventory: { $ref: '#/components/schemas/Inventory' }
+                tasteProfile:
+                  type: object
+                  properties:
+                    preferredFlavors: { type: array, items: { type: string } }
+                    dislikedFlavors: { type: array, items: { type: string } }
+                    abvRange: { type: string, example: "low|medium|high" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Recommendation' }
+        "400": { description: Bad request, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "500": { description: Server error, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

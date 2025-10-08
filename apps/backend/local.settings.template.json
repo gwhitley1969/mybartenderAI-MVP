@@ -1,0 +1,12 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "OPENAI_API_KEY": "",
+    "PROMPT_SYSTEM_VERSION": "2025-10-08",
+    "MONTHLY_TOKEN_LIMIT": "200000",
+    "AZURE_TABLE_CONNECTION_STRING": "",
+    "TOKEN_QUOTA_TABLE_NAME": "MonthlyTokenQuotas"
+  }
+}

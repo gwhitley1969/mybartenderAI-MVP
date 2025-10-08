@@ -1,0 +1,28 @@
+{
+  "name": "mybartenderai-functions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc && npm run copy:functions",
+    "copy:functions": "cpy \"src/**/function.json\" dist",
+    "clean": "rimraf dist",
+    "start": "npm run build && func start --javascript",
+    "start:watch": "func start --typescript",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@azure/data-tables": "^13.2.2",
+    "@azure/functions": "^4.5.0",
+    "openai": "^4.48.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "cpy": "^10.1.0",
+    "cpy-cli": "^5.0.0",
+    "eslint": "^9.9.0",
+    "rimraf": "^5.0.5",
+    "typescript": "^5.4.5"
+  }
+}

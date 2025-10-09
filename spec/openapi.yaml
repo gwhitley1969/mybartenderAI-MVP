@@ -1,113 +1,8 @@
- openapi: 3.0.3
- info:
-   title: MyBartenderAI API
-   version: 1.0.0
- paths:
-  /v1/snapshots/latest:
-    get:
-      summary: Get latest on-device catalog snapshot
-      operationId: getLatestSnapshot
-      tags: [catalog]
-      responses:
-        '200':
-          description: Snapshot metadata with signed URL
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SnapshotInfo'
-        '503':
-          description: Snapshot not available
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+openapi: 3.0.3
+info:
+  title: MyBartenderAI API
+  version: 1.0.0
 
-  /v1/admin/sync:
-    post:
-      summary: Manually trigger CocktailDB sync (admin only)
-      operationId: triggerCocktailDbSync
-      tags: [admin]
-      security: [{ function_key: [] }]
-      responses:
-        '202': { description: Sync started }
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Error' }
-
-components:
-  securitySchemes:
-    function_key:
-      type: apiKey
-      in: header
-      name: x-functions-key
-
-  schemas:
-    SnapshotInfo:
-      type: object
-      required: [schemaVersion, snapshotVersion, sizeBytes, sha256, signedUrl, createdAtUtc]
-      properties:
-        schemaVersion: { type: string, example: "1" }
-        snapshotVersion: { type: string, example: "20251008.1" }
-        sizeBytes: { type: integer, example: 104857600 }
-        sha256: { type: string, example: "b3f50c..." }
-        signedUrl: { type: string, description: "Short-lived SAS URL to the snapshot .db.zst" }
-        createdAtUtc: { type: string, format: date-time }
-        counts:
-          type: object
-          properties:
-            drinks: { type: integer }
-            ingredients: { type: integer }
-            measures: { type: integer }
-            categories: { type: integer }
-            glasses: { type: integer }
-paths:
-   /v1/recommend:
-     post:
-       summary: Recommend cocktails from inventory and taste profile
-+      parameters:
-+        - in: header
-+          name: X-Client-Request-Id
-+          description: Optional client-supplied correlation id.
-+          required: false
-+          schema: { type: string }
-       requestBody:
-         required: true
-         content:
-           application/json:
-             schema:
-               type: object
-               required: [inventory]
-               properties:
-                 inventory: { $ref: '#/components/schemas/Inventory' }
-                 tasteProfile:
-                   type: object
-                   properties:
-                     preferredFlavors: { type: array, items: { type: string } }
-                     dislikedFlavors: { type: array, items: { type: string } }
-                     abvRange: { type: string, example: "low|medium|high" }
-       responses:
-         "200":
-           description: OK
-+          headers:
-+            X-Cache-Hit:
-+              description: Indicates if upstream prompt cache was hit (telemetry; no PII).
-+              schema: { type: boolean }
-           content:
-             application/json:
-               schema:
-                 type: array
-                 items: { $ref: '#/components/schemas/Recommendation' }
-         "400":
-           description: Bad request
-           content:
-             application/json:
-               schema: { $ref: '#/components/schemas/Error' }
-         "500":
-           description: Server error
-           content:
-             application/json:
-               schema: { $ref: '#/components/schemas/Error' }
 paths:
   /v1/snapshots/latest:
     get:
@@ -125,7 +20,8 @@ paths:
           description: Snapshot not available
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: 
+                $ref: '#/components/schemas/Error'
 
   /v1/changes:
     get:
@@ -136,7 +32,9 @@ paths:
         - in: query
           name: since
           required: true
-          schema: { type: string, example: "20251008.1" }
+          schema: 
+            type: string
+            example: "20251008.1"
       responses:
         '200':
           description: NDJSON stream of changes (one JSON object per line)
@@ -148,14 +46,85 @@ paths:
           description: Bad request
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: 
+                $ref: '#/components/schemas/Error'
+
+  /v1/recommend:
+    post:
+      summary: Recommend cocktails from inventory and taste profile
+      operationId: recommendCocktails
+      tags: [recommendations]
+      parameters:
+        - in: header
+          name: X-Client-Request-Id
+          description: Optional client-supplied correlation id
+          required: false
+          schema: 
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inventory]
+              properties:
+                inventory: 
+                  $ref: '#/components/schemas/Inventory'
+                tasteProfile:
+                  type: object
+                  properties:
+                    preferredFlavors: 
+                      type: array
+                      items: 
+                        type: string
+                    dislikedFlavors: 
+                      type: array
+                      items: 
+                        type: string
+                    abvRange: 
+                      type: string
+                      example: "low|medium|high"
+      responses:
+        '200':
+          description: Cocktail recommendations
+          headers:
+            X-Cache-Hit:
+              description: Indicates if upstream prompt cache was hit (telemetry; no PII)
+              schema: 
+                type: boolean
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/Recommendation'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: 
+                $ref: '#/components/schemas/Error'
 
   /v1/admin/sync:
     post:
       summary: Manually trigger CocktailDB sync (admin only)
-      operationId: triggerSync
+      operationId: triggerCocktailDbSync
       tags: [admin]
-      security: [{ function_key: [] }]
+      security: 
+        - function_key: []
       responses:
         '202':
           description: Sync started
@@ -163,7 +132,8 @@ paths:
           description: Forbidden
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/Error' }
+              schema: 
+                $ref: '#/components/schemas/Error'
 
 components:
   securitySchemes:
@@ -177,17 +147,155 @@ components:
       type: object
       required: [schemaVersion, snapshotVersion, sizeBytes, sha256, signedUrl, createdAtUtc]
       properties:
-        schemaVersion: { type: string, example: "1" }
-        snapshotVersion: { type: string, example: "20251008.1" }
-        sizeBytes: { type: integer, example: 104857600 }
-        sha256: { type: string, example: "b3f5..." }
-        signedUrl: { type: string, description: "Short-lived SAS URL to the snapshot file" }
-        createdAtUtc: { type: string, format: date-time }
+        schemaVersion: 
+          type: string
+          example: "1"
+        snapshotVersion: 
+          type: string
+          example: "20251008.1"
+        sizeBytes: 
+          type: integer
+          example: 104857600
+        sha256: 
+          type: string
+          example: "b3f50c89e4..."
+        signedUrl: 
+          type: string
+          description: "Short-lived SAS URL to the snapshot .db.zst file"
+        createdAtUtc: 
+          type: string
+          format: date-time
         counts:
           type: object
           properties:
-            drinks: { type: integer }
-            ingredients: { type: integer }
-            measures: { type: integer }
-            categories: { type: integer }
-            glasses: { type: integer }
+            drinks: 
+              type: integer
+            ingredients: 
+              type: integer
+            measures: 
+              type: integer
+            categories: 
+              type: integer
+            glasses: 
+              type: integer
+
+    Inventory:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/InventoryItem'
+
+    InventoryItem:
+      type: object
+      required: [id, name, category]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the inventory item
+        name:
+          type: string
+          description: Display name of the ingredient
+          example: "Vodka"
+        category:
+          type: string
+          description: Category of ingredient
+          example: "spirit"
+        brand:
+          type: string
+          description: Brand name (optional)
+          example: "Grey Goose"
+        quantity:
+          type: number
+          description: Quantity available (optional)
+          example: 750
+        unit:
+          type: string
+          description: Unit of measurement
+          example: "ml"
+
+    Recommendation:
+      type: object
+      required: [id, name, description, difficulty, estimatedTime]
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the cocktail
+        name:
+          type: string
+          description: Name of the cocktail
+          example: "Moscow Mule"
+        description:
+          type: string
+          description: Brief description of the cocktail
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeIngredient'
+        instructions:
+          type: array
+          items:
+            type: string
+          description: Step-by-step preparation instructions
+        difficulty:
+          type: string
+          enum: [easy, medium, hard]
+          description: Difficulty level to prepare
+        estimatedTime:
+          type: integer
+          description: Estimated preparation time in minutes
+        abv:
+          type: number
+          description: Alcohol by volume percentage
+          example: 12.5
+        garnish:
+          type: string
+          description: Garnish instructions
+          example: "Lime wedge"
+        glassType:
+          type: string
+          description: Recommended glass type
+          example: "highball"
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: AI confidence score for this recommendation
+
+    RecipeIngredient:
+      type: object
+      required: [name, amount]
+      properties:
+        name:
+          type: string
+          description: Ingredient name
+          example: "Vodka"
+        amount:
+          type: string
+          description: Amount needed (with units)
+          example: "2 oz"
+        isOptional:
+          type: boolean
+          description: Whether this ingredient is optional
+          default: false
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: "INVALID_REQUEST"
+        message:
+          type: string
+          description: Human-readable error message
+          example: "The inventory cannot be empty"
+        details:
+          type: object
+          description: Additional error details
+        traceId:
+          type: string
+          description: Request trace ID for debugging

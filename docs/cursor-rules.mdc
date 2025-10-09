@@ -2,12 +2,12 @@
 
 - Authority order: `/spec` > `/docs/adr` > `/docs/ARCHITECTURE.md` > `/docs/PLAN.md`.
 - Do NOT invent endpoints, params, or fields not in `/spec`.
-- Mobile:
+- Mobile (in `/mobile/app/`):
   - State: Riverpod (no Bloc/Cubit)
   - Navigation: GoRouter
   - Networking: dio; generated DTOs via Freezed/json_serializable from `/spec`
   - Local data: Drift/SQLite for cocktail cache; never log secrets
-- Backend:
+- Backend (in `/apps/backend/`):
   - Azure Functions (HTTP). One function per route.
   - Secrets only via Key Vault references.
 - Telemetry: add correlation-id to every request/response.

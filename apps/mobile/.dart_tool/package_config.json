@@ -545,7 +545,7 @@
       "name": "mybartenderai_mobile",
       "rootUri": "../",
       "packageUri": "lib/",
-      "languageVersion": "3.3"
+      "languageVersion": "3.4"
     }
   ],
   "generator": "pub",

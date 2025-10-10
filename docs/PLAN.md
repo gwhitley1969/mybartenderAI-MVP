@@ -3,7 +3,7 @@ API Layer: Direct HTTPS to Azure Functions (HTTP triggers)
 Gateway: None (no APIM). Functions app exposes HTTPS endpoints directly.
 Base URL:
 - Local: http://localhost:7073
-- Dev/Prod: https://bluebuildapps.com/mybartenderai (Custom domain CNAME to Function App)
+- Dev/Prod: https://bluebuildapps.com/mybartenderai-func (Custom domain CNAME to Function App)
 
 Security & AuthN/AuthZ
 - JWT validation inside Functions using Microsoft Entra External ID middleware

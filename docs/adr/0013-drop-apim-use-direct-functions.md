@@ -9,7 +9,7 @@ Early drafts referenced Azure API Management (APIM) for gateway features (rate l
 ## Decision
 - Do **not** use APIM in MVP.
 - Expose APIs directly via **Azure Functions (HTTP triggers)** over HTTPS.
-- Expose production HTTPS at **`https://bluebuildapps.com/mybartenderai`** (CNAME to Function App managed certificate).
+- Expose production HTTPS at **`https://bluebuildapps.com/mybartenderai-func`** (CNAME to Function App managed certificate).
 - Perform **JWT validation inside Functions** (Microsoft Entra External ID); use claims for authZ.
 - Implement **per-user and per-IP rate limiting** in Functions (sliding window using PostgreSQL counters) and basic abuse controls (request size caps, UA checks).
 - Keep **Application Insights** with strict redaction.
@@ -27,3 +27,4 @@ Early drafts referenced Azure API Management (APIM) for gateway features (rate l
 ## Alternatives
 - APIM (rejected for cost).
 - Front Door + Functions (deferred).
+

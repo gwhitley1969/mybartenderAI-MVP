@@ -3,7 +3,7 @@ info:
   title: MyBartenderAI API
   version: 1.0.0
 servers:
-  - url: https://bluebuildapps.com/mybartenderai  # Function App HTTPS endpoint
+  - url: https://bluebuildapps.com/mybartenderai-func  # Function App HTTPS endpoint
   - url: http://localhost:7073
 
 paths:

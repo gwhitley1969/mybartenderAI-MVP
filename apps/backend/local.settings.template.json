@@ -2,7 +2,7 @@
   "IsEncrypted": false,
   "Values": {
     "PROMPT_SYSTEM_VERSION": "2025-10-08",
-    "COCKTAILDB_API_KEY": "",
+    "COCKTAILDB-API-KEY": "",
     "MONTHLY_TOKEN_LIMIT": "200000",
     "SNAPSHOT_SCHEMA_VERSION": "1",
     "BLOB_STORAGE_CONNECTION_STRING": "",

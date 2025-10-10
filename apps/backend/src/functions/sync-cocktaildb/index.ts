@@ -15,9 +15,9 @@ const formatSnapshotVersion = (date: Date): string => {
 };
 
 const getCocktailApiKey = (): string => {
-  const value = process.env.COCKTAILDB_API_KEY;
+  const value = process.env['COCKTAILDB-API-KEY'];
   if (!value) {
-    throw new Error('COCKTAILDB_API_KEY environment variable is required.');
+    throw new Error('COCKTAILDB-API-KEY environment variable is required.');
   }
   return value;
 };

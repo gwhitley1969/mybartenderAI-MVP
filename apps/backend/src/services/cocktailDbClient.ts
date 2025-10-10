@@ -24,33 +24,28 @@ interface CocktailDbClientOptions {
   maxRetries?: number;
 }
 
-const DEFAULT_BASE_URL = 'https://www.thecocktaildb.com';
+const BASE_URL = 'https://www.thecocktaildb.com';
 const DEFAULT_THROTTLE_MS = Number(process.env.COCKTAILDB_THROTTLE_MS ?? '200');
 const DEFAULT_MAX_RETRIES = Number(process.env.COCKTAILDB_MAX_RETRIES ?? '3');
-
-const buildUrl = (path: string, params?: Record<string, string>): string => {
-  const url = new URL(path, DEFAULT_BASE_URL);
-  if (params) {
-    for (const [key, value] of Object.entries(params)) {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
-};
 
 const sleep = (ms: number): Promise<void> => delay(ms);
 
 const parseTags = (value?: string | null): string[] =>
-  value ? value.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
+  value == null
+    ? []
+    : value
+        .split(',')
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
 
 const buildIngredients = (drink: Record<string, unknown>): CocktailIngredient[] => {
   const items: CocktailIngredient[] = [];
   for (let i = 1; i <= 15; i += 1) {
-    const name = drink[strIngredient as keyof typeof drink];
+    const name = drink[`strIngredient${i}`];
     if (typeof name !== 'string' || !name.trim()) {
       continue;
     }
-    const measure = drink[strMeasure as keyof typeof drink];
+    const measure = drink[`strMeasure${i}`];
     items.push({
       name: name.trim(),
       measure: typeof measure === 'string' ? measure.trim() || null : null,
@@ -61,32 +56,40 @@ const buildIngredients = (drink: Record<string, unknown>): CocktailIngredient[] 
 };
 
 export class CocktailDbClient {
-  private readonly apiKey: string;
-
   private readonly throttleMs: number;
 
   private readonly maxRetries: number;
 
-  constructor(apiKey: string, options: CocktailDbClientOptions = {}) {
+  constructor(
+    private readonly apiKey: string,
+    options: CocktailDbClientOptions = {},
+  ) {
     if (!apiKey) {
-      throw new Error('COCKTAILDB_API_KEY environment variable is required.');
+      throw new Error('COCKTAILDB-API-KEY environment variable is required.');
     }
-    this.apiKey = apiKey.trim();
+
     this.throttleMs = options.throttleMs ?? DEFAULT_THROTTLE_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
   private async fetchJson<T>(path: string, params?: Record<string, string>): Promise<T> {
-    const url = buildUrl(path, params);
+    const url = new URL(path, BASE_URL);
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        url.searchParams.set(key, value);
+      }
+    }
+
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
-        const response = await fetch(url, {
+        const response = await fetch(url.toString(), {
           headers: {
             'User-Agent': 'MyBartenderAI/Sync',
           },
         });
+
         if (response.status === 429) {
           if (attempt >= this.maxRetries) {
             throw new Error('CocktailDB throttled request after maximum retries.');
@@ -96,9 +99,11 @@ export class CocktailDbClient {
           attempt += 1;
           continue;
         }
+
         if (!response.ok) {
-          throw new Error(CocktailDB request failed with status );
+          throw new Error(`CocktailDB request failed with status ${response.status}`);
         }
+
         const json = (await response.json()) as T;
         await sleep(this.throttleMs);
         return json;
@@ -114,12 +119,14 @@ export class CocktailDbClient {
 
   private async fetchDrinksForLetter(letter: string): Promise<CocktailRecord[]> {
     const data = await this.fetchJson<{ drinks: Record<string, unknown>[] | null }>(
-      /api/json/v2//search.php,
+      `/api/json/v2/${this.apiKey}/search.php`,
       { f: letter },
     );
+
     if (!data.drinks) {
       return [];
     }
+
     return data.drinks
       .filter((drink) => typeof drink?.idDrink === 'string')
       .map((drink) => {
@@ -142,10 +149,12 @@ export class CocktailDbClient {
   public async fetchCatalog(): Promise<CocktailRecord[]> {
     const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
     const results: CocktailRecord[] = [];
+
     for (const letter of letters) {
       const drinks = await this.fetchDrinksForLetter(letter);
       results.push(...drinks);
     }
+
     return results;
   }
 }

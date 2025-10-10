@@ -53,7 +53,7 @@ Telemetry logs only the cache-key hash, never raw prompts.
 - **HTTP Function** `GET /v1/changes?since={version}` → NDJSON of upserts/deletes (optional for MVP)
 - **PostgreSQL**: canonical schema (drinks, ingredients, measures, categories, glasses, tags)
 - **Blob Storage**: `/snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst` (and `.sha256`)
-- **Key Vault**: `COCKTAILDB_API_KEY` (premium), DB creds via MI + KV references
+- **Key Vault**: `COCKTAILDB-API-KEY` (premium), DB creds via MI + KV references
 - **App**: On first run (or when `snapshotVersion` changes), download+decompress SQLite, hydrate local cache
 
 ### Sequence (Mermaid)
@@ -80,7 +80,7 @@ sequenceDiagram
 ```
 
 - No PII persisted; only public catalog data.
-- Secrets: `COCKTAILDB_API_KEY` and DB creds in Key Vault; app settings use `@Microsoft.KeyVault(SecretUri=...)`.
+- Secrets: `COCKTAILDB-API-KEY` and DB creds in Key Vault; app settings use `@Microsoft.KeyVault(SecretUri=...)`.
 - Redaction: remove querystrings from logs; never log upstream response bodies; log only counts/hashes.
 - Authorization:
   - `/v1/snapshots/latest`: anonymous OK (returns **signed URL** with short expiry).
@@ -121,6 +121,6 @@ sequenceDiagram
 
 ```
 - Treat the email/API key as a **secret**. Do **not** check it into Git, CI logs, or mobile app code.
-- Store `COCKTAILDB_API_KEY` in **Azure Key Vault**; reference it in Function App settings via `@Microsoft.KeyVault(SecretUri=...)`.
+- Store `COCKTAILDB-API-KEY` in **Azure Key Vault**; reference it in Function App settings via `@Microsoft.KeyVault(SecretUri=...)`.
 - Server‑side only access to TheCocktailDB; the app never calls CocktailDB directly.
 - Redaction: strip querystrings and headers from logs. Log counts and hashes only.

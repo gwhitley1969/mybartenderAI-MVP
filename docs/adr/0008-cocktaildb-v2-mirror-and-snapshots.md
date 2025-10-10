@@ -34,7 +34,7 @@ Migration:
 - SQLite DDL mirrors PG (FKs on; indices; `WITHOUT ROWID` where helpful).
 
 ## Security & Privacy
-- Key in **Key Vault** (`COCKTAILDB_API_KEY`), accessed via managed identity.
+- Key in **Key Vault** (`COCKTAILDB-API-KEY`), accessed via managed identity.
 - No API keys or URLs logged. Redact querystrings.
 - `/v1/snapshots/latest` is anonymous but returns **short‑lived SAS**.
 

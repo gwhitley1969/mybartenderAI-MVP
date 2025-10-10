@@ -4,7 +4,6 @@ import {
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { TableClient } from '@azure/data-tables';
 import { z } from 'zod';
 
 import {
@@ -21,7 +20,7 @@ import {
   enforceRequestGuards,
   RequestGuardError,
 } from '../../shared/requestGuards.js';
-import { rateLimiter, RateLimitError } from '../../shared/rateLimiter.js';
+import { ensureWithinLimit, RateLimitError } from '../../services/pgRateLimiter.js';
 import {
   getOrCreateTraceId,
   sanitizeHeaders,
@@ -29,9 +28,9 @@ import {
   trackException,
 } from '../../shared/telemetry.js';
 import {
-  MonthlyTokenQuotaService,
+  incrementAndCheck as incrementTokenQuota,
   QuotaExceededError,
-} from '../../services/monthlyTokenQuotaService.js';
+} from '../../services/pgTokenQuotaService.js';
 import { OpenAIRecommendationService } from '../../services/openAIRecommendationService.js';
 import type { ErrorPayload, RecommendRequestBody } from '../../types/api.js';
 
@@ -58,45 +57,6 @@ const requestSchema = z
 
 const openAiService = new OpenAIRecommendationService();
 
-const monthlyLimit = parseInt(
-  process.env.MONTHLY_TOKEN_LIMIT ?? '200000',
-  10,
-);
-
-const tableConnectionString = process.env.AZURE_TABLE_CONNECTION_STRING;
-const tableName = process.env.TOKEN_QUOTA_TABLE_NAME ?? 'MonthlyTokenQuotas';
-
-if (!tableConnectionString) {
-  throw new Error(
-    'AZURE_TABLE_CONNECTION_STRING environment variable is required.',
-  );
-}
-
-const tableClient = TableClient.fromConnectionString(
-  tableConnectionString,
-  tableName,
-);
-
-const quotaService = new MonthlyTokenQuotaService(
-  tableClient,
-  Number.isNaN(monthlyLimit) ? 200000 : monthlyLimit,
-);
-
-let tableReadyPromise: Promise<void> | null = null;
-
-const ensureTableReady = async (): Promise<void> => {
-  if (!tableReadyPromise) {
-    tableReadyPromise = tableClient.createTable().catch((error) => {
-      const status = (error as { statusCode?: number }).statusCode;
-      if (status === 409) {
-        return;
-      }
-      throw error;
-    });
-  }
-  await tableReadyPromise;
-};
-
 const buildErrorResponse = (
   status: number,
   code: string,
@@ -120,7 +80,7 @@ const buildErrorResponse = (
   };
 };
 
-const recommendHandler = async (
+export const recommendHandler = async (
   request: HttpRequest,
   context: InvocationContext,
 ): Promise<HttpResponseInit> => {
@@ -193,7 +153,7 @@ const recommendHandler = async (
   const clientIp = getClientIp(request);
 
   try {
-    await rateLimiter.ensureWithinLimit(context, {
+    await ensureWithinLimit(context, {
       userId,
       ipAddress: clientIp,
       path: requestPath,
@@ -232,29 +192,6 @@ const recommendHandler = async (
     );
   }
 
-  await ensureTableReady();
-
-  try {
-    await quotaService.ensureWithinQuota(
-      userId,
-      PROMPT_TOKEN_BUDGET + COMPLETION_TOKEN_BUDGET,
-    );
-  } catch (error) {
-    if (error instanceof QuotaExceededError) {
-      trackException(context, traceId, error);
-      return buildErrorResponse(
-        429,
-        'quota_exceeded',
-        'Monthly token quota exceeded.',
-        traceId,
-        { remainingTokens: error.remaining },
-      );
-    }
-
-    trackException(context, traceId, error as Error);
-    throw error;
-  }
-
   try {
     const result = await openAiService.recommend({
       inventory: payload.inventory,
@@ -262,7 +199,21 @@ const recommendHandler = async (
       traceId,
     });
 
-    await quotaService.recordUsage(userId, result.usage.totalTokens);
+    try {
+      await incrementTokenQuota(userId, result.usage.totalTokens);
+    } catch (error) {
+      if (error instanceof QuotaExceededError) {
+        trackException(context, traceId, error);
+        return buildErrorResponse(
+          429,
+          'quota_exceeded',
+          'Monthly token quota exceeded.',
+          traceId,
+          { remainingTokens: error.remaining },
+        );
+      }
+      throw error;
+    }
 
     trackEvent(context, traceId, 'recommend.response.success', {
       cacheHit: result.cacheHit,

@@ -57,6 +57,8 @@ paths:
       summary: Recommend cocktails from inventory and taste profile
       operationId: recommendCocktails
       tags: [recommendations]
+      security:
+        - bearerAuth: []
       parameters:
         - in: header
           name: X-Client-Request-Id
@@ -71,11 +73,13 @@ paths:
             schema:
               type: object
               required: [inventory]
+              additionalProperties: false
               properties:
                 inventory: 
-                  $ref: '#/components/schemas/Inventory'
+                  $ref: '#/components/schemas/SimpleInventory'
                 tasteProfile:
                   type: object
+                  additionalProperties: false
                   properties:
                     preferredFlavors: 
                       type: array
@@ -87,7 +91,7 @@ paths:
                         type: string
                     abvRange: 
                       type: string
-                      example: "low|medium|high"
+                      enum: [low, medium, high]
       responses:
         '200':
           description: Cocktail recommendations
@@ -95,7 +99,8 @@ paths:
             X-Cache-Hit:
               description: Indicates if upstream prompt cache was hit (telemetry; no PII)
               schema: 
-                type: boolean
+                type: string
+                enum: ['true', 'false']
           content:
             application/json:
               schema:
@@ -103,23 +108,15 @@ paths:
                 items: 
                   $ref: '#/components/schemas/Recommendation'
         '400':
-          description: Bad request
-          content:
-            application/json:
-              schema: 
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '429':
-          description: Rate limit exceeded
-          content:
-            application/json:
-              schema: 
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/TooManyRequests'
         '500':
-          description: Server error
-          content:
-            application/json:
-              schema: 
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/InternalError'
 
   /v1/admin/sync:
     post:
@@ -144,6 +141,47 @@ components:
       type: apiKey
       in: header
       name: x-functions-key
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Too many requests
+      headers:
+        Retry-After:
+          description: Seconds until the request may be retried
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
   schemas:
     SnapshotInfo:
@@ -181,6 +219,19 @@ components:
               type: integer
             glasses: 
               type: integer
+
+    SimpleInventory:
+      type: object
+      additionalProperties: false
+      properties:
+        spirits:
+          type: array
+          items:
+            type: string
+        mixers:
+          type: array
+          items:
+            type: string
 
     Inventory:
       type: object
@@ -286,19 +337,19 @@ components:
 
     Error:
       type: object
-      required: [error, message]
+      required: [code, message, traceId]
+      additionalProperties: false
       properties:
-        error:
+        code:
           type: string
-          description: Error code
-          example: "INVALID_REQUEST"
+          description: Error code identifier
         message:
           type: string
           description: Human-readable error message
-          example: "The inventory cannot be empty"
+        traceId:
+          type: string
+          description: Trace identifier for correlating logs
         details:
           type: object
           description: Additional error details
-        traceId:
-          type: string
-          description: Request trace ID for debugging
+          additionalProperties: true

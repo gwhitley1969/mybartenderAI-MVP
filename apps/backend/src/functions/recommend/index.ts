@@ -1,12 +1,10 @@
-import { randomUUID } from 'crypto';
-
 import {
   app,
   HttpRequest,
   HttpResponseInit,
   InvocationContext,
 } from '@azure/functions';
-import { TableClient, TableServiceError } from '@azure/data-tables';
+import { TableClient } from '@azure/data-tables';
 import { z } from 'zod';
 
 import {
@@ -15,11 +13,29 @@ import {
   PROMPT_TOKEN_BUDGET,
 } from '../../config/openaiConfig.js';
 import {
+  authenticateRequest,
+  AuthenticationError,
+} from '../../shared/auth/jwtMiddleware.js';
+import {
+  getClientIp,
+  enforceRequestGuards,
+  RequestGuardError,
+} from '../../shared/requestGuards.js';
+import { rateLimiter, RateLimitError } from '../../shared/rateLimiter.js';
+import {
+  getOrCreateTraceId,
+  sanitizeHeaders,
+  trackEvent,
+  trackException,
+} from '../../shared/telemetry.js';
+import {
   MonthlyTokenQuotaService,
   QuotaExceededError,
 } from '../../services/monthlyTokenQuotaService.js';
 import { OpenAIRecommendationService } from '../../services/openAIRecommendationService.js';
 import type { ErrorPayload, RecommendRequestBody } from '../../types/api.js';
+
+type AuthenticatedUser = Awaited<ReturnType<typeof authenticateRequest>>;
 
 const requestSchema = z
   .object({
@@ -71,7 +87,7 @@ let tableReadyPromise: Promise<void> | null = null;
 const ensureTableReady = async (): Promise<void> => {
   if (!tableReadyPromise) {
     tableReadyPromise = tableClient.createTable().catch((error) => {
-      const status = (error as TableServiceError).statusCode;
+      const status = (error as { statusCode?: number }).statusCode;
       if (status === 409) {
         return;
       }
@@ -115,24 +131,88 @@ const recommendHandler = async (
     };
   }
 
-  const traceId =
-    request.headers.get('x-trace-id') ??
-    request.headers.get('traceparent') ??
-    randomUUID();
+  const traceId = getOrCreateTraceId(request);
+  const requestPath = safeGetPathname(request.url);
 
-  const userId =
-    request.headers.get('x-user-id') ??
-    request.query.get('userId') ??
-    undefined;
+  trackEvent(context, traceId, 'recommend.request.received', {
+    path: requestPath,
+    method: request.method,
+    headers: sanitizeHeaders(request.headers),
+  });
+
+  try {
+    enforceRequestGuards(request, context);
+  } catch (error) {
+    if (error instanceof RequestGuardError) {
+      trackException(context, traceId, error);
+      return buildErrorResponse(
+        error.status,
+        error.code,
+        error.message,
+        traceId,
+      );
+    }
+    trackException(context, traceId, error as Error);
+    throw error;
+  }
+
+  let authenticatedUser: AuthenticatedUser;
+  try {
+    authenticatedUser = await authenticateRequest(request, context);
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      trackException(context, traceId, error);
+      return buildErrorResponse(
+        error.status,
+        error.code,
+        error.message,
+        traceId,
+      );
+    }
+    trackException(context, traceId, error as Error);
+    throw error;
+  }
+
+  const userId = authenticatedUser.sub;
 
   if (!userId) {
-    logTelemetry(context, traceId, false);
+    trackException(
+      context,
+      traceId,
+      new Error('Missing subject claim in authenticated principal.'),
+      { reason: 'missing_sub_claim' },
+    );
     return buildErrorResponse(
       400,
       'missing_user_id',
-      'x-user-id header is required to enforce quota.',
+      'Authenticated principal must include a `sub` claim for quota enforcement.',
       traceId,
     );
+  }
+
+  const clientIp = getClientIp(request);
+
+  try {
+    await rateLimiter.ensureWithinLimit(context, {
+      userId,
+      ipAddress: clientIp,
+      path: requestPath,
+    });
+  } catch (error) {
+    if (error instanceof RateLimitError) {
+      trackException(context, traceId, error);
+      return buildErrorResponse(
+        429,
+        'rate_limit_exceeded',
+        'Too many requests. Please retry later.',
+        traceId,
+        {
+          retryAfterSeconds: error.retryAfterSeconds,
+        },
+      );
+    }
+    trackException(context, traceId, error as Error);
+    throw error;
   }
 
   let payload: RecommendRequestBody;
@@ -140,7 +220,7 @@ const recommendHandler = async (
     const json = await request.json();
     payload = requestSchema.parse(json);
   } catch (error) {
-    logTelemetry(context, traceId, false);
+    trackException(context, traceId, error as Error);
     return buildErrorResponse(
       400,
       'invalid_request',
@@ -161,7 +241,7 @@ const recommendHandler = async (
     );
   } catch (error) {
     if (error instanceof QuotaExceededError) {
-      logTelemetry(context, traceId, false);
+      trackException(context, traceId, error);
       return buildErrorResponse(
         429,
         'quota_exceeded',
@@ -171,7 +251,7 @@ const recommendHandler = async (
       );
     }
 
-    logTelemetry(context, traceId, false);
+    trackException(context, traceId, error as Error);
     throw error;
   }
 
@@ -184,7 +264,12 @@ const recommendHandler = async (
 
     await quotaService.recordUsage(userId, result.usage.totalTokens);
 
-    logTelemetry(context, traceId, result.cacheHit);
+    trackEvent(context, traceId, 'recommend.response.success', {
+      cacheHit: result.cacheHit,
+      cacheKeyHash: openAiService.cacheKeyHash,
+      promptTokens: result.usage.promptTokens,
+      completionTokens: result.usage.completionTokens,
+    });
 
     return {
       status: 200,
@@ -195,7 +280,7 @@ const recommendHandler = async (
       jsonBody: result.recommendations,
     };
   } catch (error) {
-    logTelemetry(context, traceId, false);
+    trackException(context, traceId, error as Error);
 
     return buildErrorResponse(
       500,
@@ -209,18 +294,12 @@ const recommendHandler = async (
   }
 };
 
-const logTelemetry = (
-  context: InvocationContext,
-  traceId: string,
-  cacheHit: boolean,
-): void => {
-  context.log(
-    JSON.stringify({
-      traceId,
-      cacheKeyHash: openAiService.cacheKeyHash,
-      cacheHit,
-    }),
-  );
+const safeGetPathname = (url: string): string => {
+  try {
+    return new URL(url).pathname;
+  } catch {
+    return '/v1/recommend';
+  }
 };
 
 app.http('recommend', {

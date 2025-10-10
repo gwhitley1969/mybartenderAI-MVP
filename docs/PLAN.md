@@ -1,4 +1,27 @@
 # PLAN — Acceptance Criteria & Test Ideas
+API Layer: Direct HTTPS to Azure Functions (HTTP triggers)
+Gateway: None (no APIM). Functions app exposes HTTPS endpoints directly.
+Base URL:
+- Local: http://localhost:7073
+- Dev/Prod: https://api.mybartender.ai via Function App custom domain binding + managed cert
+
+Security & AuthN/AuthZ
+- JWT validation inside Functions using Microsoft Entra External ID middleware
+- Claims-based authZ per feature/endpoint
+
+Rate limiting & Abuse Mitigation
+- In-app limiter (per-IP & per-user) using PostgreSQL counters (sliding window)
+- Optional CDN/WAF later (Azure Front Door) if needed (not in MVP)
+- Structured logging in Functions with redaction before emit
+
+Observability
+- Application Insights (Functions) + custom events; no APIM metrics
+- Correlation IDs propagated from mobile client headers
+
+Deployment
+- No APIM. CI/CD deploys Function App and manages custom domain bindings/certs
+- OpenAPI remains the single source of truth for contracts
+
 
 ## Feature: Inventory → Recommendations (MVP)
 - Given on-device inventory exists, when user taps "Get ideas", app returns ≥3 recommendations within p95 600ms (cache hit).
@@ -57,8 +80,8 @@
 ## Acceptance Criteria (global)
 - All mobile/network types generated from `/spec/openapi.yaml` (no hand-written DTOs).
 - App compiles with **Riverpod** state and **GoRouter** navigation; no Provider usages remain.
-- All endpoints behind APIM require Entra External ID JWT; **no PII** in DB/logs.
-- p95 ≤ 600ms for `GET /v1/recipes` and `GET /v1/inventory` measured at APIM edge under baseline load.
+- All endpoints require Entra External ID JWT handled inside Functions; **no PII** in DB/logs.
+- p95 ≤ 600ms for `GET /v1/recipes` and `GET /v1/inventory` measured at Function App edge under baseline load.
 - Logs in Functions and client telemetry **redact** Authorization headers and any candidate PII fields.
 
 ## Feature: Inventory (MVP)
@@ -92,7 +115,11 @@
 
 **Errors**
 - 400 for invalid blob URL or expired SAS.
-- 413 for oversized images (enforced at APIM).
+- 413 for oversized images (enforced at Functions layer).
+
+Cost
+- Remove APIM fixed cost. Start with Functions (Consumption/Elastic Premium as needed).
+- Consider Azure Front Door/WAF only if traffic/threat model requires it later.
 
 ---
 

@@ -2,45 +2,46 @@
 
 ## System overview
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
-- Azure Functions (HTTP) behind simple HTTPS (no APIM for MVP)
+- Azure Functions (HTTP) expose HTTPS endpoints directly (no APIM gateway)
 - Azure PostgreSQL for mirrored recipe corpus; SQLite on-device cache
 - Azure Blob for user images; Key Vault for secrets; App Insights for telemetry
+- Mobile → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault)
 
 ## Data flow (Mermaid)
 ```mermaid
 sequenceDiagram
-  participant App as Flutter (Mobile)
-  participant Func as Azure Functions (HTTP)
-  participant PG as Azure PostgreSQL
-  participant Blob as Azure Blob
-  App->>App: Query local SQLite (recipes, indexes)
-  App->>Func: POST /v1/recommend (inventory, tasteProfile)
-  Func->>PG: SELECT candidate recipes
-  Func-->>App: 200 application/json (Recommendation[])
+  participant M as Mobile (Flutter)
+  participant F as Azure Functions (HTTP)
+  participant DB as PostgreSQL
+  participant B as Blob Storage
+  participant KV as Key Vault
 
+  M->>F: HTTPS /v1/… (JWT attached)
+  F->>DB: Read/Write
+  F->>B: Upload/Fetch
+  F->>KV: Secret reference (managed identity)
+```
 
 ## AI Model & Cost Strategy
 - Models: use OpenAI GPT-4.1 family via backend-only calls (never from the device).
-+ Models: use OpenAI GPT-4.1 family via backend-only calls (never from the device).
   - Default: gpt-4.1-mini for recommendations (cost/latency sweet spot).
   - Long-context or complex chains: gpt-4.1.
-+ - Future on-device experiments: gpt-4.1-nano when supported via vetted SDKs.
+  - Future on-device experiments: gpt-4.1-nano when supported via vetted SDKs.
 
-+## Prompt Caching (OpenAI)
-+We enable OpenAI Prompt Caching for stable, repeated system/tool prompts. The Azure Function computes a cache key
-+from: model + promptTemplateVersion + normalized tools list + schema hash. Requests include cache hints and reuse keys
-+across users (no PII in keys). This yields substantial savings for identical prompts during traffic bursts. 
-+Telemetry logs only the cache-key hash, never raw prompts.
+## Prompt Caching (OpenAI)
+We enable OpenAI Prompt Caching for stable, repeated system/tool prompts. The Azure Function computes a cache key
+from: model + promptTemplateVersion + normalized tools list + schema hash. Requests include cache hints and reuse keys
+across users (no PII in keys). This yields substantial savings for identical prompts during traffic bursts. 
+Telemetry logs only the cache-key hash, never raw prompts.
 
 ## Realtime (deferred)
 - Voice guidance may be added later.
-+ If/when we add "hands-free bartender", use OpenAI Realtime API via the backend as a websocket proxy. The mobile app
-+ streams mic audio to Functions, which relays to OpenAI Realtime and streams transcripts/instructions back. Not part of MVP.
+- If/when we add "hands-free bartender", use OpenAI Realtime API via the backend as a websocket proxy. The mobile app
+  streams mic audio to Functions, which relays to OpenAI Realtime and streams transcripts/instructions back. Not part of MVP.
 
 ## Pricing guardrails
-- Token caps enforced in app.
-+ Token caps enforced in app + server. Server rejects over-quota calls early. Prompt Caching reduces marginal cost for
-+ premium tiers; see PLAN for tests.
+- Token caps enforced in app + server. Server rejects over-quota calls early. Prompt Caching reduces marginal cost for
+  premium tiers; see PLAN for tests.
 
 ## Feature: CocktailDB Mirror & SQLite Snapshot Service
 
@@ -76,6 +77,7 @@ sequenceDiagram
   H-->>M: { snapshotVersion, signedUrl, size, sha256 }
   M->>BL: Download snapshot
   M->>M: Verify sha256 → replace local DB atomically
+```
 
 - No PII persisted; only public catalog data.
 - Secrets: `COCKTAILDB_API_KEY` and DB creds in Key Vault; app settings use `@Microsoft.KeyVault(SecretUri=...)`.
@@ -117,6 +119,7 @@ sequenceDiagram
   H-->>M: { snapshotVersion, signedUrl, sizeBytes, sha256, counts }
   M->>BL: Download, verify sha256, atomic swap local DB
 
+```
 - Treat the email/API key as a **secret**. Do **not** check it into Git, CI logs, or mobile app code.
 - Store `COCKTAILDB_API_KEY` in **Azure Key Vault**; reference it in Function App settings via `@Microsoft.KeyVault(SecretUri=...)`.
 - Server‑side only access to TheCocktailDB; the app never calls CocktailDB directly.

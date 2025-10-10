@@ -25,7 +25,7 @@
 7) Implementation tasks → concise checklists.
 
 **Non-Functional (assume unless overridden)**
-- p95 ≤ 600ms at APIM edge equivalent; 99.9% availability target.
+- p95 ≤ 600ms at Function App edge equivalent; 99.9% availability target.
 - Secrets in Key Vault; least-privileged MI; correlated telemetry.
 - Cost: recommend SKUs with initial monthly estimate + growth note (per 10k MAU).
 

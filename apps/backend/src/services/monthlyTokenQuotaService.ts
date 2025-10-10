@@ -1,9 +1,4 @@
-import {
-  TableClient,
-  TableEntity,
-  TableServiceError,
-  UpdateMode,
-} from '@azure/data-tables';
+import { TableClient, TableEntity } from '@azure/data-tables';
 
 const RETRY_ATTEMPTS = 5;
 
@@ -94,7 +89,7 @@ export class MonthlyTokenQuotaService {
           monthlyCap: entity.monthlyCap ?? this.defaultMonthlyCap,
           windowStart: monthKey,
         };
-        await this.tableClient.upsertEntity(resetEntity, UpdateMode.Replace);
+        await this.tableClient.upsertEntity(resetEntity, 'Replace');
         return resetEntity;
       }
 
@@ -104,7 +99,8 @@ export class MonthlyTokenQuotaService {
 
       return entity;
     } catch (error) {
-      if ((error as TableServiceError).statusCode === 404) {
+      const statusCode = (error as { statusCode?: number }).statusCode;
+      if (statusCode === 404) {
         const freshEntity: TokenQuotaRecord = {
           partitionKey: userId,
           rowKey: monthKey,
@@ -141,15 +137,15 @@ export class MonthlyTokenQuotaService {
       try {
         await this.tableClient.updateEntity(
           mutated,
-          UpdateMode.Replace,
+          'Replace',
           {
             etag: currentEtag,
           },
         );
         return;
       } catch (error) {
-        const serviceError = error as TableServiceError;
-        const isConflict = serviceError.statusCode === 412;
+        const statusCode = (error as { statusCode?: number }).statusCode;
+        const isConflict = statusCode === 412;
         if (!isConflict || attempts >= RETRY_ATTEMPTS) {
           throw error;
         }

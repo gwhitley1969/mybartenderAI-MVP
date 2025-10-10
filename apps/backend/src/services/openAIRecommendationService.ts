@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import type { ResponseCreateParamsNonStreaming } from 'openai/resources/responses/responses';
 
 import {
   CACHE_KEY_HASH,
@@ -29,7 +30,6 @@ interface RecommendResult {
   };
 }
 
-type CreateParams = OpenAI.ResponsesCreateParamsNonStreaming;
 type OpenAIResponse = Awaited<
   ReturnType<OpenAI['responses']['create']>
 >;
@@ -65,7 +65,7 @@ export class OpenAIRecommendationService {
       2,
     );
 
-    const request: CreateParams = {
+    const request: ResponseCreateParamsNonStreaming = {
       model: MODEL,
       input: [
         {
@@ -90,7 +90,7 @@ export class OpenAIRecommendationService {
         traceId,
         cacheKeyHash: CACHE_KEY_HASH,
       },
-    } as CreateParams;
+    } as ResponseCreateParamsNonStreaming;
 
     (request as any).extra_body = {
       response_cache: {

@@ -9,7 +9,7 @@ Early drafts referenced Azure API Management (APIM) for gateway features (rate l
 ## Decision
 - Do **not** use APIM in MVP.
 - Expose APIs directly via **Azure Functions (HTTP triggers)** over HTTPS.
-- Bind production custom domain **`https://api.mybartender.ai`** directly to the Function App with a managed certificate.
+- Expose production HTTPS at **`https://mybartenderai-func-c0ebfsf9hheadmer.eastus-01.azurewebsites.net`** (Function App managed certificate).
 - Perform **JWT validation inside Functions** (Microsoft Entra External ID); use claims for authZ.
 - Implement **per-user and per-IP rate limiting** in Functions (sliding window using PostgreSQL counters) and basic abuse controls (request size caps, UA checks).
 - Keep **Application Insights** with strict redaction.

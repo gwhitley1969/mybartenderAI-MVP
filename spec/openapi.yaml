@@ -3,7 +3,7 @@ info:
   title: MyBartenderAI API
   version: 1.0.0
 servers:
-  - url: https://api.mybartender.ai  # Function App custom domain
+  - url: https://mybartenderai-func-c0ebfsf9hheadmer.eastus-01.azurewebsites.net # Function App HTTPS endpoint
   - url: http://localhost:7073
 
 paths:

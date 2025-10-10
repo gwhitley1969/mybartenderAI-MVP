@@ -1,11 +1,16 @@
 {
   "IsEncrypted": false,
   "Values": {
-    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-    "OPENAI_API_KEY": "",
     "PROMPT_SYSTEM_VERSION": "2025-10-08",
+    "COCKTAILDB_API_KEY": "",
     "MONTHLY_TOKEN_LIMIT": "200000",
-    "PG_CONNECTION_STRING": ""
+    "SNAPSHOT_SCHEMA_VERSION": "1",
+    "BLOB_STORAGE_CONNECTION_STRING": "",
+    "OPENAI_API_KEY": "",
+    "SNAPSHOT_SAS_TTL_MINUTES": "15",
+    "PG_CONNECTION_STRING": "",
+    "SNAPSHOT_CONTAINER_NAME": "snapshots",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true"
   }
 }

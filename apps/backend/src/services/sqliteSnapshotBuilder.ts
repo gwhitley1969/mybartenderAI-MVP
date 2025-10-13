@@ -13,14 +13,14 @@ interface SnapshotBuildResult {
   sizeBytes: number;
 }
 
-const loadZstd = async () =>
-  new Promise<InstanceType<typeof ZstdCodec.Simple>>((resolve) => {
-    ZstdCodec.run((zstd) => {
+const loadZstd = async (): Promise<any> =>
+  new Promise((resolve) => {
+    ZstdCodec.run((zstd: any) => {
       resolve(new zstd.Simple());
     });
   });
 
-const createSqliteSchema = (db: Database): void => {
+const createSqliteSchema = (db: Database.Database): void => {
   db.exec(`
     CREATE TABLE IF NOT EXISTS drinks (
       id TEXT PRIMARY KEY,

@@ -24,28 +24,35 @@ interface CocktailDbClientOptions {
   maxRetries?: number;
 }
 
-const BASE_URL = 'https://www.thecocktaildb.com';
+const DEFAULT_BASE_URL = 'https://www.thecocktaildb.com';
 const DEFAULT_THROTTLE_MS = Number(process.env.COCKTAILDB_THROTTLE_MS ?? '200');
 const DEFAULT_MAX_RETRIES = Number(process.env.COCKTAILDB_MAX_RETRIES ?? '3');
+
+const buildUrl = (path: string, params?: Record<string, string>): string => {
+  const url = new URL(path, DEFAULT_BASE_URL);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
+};
 
 const sleep = (ms: number): Promise<void> => delay(ms);
 
 const parseTags = (value?: string | null): string[] =>
-  value == null
-    ? []
-    : value
-        .split(',')
-        .map((tag) => tag.trim())
-        .filter((tag) => tag.length > 0);
+  value ? value.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
 
 const buildIngredients = (drink: Record<string, unknown>): CocktailIngredient[] => {
   const items: CocktailIngredient[] = [];
   for (let i = 1; i <= 15; i += 1) {
-    const name = drink[`strIngredient${i}`];
+    const ingredientKey = `strIngredient${i}` as keyof typeof drink;
+    const measureKey = `strMeasure${i}` as keyof typeof drink;
+    const name = drink[ingredientKey];
     if (typeof name !== 'string' || !name.trim()) {
       continue;
     }
-    const measure = drink[`strMeasure${i}`];
+    const measure = drink[measureKey];
     items.push({
       name: name.trim(),
       measure: typeof measure === 'string' ? measure.trim() || null : null,
@@ -56,40 +63,32 @@ const buildIngredients = (drink: Record<string, unknown>): CocktailIngredient[] 
 };
 
 export class CocktailDbClient {
+  private readonly apiKey: string;
+
   private readonly throttleMs: number;
 
   private readonly maxRetries: number;
 
-  constructor(
-    private readonly apiKey: string,
-    options: CocktailDbClientOptions = {},
-  ) {
+  constructor(apiKey: string, options: CocktailDbClientOptions = {}) {
     if (!apiKey) {
       throw new Error('COCKTAILDB-API-KEY environment variable is required.');
     }
-
+    this.apiKey = apiKey.trim();
     this.throttleMs = options.throttleMs ?? DEFAULT_THROTTLE_MS;
     this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
   }
 
   private async fetchJson<T>(path: string, params?: Record<string, string>): Promise<T> {
-    const url = new URL(path, BASE_URL);
-    if (params) {
-      for (const [key, value] of Object.entries(params)) {
-        url.searchParams.set(key, value);
-      }
-    }
-
+    const url = buildUrl(path, params);
     let attempt = 0;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
-        const response = await fetch(url.toString(), {
+        const response = await fetch(url, {
           headers: {
             'User-Agent': 'MyBartenderAI/Sync',
           },
         });
-
         if (response.status === 429) {
           if (attempt >= this.maxRetries) {
             throw new Error('CocktailDB throttled request after maximum retries.');
@@ -99,11 +98,9 @@ export class CocktailDbClient {
           attempt += 1;
           continue;
         }
-
         if (!response.ok) {
           throw new Error(`CocktailDB request failed with status ${response.status}`);
         }
-
         const json = (await response.json()) as T;
         await sleep(this.throttleMs);
         return json;
@@ -122,11 +119,9 @@ export class CocktailDbClient {
       `/api/json/v2/${this.apiKey}/search.php`,
       { f: letter },
     );
-
     if (!data.drinks) {
       return [];
     }
-
     return data.drinks
       .filter((drink) => typeof drink?.idDrink === 'string')
       .map((drink) => {
@@ -149,12 +144,10 @@ export class CocktailDbClient {
   public async fetchCatalog(): Promise<CocktailRecord[]> {
     const letters = 'abcdefghijklmnopqrstuvwxyz'.split('');
     const results: CocktailRecord[] = [];
-
     for (const letter of letters) {
       const drinks = await this.fetchDrinksForLetter(letter);
       results.push(...drinks);
     }
-
     return results;
   }
 }

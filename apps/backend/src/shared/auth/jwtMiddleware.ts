@@ -3,9 +3,13 @@ import {
   createLocalJWKSet,
   errors as joseErrors,
   jwtVerify,
-  type JWKS,
+  type JWK,
   type KeyLike,
 } from 'jose';
+
+type JoseJwkSet = {
+  keys: JWK[];
+};
 
 export interface AuthenticatedUser {
   sub: string;
@@ -128,8 +132,8 @@ const fetchJwkStore = async (
     throw new Error('Failed to fetch JWKS for token validation.');
   }
 
-  const jwks = (await response.json()) as JWKS;
-  const keyStore = createLocalJWKSet(jwks);
+  const jwks = (await response.json()) as JoseJwkSet;
+  const keyStore = createLocalJWKSet(jwks as any);
 
   cachedJwkStore = keyStore;
   jwksCacheExpiry = now + JWKS_CACHE_TTL_MS;

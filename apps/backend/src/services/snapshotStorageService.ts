@@ -1,4 +1,10 @@
-import { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, ContainerClient } from "@azure/storage-blob";
+import {
+  BlobServiceClient,
+  StorageSharedKeyCredential,
+  generateBlobSASQueryParameters,
+  ContainerClient,
+  BlobSASPermissions,
+} from "@azure/storage-blob";
 import path from "path";
 
 interface UploadArgs {
@@ -87,15 +93,16 @@ export const generateSnapshotSas = (
   const credential = getSharedKeyCredential();
   const expiresOn = new Date(Date.now() + expiresInMinutes * 60 * 1000);
 
+  const client = containerClient.getBlockBlobClient(blobPath);
   const sas = generateBlobSASQueryParameters(
     {
       containerName: containerClient.containerName,
       blobName: blobPath,
-      permissions: 'r',
+      permissions: BlobSASPermissions.parse('r'),
       expiresOn,
     },
     credential,
   );
 
-  return `${containerClient.getBlockBlobClient(blobPath).url}?${sas.toString()}`;
+  return `${client.url}?${sas.toString()}`;
 };

@@ -1,0 +1,28 @@
+# IDE
+.vscode/
+
+# Local/Secrets
+.azure-config/
+local.settings.json
+
+# OS/logs
+*.log
+
+# Binaries & archives
+*.msi
+*.zip
+
+# Build/output (adjust as needed)
+dist/
+build/
+bin/
+obj/
+
+# Generated deploy folders (tweak if you actually need them)
+apps/backend/deploy-final*/
+apps/backend/deploy-final-working/
+apps/backend/deploy-correct/
+apps/backend/fix-sync/
+
+# Node / Azure Functions common
+node_modules/

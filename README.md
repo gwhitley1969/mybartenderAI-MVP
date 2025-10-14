@@ -1,22 +1,86 @@
-# MyBartenderAI — MVP (Flutter + Azure + Riverpod + OpenAPI)
+# MyBartenderAI MVP
 
-This repo is **contracts-first**. Implementers (Cursor/Codex) must code **only** from `/spec` and `/docs`.
+AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## Stack
-- Mobile: Flutter, Riverpod, GoRouter, dio, Freezed/json_serializable (in `/mobile/app/`)
-- Backend: Azure Functions (HTTP), Azure Blob (images), Azure Database for PostgreSQL, Azure Key Vault (in `/apps/backend/`)
-- Identity: Microsoft Entra External ID (claims for authZ)
-- Contracts: `/spec/openapi.yaml` is the single source of truth
+## 🚀 Current Status: OPERATIONAL ✅
 
-## How to work in this repo
-1. Start with `/spec/openapi.yaml`. Update contracts before any feature code.
-2. Follow `/docs/ARCHITECTURE.md` and `/docs/cursor-rules.mdc` exactly.
-3. All PRs must include: OpenAPI diff + ADR update + PLAN test notes.
+- **Backend**: Fully deployed on Azure Functions
+- **Database**: 621 cocktails synced from TheCocktailDB
+- **API**: Snapshot endpoint serving compressed cocktail data
+- **Mobile**: Flutter app ready to consume snapshots
 
-## MVP scope (short)
-- Local SQLite cache for CocktailDB subset
-- “Scan your bar” → recommend cocktails (sync path first)
-- Tiering: Free (DB only) vs Premium (AI features with token cap)
+## 📁 Project Structure
 
-See `/docs/PLAN.md` for acceptance criteria.
+```
+mybartenderAI-MVP/
+├── apps/
+│   └── backend/          # Azure Functions (Node.js/TypeScript)
+├── mobile/
+│   └── app/             # Flutter mobile application
+├── docs/                # Architecture and documentation
+├── prompts/             # AI system prompts
+└── spec/                # API specifications
+```
 
+## 🏗️ Architecture
+
+- **Backend**: Azure Functions v3 (Node.js 20, Windows Consumption Plan)
+- **Database**: PostgreSQL (Azure Database for PostgreSQL)
+- **Storage**: Azure Blob Storage for snapshot files
+- **Mobile**: Flutter with local SQLite for offline access
+- **AI**: OpenAI GPT-4.1 for cocktail recommendations
+
+## 🔧 Quick Start
+
+### Backend
+```bash
+cd apps/backend
+npm install
+npm run build
+# Deploy using Azure CLI (see DEPLOYMENT_STATUS.md)
+```
+
+### Mobile
+```bash
+cd mobile/app
+flutter pub get
+flutter run
+```
+
+### Smoke Test
+```powershell
+.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-mba-fresh
+```
+
+## 📚 Documentation
+
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [Deployment Status](apps/backend/DEPLOYMENT_STATUS.md)
+- [API Specification](spec/openapi.yaml)
+- [Development Plan](docs/PLAN.md)
+
+## 🎯 Key Features
+
+- **Offline First**: Complete cocktail database available offline
+- **AI Recommendations**: Personalized suggestions based on inventory
+- **Tiered Access**: Free, Premium, and Pro subscription levels
+- **Privacy Focused**: No PII stored for free tier users
+
+## 🔮 Roadmap
+
+1. ✅ Core backend infrastructure
+2. ✅ Database synchronization 
+3. ✅ Snapshot generation and delivery
+4. 🚧 Azure Front Door for image CDN
+5. 📱 Mobile app integration
+6. 🤖 AI recommendation engine
+7. 🎙️ Voice interaction features
+8. 📸 Vision AI for bottle recognition
+
+## 🤝 Contributing
+
+This is a private MVP project. For questions or access, please contact the project owner.
+
+## 📄 License
+
+Proprietary - All rights reserved

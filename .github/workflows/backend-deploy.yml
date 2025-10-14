@@ -1,0 +1,80 @@
+name: Deploy Backend to Azure Functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/backend/**'
+      - '.github/workflows/backend-deploy.yml'
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_NAME: func-mba-fresh
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'apps/backend'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+    
+    steps:
+    - name: 'Checkout GitHub Action'
+      uses: actions/checkout@v4
+
+    - name: Setup Node ${{ env.NODE_VERSION }} Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/package-lock.json'
+
+    - name: 'Install dependencies'
+      shell: pwsh
+      run: |
+        pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+        npm ci --production
+        popd
+
+    - name: 'Build project'
+      shell: pwsh
+      run: |
+        pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+        npm run build
+        popd
+
+    - name: 'Prepare deployment package'
+      shell: pwsh
+      run: |
+        pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+        
+        # Create deployment directory
+        New-Item -ItemType Directory -Path deploy -Force | Out-Null
+        
+        # Copy required files
+        Copy-Item host.json deploy/
+        Copy-Item package.json deploy/
+        Copy-Item package-lock.json deploy/
+        Copy-Item node_modules deploy/ -Recurse
+        
+        # Copy compiled code
+        Copy-Item dist/services deploy/ -Recurse
+        Copy-Item dist/shared deploy/ -Recurse
+        if (Test-Path dist/types) { Copy-Item dist/types deploy/ -Recurse }
+        if (Test-Path dist/utils) { Copy-Item dist/utils deploy/ -Recurse }
+        
+        # Copy functions with proper structure
+        Get-ChildItem dist/functions -Directory | ForEach-Object {
+          $functionName = $_.Name
+          New-Item -ItemType Directory -Path "deploy/$functionName" -Force | Out-Null
+          Copy-Item "dist/functions/$functionName/index.js" "deploy/$functionName/"
+          Copy-Item "src/functions/$functionName/function.json" "deploy/$functionName/"
+        }
+        
+        popd
+
+    - name: 'Run Azure Functions Action'
+      uses: Azure/functions-action@v1
+      with:
+        app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+        package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/deploy'
+        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}

@@ -3,7 +3,7 @@ import { app } from "@azure/functions";
 
 import { CocktailDbClient } from "../../services/cocktailDbClient.js";
 import { syncCocktailCatalog } from "../../services/cocktailDbSyncService.js";
-import { buildSqliteSnapshot } from "../../services/sqliteSnapshotBuilder.js";
+import { buildJsonSnapshot } from "../../services/jsonSnapshotBuilder.js";
 import { uploadSnapshotArtifacts } from "../../services/snapshotStorageService.js";
 import { recordSnapshotMetadata } from "../../services/snapshotMetadataService.js";
 
@@ -38,8 +38,8 @@ export const syncCocktailDb = async (timer: Timer, rawContext: unknown): Promise
     context.log('[sync-cocktaildb] Normalized data into PostgreSQL tables.');
 
     const snapshotVersion = formatSnapshotVersion(new Date());
-    const snapshot = await buildSqliteSnapshot();
-    context.log('[sync-cocktaildb] Built SQLite snapshot.');
+    const snapshot = await buildJsonSnapshot();
+    context.log('[sync-cocktaildb] Built JSON snapshot.');
 
     const uploadResult = await uploadSnapshotArtifacts({
       schemaVersion: SCHEMA_VERSION,

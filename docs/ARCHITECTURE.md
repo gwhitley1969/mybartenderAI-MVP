@@ -1,126 +1,186 @@
 # Architecture — MyBartenderAI (MVP)
 
-## System overview
+## System Overview
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
 - Azure Functions (HTTP) expose HTTPS endpoints directly (no APIM gateway)
-- Azure PostgreSQL for mirrored recipe corpus; SQLite on-device cache
-- Azure Blob for user images; Key Vault for secrets; App Insights for telemetry
-- Mobile → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault)
+- Azure PostgreSQL for authoritative recipe corpus with AI enhancements
+- Azure Blob for cocktail images and JSON snapshots
+- Azure Front Door for US-based CDN delivery
+- Key Vault for secrets; App Insights for telemetry
+- Mobile → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/OpenAI)
 
-## Data flow (Mermaid)
+## Core Features
+### Current (MVP)
+- AI-powered cocktail recommendations based on inventory
+- Offline-first mobile experience with local SQLite
+- JWT-based authentication and rate limiting
+
+### Planned (Premium/Pro)
+- **Vision AI**: Photograph home bar for automatic inventory
+- **Voice Assistant**: Interactive cocktail-making guidance
+- **Custom Recipes**: User-created cocktails with AI enhancement
+
+## Data Flow (Mermaid)
 ```mermaid
 sequenceDiagram
   participant M as Mobile (Flutter)
   participant F as Azure Functions (HTTP)
   participant DB as PostgreSQL
   participant B as Blob Storage
-  participant KV as Key Vault
+  participant FD as Front Door (CDN)
+  participant AI as OpenAI/Azure AI
 
   M->>F: HTTPS /v1/… (JWT attached)
   F->>DB: Read/Write
-  F->>B: Upload/Fetch
-  F->>KV: Secret reference (managed identity)
+  F->>B: Upload/Fetch snapshots
+  F->>AI: Recommendations/Vision/Voice
+  M->>FD: Fetch cocktail images (cached)
+  FD->>B: Origin fetch if needed
 ```
 
 ## AI Model & Cost Strategy
-- Models: use OpenAI GPT-4.1 family via backend-only calls (never from the device).
-  - Default: gpt-4.1-mini for recommendations (cost/latency sweet spot).
-  - Long-context or complex chains: gpt-4.1.
-  - Future on-device experiments: gpt-4.1-nano when supported via vetted SDKs.
+- **Recommendations**: GPT-4.1-mini (cost/latency optimized)
+- **Complex queries**: GPT-4.1 with prompt caching
+- **Vision**: Azure Computer Vision (70% confidence threshold)
+- **Voice**: OpenAI Whisper + TTS (future)
+- **Prompt Caching**: Enabled for stable system prompts
 
-## Prompt Caching (OpenAI)
-We enable OpenAI Prompt Caching for stable, repeated system/tool prompts. The Azure Function computes a cache key
-from: model + promptTemplateVersion + normalized tools list + schema hash. Requests include cache hints and reuse keys
-across users (no PII in keys). This yields substantial savings for identical prompts during traffic bursts. 
-Telemetry logs only the cache-key hash, never raw prompts.
+## Tier Quotas (Monthly)
+| Feature | Free | Premium | Pro |
+|---------|------|---------|-----|
+| AI Recommendations | 10 | 100 | Unlimited |
+| Vision Scans | 0 | 5 | 50 |
+| Voice Assistant | 0 | 30 min | 5 hours |
+| Custom Recipes | 3 | 25 | Unlimited |
+| Snapshot Downloads | Unlimited | Unlimited | Unlimited |
 
-## Realtime (deferred)
-- Voice guidance may be added later.
-- If/when we add "hands-free bartender", use OpenAI Realtime API via the backend as a websocket proxy. The mobile app
-  streams mic audio to Functions, which relays to OpenAI Realtime and streams transcripts/instructions back. Not part of MVP.
+## Feature: CocktailDB Mirror & JSON Snapshot Service
 
-## Pricing guardrails
-- Token caps enforced in app + server. Server rejects over-quota calls early. Prompt Caching reduces marginal cost for
-  premium tiers; see PLAN for tests.
+**Goal:** Nightly sync from TheCocktailDB V2 API into PostgreSQL, download images to Blob Storage, build compressed JSON snapshots for mobile offline use.
 
-## Feature: CocktailDB Mirror & SQLite Snapshot Service
-
-**Goal:** Pull premium TheCocktailDB data on a schedule into Azure Database for PostgreSQL (normalized), then publish a versioned, read-only SQLite snapshot to Azure Blob for the mobile app to download and cache locally. Optionally publish deltas for smaller updates.
+### Architecture Changes (Post-MVP Review)
+- **Removed**: better-sqlite3 dependency (Windows compatibility issues)
+- **Replaced**: SQLite generation with JSON snapshots (pure JavaScript)
+- **Compression**: gzip instead of zstd (built-in, no dependencies)
+- **Images**: Re-hosted in Azure Blob + Front Door (US-based delivery)
 
 ### Components
-- **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC; manual HTTP trigger available for admins)
-- **HTTP Function** `GET /v1/snapshots/latest` → returns snapshot metadata + signed URL
-- **HTTP Function** `GET /v1/changes?since={version}` → NDJSON of upserts/deletes (optional for MVP)
-- **PostgreSQL**: canonical schema (drinks, ingredients, measures, categories, glasses, tags)
-- **Blob Storage**: `/snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst` (and `.sha256`)
-- **Key Vault**: `COCKTAILDB-API-KEY` (premium), DB creds via MI + KV references
-- **App**: On first run (or when `snapshotVersion` changes), download+decompress SQLite, hydrate local cache
+- **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC)
+- **HTTP Function** `GET /v1/snapshots/latest` → metadata + SAS URL
+- **PostgreSQL**: Authoritative data with AI enhancements
+- **Blob Storage**: 
+  - `/snapshots/json/{schemaVersion}/{snapshotVersion}.json.gz`
+  - `/images/cocktails/{drinkId}.jpg` (multiple sizes)
+- **Front Door**: CDN for image delivery
+- **Mobile**: Downloads JSON, imports to local SQLite
 
-### Sequence (Mermaid)
+### Data Pipeline
 ```mermaid
 sequenceDiagram
   autonumber
-  participant T as Timer Function (sync-cocktaildb)
-  participant CDB as TheCocktailDB (premium)
-  participant PG as Azure DB for PostgreSQL
-  participant BL as Azure Blob Storage
-  participant H as HTTP Function (/v1/snapshots/latest)
-  participant M as Mobile App (Flutter)
-
-  T->>CDB: Fetch drinks/ingredients/categories (paged, with ETags)
-  CDB-->>T: 200 OK (JSON batches)
-  T->>PG: Upsert normalized rows (COPY/UPSERT)
-  T->>T: Build SQLite from PG (read-only; VACUUM; ANALYZE)
-  T->>BL: Upload snapshot .db.zst + .sha256 (versioned)
-  Note over T: Write metadata: {schemaVersion, snapshotVersion, counts, createdAt}
-  M->>H: GET /v1/snapshots/latest
-  H-->>M: { snapshotVersion, signedUrl, size, sha256 }
-  M->>BL: Download snapshot
-  M->>M: Verify sha256 → replace local DB atomically
-```
-
-- No PII persisted; only public catalog data.
-- Secrets: `COCKTAILDB-API-KEY` and DB creds in Key Vault; app settings use `@Microsoft.KeyVault(SecretUri=...)`.
-- Redaction: remove querystrings from logs; never log upstream response bodies; log only counts/hashes.
-- Authorization:
-  - `/v1/snapshots/latest`: anonymous OK (returns **signed URL** with short expiry).
-  - `/v1/changes`: same as above (or gated later).
-  - `/v1/admin/sync`: requires `x-functions-key` (function auth) or Entra claim `role=admin` if you enable Easy Auth later.
-- Rate limiting upstream calls (respect TheCocktailDB ToS): page-size throttle, If-Modified-Since/ETag, 429 retry with backoff.
-
-## Feature: CocktailDB V2 Mirror → SQLite Snapshots
-
-**Goal:** Nightly import from TheCocktailDB (V2, Premium key in URL path) into Azure Database for PostgreSQL, build a read‑only SQLite snapshot, publish to Azure Blob, and serve a short‑lived SAS URL to the app for offline use.
-
-**Source endpoints (examples):**
-- Search/listing: `search.php?f=a..z`, `list.php?c=list|g=list|i=list|a=list`, `filter.php?i=<ingredient>|a=<alcoholic>|c=<category>|g=<glass>` (base semantics) :contentReference[oaicite:1]{index=1}
-- Premium: `latest.php` (recent cocktails) and multi‑ingredient filters (Premium only). :contentReference[oaicite:2]{index=2}
-- Image sizes: thumb/medium/large URLs provided by CocktailDB if needed. :contentReference[oaicite:3]{index=3}
-
-**Pipeline**
-```mermaid
-sequenceDiagram
-  autonumber
-  participant T as Timer Function (sync-cocktaildb)
+  participant T as Timer Function
   participant CDB as TheCocktailDB V2
-  participant PG as Azure PostgreSQL
-  participant BL as Azure Blob
-  participant H as HTTP /v1/snapshots/latest
-  participant M as Mobile App (Flutter)
+  participant PG as PostgreSQL
+  participant BL as Blob Storage
+  participant H as HTTP Function
+  participant M as Mobile App
 
-  T->>CDB: Fetch categories, glasses, ingredients lists + A..Z drinks, latest.php (throttled)
-  CDB-->>T: JSON batches (drink IDs + partials)
-  T->>CDB: lookup.php?i={id} for details (batched, throttled)
-  T->>PG: UPSERT normalized rows (drinks, ingredients, measures, xrefs)
-  T->>T: Build SQLite (FKs+indexes) → VACUUM/ANALYZE → zstd compress + sha256
-  T->>BL: Upload snapshot: snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst (+ .sha256)
-  T->>PG: Upsert metadata (schemaVersion, snapshotVersion, counts, createdAt)
+  T->>CDB: Fetch drinks/ingredients (throttled)
+  CDB-->>T: JSON data + image URLs
+  T->>PG: Upsert normalized data
+  T->>CDB: Download drink images
+  T->>BL: Store images (resized)
+  T->>PG: Query all data for snapshot
+  T->>T: Build JSON, gzip compress
+  T->>BL: Upload snapshot.json.gz
+  T->>PG: Record metadata
   M->>H: GET /v1/snapshots/latest
-  H-->>M: { snapshotVersion, signedUrl, sizeBytes, sha256, counts }
-  M->>BL: Download, verify sha256, atomic swap local DB
-
+  H-->>M: { version, sasUrl, imageBaseUrl }
+  M->>BL: Download JSON snapshot
+  M->>M: Import to local SQLite
 ```
-- Treat the email/API key as a **secret**. Do **not** check it into Git, CI logs, or mobile app code.
-- Store `COCKTAILDB-API-KEY` in **Azure Key Vault**; reference it in Function App settings via `@Microsoft.KeyVault(SecretUri=...)`.
-- Server‑side only access to TheCocktailDB; the app never calls CocktailDB directly.
-- Redaction: strip querystrings and headers from logs. Log counts and hashes only.
+
+### Snapshot Retention
+- Keep last 7 daily snapshots (1 week rollback)
+- Metadata tracks version, size, drink count
+- Mobile app caches and checks for updates
+
+## Security & Privacy
+
+### Authentication & Access
+- JWT authentication for API endpoints
+- Azure Managed Identity for service-to-service
+- SAS tokens for time-limited blob access
+- Function keys for admin endpoints
+
+### PII Policy
+- **Custom recipe names**: Stripped from telemetry
+- **Voice transcripts**: Opt-in storage only
+- **Bar photos**: Processed ephemerally, never stored
+- **User ingredients**: Hashed before logging
+- **Anonymization**: 90-day retention for opted-in data
+
+### Secrets Management
+- `COCKTAILDB-API-KEY` in Key Vault
+- `OPENAI_API_KEY` in Key Vault
+- PostgreSQL connection via Managed Identity
+- App settings use `@Microsoft.KeyVault(SecretUri=...)`
+
+## Mobile App Updates
+
+### JSON Import Strategy
+1. Download compressed JSON snapshot
+2. Decompress in memory
+3. Parse JSON structure
+4. Import to local SQLite using transactions
+5. Atomic database swap
+
+### Image Caching
+- Images served from Front Door (US edge locations)
+- Progressive loading with placeholders
+- Local cache with LRU eviction
+- Offline support for viewed cocktails
+
+## Future Enhancements
+
+### Phase 2: Premium Features
+- Vision AI integration for inventory scanning
+- Voice-guided cocktail making
+- Custom recipe creation with AI assistance
+
+### Phase 3: Advanced
+- Real-time collaboration on recipes
+- Social features (share custom cocktails)
+- Ingredient substitution AI
+- Cocktail history and preferences learning
+
+## Development & Deployment
+
+### Local Development
+```bash
+# Backend
+cd apps/backend
+npm install  # Windows-compatible, no native modules
+npm run build
+func start
+
+# Mobile
+cd mobile/app
+flutter pub get
+flutter run
+```
+
+### Deployment
+- Azure Functions: ZIP deployment to Windows Consumption plan
+- No native dependencies (pure JavaScript/TypeScript)
+- Automated via GitHub Actions (future)
+- Environment-specific settings in Key Vault
+
+## Cost Optimization
+- **Current**: ~$50-100/month (PostgreSQL dominant)
+- **Optimized**: ~$2-5/month
+  - Functions: Consumption plan (essentially free)
+  - Storage: ~$1/month (snapshots + images)
+  - PostgreSQL: Smallest tier sufficient
+  - Front Door: Pay per GB (minimal)
+- **Premium tier revenue**: Covers AI API costs

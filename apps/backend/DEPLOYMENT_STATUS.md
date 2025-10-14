@@ -41,24 +41,21 @@ COCKTAILDB-API-KEY=961249867 (V2 API - set directly, needs to move to Key Vault)
 OPENAI_API_KEY=@Microsoft.KeyVault(...) 
 ```
 
-## ❌ Known Issues
+## ✅ Fixed Issues
 
 ### sync-cocktaildb Timer Function
-**Status:** Triggers but fails to complete
+**Status:** Fixed - removed native dependencies
 
-**Last Error (from App Insights):**
-```
-better_sqlite3.node is not a valid Win32 application
-```
+**Solution Implemented:**
+- Removed better-sqlite3 dependency completely
+- Replaced with JSON snapshot builder (pure JavaScript)
+- Changed compression from zstd to gzip (built-in)
+- No more platform-specific binary issues
 
-**Root Cause:** Native module binary mismatch
-- better-sqlite3 package requires platform-specific binaries
-- node_modules may have been compiled on Linux/WSL
-- Windows Function App needs Windows-compiled binaries
-
-**Solution Attempted:**
-- Rebuilt node_modules on Windows: `npm install`
-- Need to verify deployment includes correct Windows binaries
+**Next Steps:**
+- Deploy updated package
+- Test sync function runs successfully
+- Verify JSON snapshot creation
 
 **Other Observations:**
 - Function loads and triggers successfully (HTTP 202)

@@ -2,11 +2,11 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status: MIGRATION COMPLETE ✅
+## 🚀 Current Status: DEPLOYMENT IN PROGRESS ⚠️
 
-- **Backend**: Successfully running on Azure Functions v4 Flex Consumption plan
+- **Backend**: Migrating to Azure Functions v4 Flex Consumption plan
 - **Database**: PostgreSQL configured and operational
-- **API**: All endpoints working (see [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md))
+- **API**: Troubleshooting module loading issues (see [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md))
 - **Mobile**: Flutter app ready to consume snapshots
 
 ## 📁 Project Structure
@@ -50,7 +50,7 @@ flutter run
 
 ### Smoke Test
 ```powershell
-.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-mba-fresh
+.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-cocktaildb2
 ```
 
 ## 📚 Documentation
@@ -72,11 +72,12 @@ flutter run
 1. ✅ Core backend infrastructure
 2. ✅ Database synchronization 
 3. ✅ Snapshot generation and delivery
-4. 🚧 Azure Front Door for image CDN
-5. 📱 Mobile app integration
-6. 🤖 AI recommendation engine
-7. 🎙️ Voice interaction features
-8. 📸 Vision AI for bottle recognition
+4. ✅ Image hosting in Azure Blob Storage (US)
+5. 🚧 Local image storage and delta sync for mobile
+6. 📱 Mobile app integration
+7. 🤖 AI recommendation engine
+8. 🎙️ Voice interaction features
+9. 📸 Vision AI for bar inventory recognition
 
 ## 🤝 Contributing
 

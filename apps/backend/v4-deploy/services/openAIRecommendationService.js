@@ -112,4 +112,3 @@ const extractTextFromResponse = (response) => {
     return null;
 };
 
-

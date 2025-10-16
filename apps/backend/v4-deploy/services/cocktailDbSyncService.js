@@ -112,4 +112,3 @@ const syncCocktailCatalog = async (records) => {
 };
 exports.syncCocktailCatalog = syncCocktailCatalog;
 
-

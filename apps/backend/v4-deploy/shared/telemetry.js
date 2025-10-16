@@ -74,3 +74,4 @@ const trackException = (context, traceId, error, properties = {}) => {
     }));
 };
 exports.trackException = trackException;
+

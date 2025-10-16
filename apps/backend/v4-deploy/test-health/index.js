@@ -26,3 +26,4 @@ app.http('health', {
     route: 'health',
     handler: health
 });
+

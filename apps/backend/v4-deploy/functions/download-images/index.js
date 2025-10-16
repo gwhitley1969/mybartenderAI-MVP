@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const functions_1 = require("@azure/functions");
-const postgresPool_1 = require("../../shared/db/postgresPool.js");
+const postgresPool_1 = require("../../shared/db/postgresPool");
 const storage_blob_1 = require("@azure/storage-blob");
 const https_1 = __importDefault(require("https"));
 const url_1 = require("url");

@@ -69,3 +69,4 @@ const generateSnapshotSas = (blobPath, expiresInMinutes = Number(process.env.SNA
     return `${client.url}?${sas.toString()}`;
 };
 exports.generateSnapshotSas = generateSnapshotSas;
+

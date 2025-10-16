@@ -1,0 +1,8 @@
+﻿"timestamp [UTC]",message,severityLevel
+"10/16/2025, 4:11:52.890 PM","0 functions loaded",1
+"10/16/2025, 4:11:52.889 PM","0 functions loaded",1
+"10/16/2025, 4:11:22.911 PM","0 functions loaded",1
+"10/16/2025, 4:11:22.905 PM","0 functions loaded",1
+"10/16/2025, 4:11:22.888 PM","0 functions loaded",1
+"10/16/2025, 4:11:22.887 PM","Starting Host (HostId=89782499987a25f70bdbb25708ef6142, InstanceId=e19602d7-dfe1-4dc6-9042-6e4c86d98824, Version=4.1043.200.2, ProcessId=34, AppDomainId=1, InDebugMode=False, InDiagnosticMode=False, FunctionsExtensionVersion=~4)",1
+"10/16/2025, 4:11:22.886 PM","Error: Worker was unable to load entry point ""index.js"": Cannot find module '../../shared/db/postgresPool.js'",3

@@ -2,7 +2,6 @@
   "name": "mybartenderai-functions",
   "version": "0.1.0",
   "private": true,
-  "main": "index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && copyfiles -u 2 \"src/functions/**/function.json\" dist",
     "clean": "rimraf dist",
@@ -33,5 +32,6 @@
     "rimraf": "^5.0.5",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
-  }
+  },
+  "main": "*.js"
 }

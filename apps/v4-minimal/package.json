@@ -1,0 +1,9 @@
+{
+  "name": "minimal-test",
+  "version": "1.0.0",
+  "main": "src/functions/*.js",
+  "scripts": {},
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  }
+}

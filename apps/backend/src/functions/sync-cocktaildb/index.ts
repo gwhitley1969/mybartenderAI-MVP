@@ -13,12 +13,20 @@ const formatSnapshotVersion = (date: Date): string => {
   )}${pad(date.getUTCMinutes())}${pad(date.getUTCSeconds())}`;
 };
 
-const getCocktailApiKey = (): string => {
-  const value = process.env['COCKTAILDB-API-KEY'];
-  if (!value) {
-    throw new Error('COCKTAILDB-API-KEY environment variable is required.');
+const getCocktailApiKey = async (context: InvocationContext, maxRetries = 5): Promise<string> => {
+  for (let i = 0; i < maxRetries; i++) {
+    const value = process.env['COCKTAILDB-API-KEY'];
+    if (value) {
+      return value;
+    }
+    
+    if (i < maxRetries - 1) {
+      context.log(`[sync-cocktaildb] Waiting for COCKTAILDB-API-KEY to be available from Key Vault (attempt ${i + 1}/${maxRetries})...`);
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+    }
   }
-  return value;
+  
+  throw new Error('COCKTAILDB-API-KEY environment variable is required but not available after retries.');
 };
 
 const SCHEMA_VERSION = process.env.SNAPSHOT_SCHEMA_VERSION ?? '1';
@@ -28,7 +36,8 @@ const syncCocktailDb = async (timer: Timer, context: InvocationContext): Promise
   context.log(`[sync-cocktaildb] Starting synchronization at ${new Date().toISOString()}`);
 
   try {
-    const client = new CocktailDbClient(getCocktailApiKey());
+    const apiKey = await getCocktailApiKey(context);
+    const client = new CocktailDbClient(apiKey);
     const drinks = await client.fetchCatalog();
     context.log(`[sync-cocktaildb] Retrieved ${drinks.length} drinks.`);
 

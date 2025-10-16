@@ -1,0 +1,243 @@
+﻿"timestamp [UTC]",itemType,message,"operation_Name"
+"10/16/2025, 2:15:15.835 PM",trace,"0 functions loaded",
+"10/16/2025, 2:15:15.835 PM",trace,"0 functions found (Custom)",
+"10/16/2025, 2:15:15.835 PM",trace,"Reading functions metadata (Custom)",
+"10/16/2025, 2:15:15.834 PM",trace,"Loading functions metadata",
+"10/16/2025, 2:15:15.831 PM",trace,"ConcurrencyOptions
+{
+  ""DynamicConcurrencyEnabled"": false,
+  ""MaximumFunctionConcurrency"": 500,
+  ""CPUThreshold"": 0.8,
+  ""SnapshotPersistenceEnabled"": true
+}",
+"10/16/2025, 2:15:15.831 PM",trace,"HttpOptions
+{
+  ""DynamicThrottlesEnabled"": false,
+  ""EnableChunkedRequestBinding"": false,
+  ""MaxConcurrentRequests"": -1,
+  ""MaxOutstandingRequests"": -1,
+  ""RoutePrefix"": ""api""
+}",
+"10/16/2025, 2:15:15.829 PM",trace,"0 functions loaded",
+"10/16/2025, 2:15:15.829 PM",trace,"0 functions found (Custom)",
+"10/16/2025, 2:15:15.828 PM",trace,"Reading functions metadata (Custom)",
+"10/16/2025, 2:15:15.828 PM",trace,"Loading functions metadata",
+"10/16/2025, 2:14:51.169 PM",trace,"Host lock lease acquired by instance ID '000000000000000000000000532EDAD6'.",
+"10/16/2025, 2:14:45.818 PM",trace,"Job host started",
+"10/16/2025, 2:14:45.818 PM",trace,"Host started (2ms)",
+"10/16/2025, 2:14:45.818 PM",trace,"Host initialized (1ms)",
+"10/16/2025, 2:14:45.818 PM",trace,"Initializing function HTTP routes
+No HTTP routes mapped",
+"10/16/2025, 2:14:45.817 PM",trace,"HttpOptions
+{
+  ""DynamicThrottlesEnabled"": false,
+  ""EnableChunkedRequestBinding"": false,
+  ""MaxConcurrentRequests"": -1,
+  ""MaxOutstandingRequests"": -1,
+  ""RoutePrefix"": ""api""
+}",
+"10/16/2025, 2:14:45.817 PM",trace,"No job functions found. Try making your job classes and methods public. If you're using binding extensions (e.g. Azure Storage, ServiceBus, Timers, etc.) make sure you've called the registration method for the extension(s) in your startup code (e.g. builder.AddAzureStorage(), builder.AddServiceBus(), builder.AddTimers(), etc.).",
+"10/16/2025, 2:14:45.816 PM",trace,"Generating 0 job function(s)",
+"10/16/2025, 2:14:45.816 PM",trace,"0 functions loaded",
+"10/16/2025, 2:14:45.816 PM",trace,"0 functions found (Custom)",
+"10/16/2025, 2:14:45.816 PM",trace,"Reading functions metadata (Custom)",
+"10/16/2025, 2:14:45.816 PM",trace,"Loading functions metadata",
+"10/16/2025, 2:14:45.816 PM",trace,"Starting Host (HostId=89782499987a25f70bdbb25708ef6142, InstanceId=9a372bdd-499a-42d0-877d-d478e924121f, Version=4.1043.200.2, ProcessId=34, AppDomainId=1, InDebugMode=False, InDiagnosticMode=False, FunctionsExtensionVersion=~4)",
+"10/16/2025, 2:14:45.815 PM",trace,"Starting JobHost",
+"10/16/2025, 2:14:45.815 PM",trace,"ScaleOptions
+{
+  ""ScaleMetricsMaxAge"": ""00:02:00"",
+  ""ScaleMetricsSampleInterval"": ""00:00:10"",
+  ""MetricsPurgeEnabled"": true,
+  ""IsTargetScalingEnabled"": true,
+  ""IsRuntimeScalingEnabled"": false
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"SingletonOptions
+{
+  ""LockPeriod"": ""00:00:15"",
+  ""ListenerLockPeriod"": ""00:01:00"",
+  ""LockAcquisitionTimeout"": ""10675199.02:48:05.4775807"",
+  ""LockAcquisitionPollingInterval"": ""00:00:05"",
+  ""ListenerLockRecoveryPollingInterval"": ""00:01:00""
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"ConcurrencyOptions
+{
+  ""DynamicConcurrencyEnabled"": false,
+  ""MaximumFunctionConcurrency"": 500,
+  ""CPUThreshold"": 0.8,
+  ""SnapshotPersistenceEnabled"": true
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"FunctionResultAggregatorOptions
+{
+  ""BatchSize"": 1000,
+  ""FlushTimeout"": ""00:00:30"",
+  ""IsEnabled"": true
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"HttpWorkerOptions
+{
+  ""Type"": 0,
+  ""Description"": null,
+  ""Arguments"": null,
+  ""Port"": 0,
+  ""EnableForwardingHttpRequest"": false,
+  ""EnableProxyingHttpRequest"": false,
+  ""InitializationTimeout"": ""00:00:30""
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"LoggerFilterOptions
+{
+  ""MinLevel"": ""None"",
+  ""Rules"": [
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": ""Warning"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.WebHostSystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""None"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.WebHostSystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.SystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""None"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.SystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""Trace"",
+      ""Filter"": null
+    }
+  ]
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"LoggerFilterOptions
+{
+  ""MinLevel"": ""None"",
+  ""Rules"": [
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": ""Warning"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.WebHostSystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""None"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.WebHostSystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": null,
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.SystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""None"",
+      ""Filter"": null
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Script.WebHost.Diagnostics.SystemLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": null,
+      ""Filter"": ""<AddFilter>b__0""
+    },
+    {
+      ""ProviderName"": ""Microsoft.Azure.WebJobs.Logging.ApplicationInsights.ApplicationInsightsLoggerProvider"",
+      ""CategoryName"": null,
+      ""LogLevel"": ""Trace"",
+      ""Filter"": null
+    }
+  ]
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"ApplicationInsightsLoggerOptions
+{
+  ""SamplingSettings"": {
+    ""EvaluationInterval"": ""00:00:15"",
+    ""InitialSamplingPercentage"": 100.0,
+    ""MaxSamplingPercentage"": 100.0,
+    ""MaxTelemetryItemsPerSecond"": 20.0,
+    ""MinSamplingPercentage"": 0.1,
+    ""MovingAverageRatio"": 0.25,
+    ""SamplingPercentageDecreaseTimeout"": ""00:02:00"",
+    ""SamplingPercentageIncreaseTimeout"": ""00:15:00""
+  },
+  ""SamplingExcludedTypes"": ""Request"",
+  ""SamplingIncludedTypes"": null,
+  ""SnapshotConfiguration"": null,
+  ""EnablePerformanceCountersCollection"": true,
+  ""HttpAutoCollectionOptions"": {
+    ""EnableHttpTriggerExtendedInfoCollection"": true,
+    ""EnableW3CDistributedTracing"": true,
+    ""EnableResponseHeaderInjection"": true
+  },
+  ""LiveMetricsInitializationDelay"": ""00:00:15"",
+  ""EnableLiveMetrics"": true,
+  ""EnableLiveMetricsFilters"": false,
+  ""EnableQueryStringTracing"": false,
+  ""EnableDependencyTracking"": true,
+  ""DependencyTrackingOptions"": null,
+  ""TokenCredentialOptions"": {
+    ""ClientId"": ""*******""
+  },
+  ""DiagnosticsEventListenerLogLevel"": null,
+  ""EnableAutocollectedMetricsExtractor"": false,
+  ""EnableMetricsCustomDimensionOptimization"": false,
+  ""EnableAdaptiveSamplingDelay"": true,
+  ""AdaptiveSamplingInitializationDelay"": ""00:00:15""
+}",
+"10/16/2025, 2:14:45.815 PM",trace,"at require (node:internal/modules/helpers:182:18)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Object.apply (/azure-functions-host/workers/node/dist/src/worker-bundle.js:2:52998)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Module.require (node:internal/modules/cjs/loader:1289:19)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Module._load (node:internal/modules/cjs/loader:1091:12)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Module.load (node:internal/modules/cjs/loader:1266:32)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Module._compile (node:internal/modules/cjs/loader:1521:14)",
+"10/16/2025, 2:14:45.815 PM",trace,"at Object.<anonymous> (/home/site/wwwroot/recommend/index.js:29:23)",
+"10/16/2025, 2:14:45.815 PM",trace,"at new OpenAIRecommendationService (/home/site/wwwroot/services/openAIRecommendationService.js:17:26)",
+"10/16/2025, 2:14:45.815 PM",trace,"at new OpenAI (/home/site/wwwroot/node_modules/openai/index.js:74:19)",
+"10/16/2025, 2:14:45.815 PM",trace,"Error: Worker was unable to load entry point ""index.js"": The OPENAI_API_KEY environment variable is missing or empty; either provide it, or instantiate the OpenAI client with an apiKey option, like new OpenAI({ apiKey: 'My API Key' }).",
+"10/16/2025, 2:14:45.813 PM",trace,"Host initialization: ConsecutiveErrors=0, StartupCount=3, OperationId=99c8d516-8cf8-45b9-98c6-1da954b66e64",
+"10/16/2025, 2:14:45.813 PM",trace,"Initializing Host. OperationId: '99c8d516-8cf8-45b9-98c6-1da954b66e64'.",
+"10/16/2025, 2:14:45.810 PM",trace,"Initializing Warmup Extension.",

@@ -26,7 +26,13 @@ const requestSchema = zod_1.z
         .optional(),
 })
     .strict();
-const openAiService = new openAIRecommendationService_js_1.OpenAIRecommendationService();
+let openAiService = null;
+const getOpenAiService = () => {
+    if (!openAiService) {
+        openAiService = new openAIRecommendationService_js_1.OpenAIRecommendationService();
+    }
+    return openAiService;
+};
 const buildErrorResponse = (status, code, message, traceId, details) => {
     const errorBody = {
         code,
@@ -114,7 +120,7 @@ const recommendHandler = async (request, context) => {
         });
     }
     try {
-        const result = await openAiService.recommend({
+        const result = await getOpenAiService().recommend({
             inventory: payload.inventory,
             tasteProfile: payload.tasteProfile,
             traceId,
@@ -131,7 +137,7 @@ const recommendHandler = async (request, context) => {
         }
         (0, telemetry_js_1.trackEvent)(context, traceId, 'recommend.response.success', {
             cacheHit: result.cacheHit,
-            cacheKeyHash: openAiService.cacheKeyHash,
+            cacheKeyHash: getOpenAiService().cacheKeyHash,
             promptTokens: result.usage.promptTokens,
             completionTokens: result.usage.completionTokens,
         });

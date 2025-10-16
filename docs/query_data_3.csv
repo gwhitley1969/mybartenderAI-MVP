@@ -1,0 +1,6 @@
+﻿"timestamp [UTC]",itemType,message,resultCode,"operation_Name"
+"10/15/2025, 9:09:26.059 PM",exception,,,"snapshots-latest"
+"10/15/2025, 9:09:26.058 PM",trace,"Executed 'Functions.snapshots-latest' (Failed, Id=2b5a0fdc-ca74-476d-9a46-4e7ed8bf37eb, Duration=1ms)",,"snapshots-latest"
+"10/15/2025, 9:09:26.058 PM",exception,,,"snapshots-latest"
+"10/15/2025, 9:09:26.057 PM",trace,"Executing 'Functions.snapshots-latest' (Reason='This function was programmatically called via the host APIs.', Id=2b5a0fdc-ca74-476d-9a46-4e7ed8bf37eb)",,"snapshots-latest"
+"10/15/2025, 9:09:26.056 PM",request,,500,"snapshots-latest"

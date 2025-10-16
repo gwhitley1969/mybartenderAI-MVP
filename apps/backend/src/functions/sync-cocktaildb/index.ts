@@ -1,5 +1,4 @@
-import type { Timer } from "@azure/functions";
-import { app } from "@azure/functions";
+import { app, Timer, InvocationContext } from "@azure/functions";
 
 import { CocktailDbClient } from "../../services/cocktailDbClient.js";
 import { syncCocktailCatalog } from "../../services/cocktailDbSyncService.js";
@@ -24,8 +23,7 @@ const getCocktailApiKey = (): string => {
 
 const SCHEMA_VERSION = process.env.SNAPSHOT_SCHEMA_VERSION ?? '1';
 
-export const syncCocktailDb = async (timer: Timer, rawContext: unknown): Promise<void> => {
-  const context = rawContext as { log: (message: string) => void };
+const syncCocktailDb = async (timer: Timer, context: InvocationContext): Promise<void> => {
   const start = Date.now();
   context.log(`[sync-cocktaildb] Starting synchronization at ${new Date().toISOString()}`);
 

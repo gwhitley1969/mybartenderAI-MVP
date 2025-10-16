@@ -2,11 +2,11 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status: OPERATIONAL ✅
+## 🚀 Current Status: MIGRATION IN PROGRESS ⚠️
 
-- **Backend**: Fully deployed on Azure Functions
-- **Database**: 621 cocktails synced from TheCocktailDB
-- **API**: Snapshot endpoint serving compressed cocktail data
+- **Backend**: Migrating to Azure Functions v4 (see [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md))
+- **Database**: PostgreSQL configured and ready
+- **API**: Functions not loading on Flex Consumption plan
 - **Mobile**: Flutter app ready to consume snapshots
 
 ## 📁 Project Structure

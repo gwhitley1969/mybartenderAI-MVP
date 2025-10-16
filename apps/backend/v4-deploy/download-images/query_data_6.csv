@@ -1,0 +1,42 @@
+﻿"timestamp [UTC]",message
+"10/16/2025, 12:52:23.219 PM","Host Status: {
+  ""id"": ""89782499987a25f70bdbb25708ef6142"",
+  ""state"": ""Running"",
+  ""version"": ""4.1043.200.2"",
+  ""versionDetails"": ""4.1043.200-dev.2.0+304019e5eaf5c763e104e3b0eec582b5de8034f8"",
+  ""platformVersion"": """",
+  ""instanceId"": ""0--6f5d1964-eb1e-4032-bc8f-9d0ffbcd6cfb"",
+  ""computerName"": """",
+  ""processUptime"": 546858,
+  ""functionAppContentEditingState"": ""NotAllowed"",
+  ""extensionBundle"": {
+    ""id"": ""Microsoft.Azure.Functions.ExtensionBundle"",
+    ""version"": ""4.27.1""
+  }
+}"
+"10/16/2025, 12:51:49.804 PM","0 functions loaded"
+"10/16/2025, 12:51:49.804 PM","0 functions found (Custom)"
+"10/16/2025, 12:51:49.803 PM","Reading functions metadata (Custom)"
+"10/16/2025, 12:51:49.802 PM","Loading functions metadata"
+"10/16/2025, 12:51:49.802 PM","0 functions loaded"
+"10/16/2025, 12:51:49.802 PM","0 functions found (Custom)"
+"10/16/2025, 12:51:49.802 PM","Reading functions metadata (Custom)"
+"10/16/2025, 12:51:49.801 PM","Loading functions metadata"
+"10/16/2025, 12:51:19.820 PM","0 functions loaded"
+"10/16/2025, 12:51:19.820 PM","0 functions found (Custom)"
+"10/16/2025, 12:51:19.820 PM","Reading functions metadata (Custom)"
+"10/16/2025, 12:51:19.819 PM","Loading functions metadata"
+"10/16/2025, 12:51:19.815 PM","ConcurrencyOptions
+{
+  ""DynamicConcurrencyEnabled"": false,
+  ""MaximumFunctionConcurrency"": 500,
+  ""CPUThreshold"": 0.8,
+  ""SnapshotPersistenceEnabled"": true
+}"
+"10/16/2025, 12:51:19.813 PM","0 functions loaded"
+"10/16/2025, 12:51:19.813 PM","0 functions found (Custom)"
+"10/16/2025, 12:51:19.813 PM","Reading functions metadata (Custom)"
+"10/16/2025, 12:51:19.812 PM","Loading functions metadata"
+"10/16/2025, 12:51:19.799 PM","Initializing function HTTP routes
+No HTTP routes mapped"
+"10/16/2025, 12:51:19.799 PM","No job functions found. Try making your job classes and methods public. If you're using binding extensions (e.g. Azure Storage, ServiceBus, Timers, etc.) make sure you've called the registration method for the extension(s) in your startup code (e.g. builder.AddAzureStorage(), builder.AddServiceBus(), builder.AddTimers(), etc.)."

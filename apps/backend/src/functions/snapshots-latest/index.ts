@@ -1,27 +1,30 @@
-import { getLatestSnapshotMetadata } from "../../services/snapshotMetadataService";
-import { generateSnapshotSas } from "../../services/snapshotStorageService";
+import { app, HttpRequest, HttpResponseInit, InvocationContext } from "@azure/functions";
+import { getLatestSnapshotMetadata } from "../../services/snapshotMetadataService.js";
+import { generateSnapshotSas } from "../../services/snapshotStorageService.js";
 
-const httpTrigger = async function (context: any, req: any): Promise<void> {
+async function snapshotsLatest(
+  request: HttpRequest,
+  context: InvocationContext
+): Promise<HttpResponseInit> {
   context.log('[snapshots/latest] Handling request.');
 
   const metadata = await getLatestSnapshotMetadata();
   if (!metadata) {
-    context.res = {
+    return {
       status: 503,
-      body: {
+      jsonBody: {
         code: 'snapshot_unavailable',
         message: 'No snapshot available yet.',
         traceId: context.invocationId,
       },
     };
-    return;
   }
 
   const signedUrl = generateSnapshotSas(metadata.blobPath);
 
-  context.res = {
+  return {
     status: 200,
-    body: {
+    jsonBody: {
       schemaVersion: metadata.schemaVersion,
       snapshotVersion: metadata.snapshotVersion,
       sizeBytes: metadata.sizeBytes,
@@ -31,6 +34,11 @@ const httpTrigger = async function (context: any, req: any): Promise<void> {
       counts: metadata.counts,
     },
   };
-};
+}
 
-export default httpTrigger;
+app.http('snapshots-latest', {
+  methods: ['GET'],
+  authLevel: 'anonymous',
+  route: 'v1/snapshots/latest',
+  handler: snapshotsLatest,
+});

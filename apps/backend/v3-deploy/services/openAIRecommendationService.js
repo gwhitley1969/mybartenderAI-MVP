@@ -89,6 +89,39 @@ class OpenAIRecommendationService {
             },
         };
     }
+    
+    async askBartender(params) {
+        const { message, context, systemPrompt, traceId } = params;
+        
+        const request = {
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: systemPrompt + (context || ''),
+                },
+                {
+                    role: 'user',
+                    content: message,
+                },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+        };
+        
+        const response = await this.client.chat.completions.create(request);
+        
+        const responseText = response.choices[0]?.message?.content || 'I apologize, but I couldn\'t process your request. Please try again.';
+        
+        return {
+            response: responseText,
+            usage: {
+                promptTokens: response.usage?.prompt_tokens || 0,
+                completionTokens: response.usage?.completion_tokens || 0,
+                totalTokens: response.usage?.total_tokens || 0,
+            },
+        };
+    }
 }
 exports.OpenAIRecommendationService = OpenAIRecommendationService;
 const extractTextFromResponse = (response) => {

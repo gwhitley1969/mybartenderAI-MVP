@@ -38,8 +38,14 @@ dependencies:
   freezed_annotation: ^2.4.1
   json_annotation: ^4.9.0
 
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
+  # Voice and audio
+  flutter_webrtc: ^0.9.47
+  permission_handler: ^11.3.0
+  record: ^5.0.4
+  audioplayers: ^5.2.1
+  web_socket_channel: ^2.4.0
+  
+  # UI
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

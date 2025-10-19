@@ -1,14 +1,35 @@
 # MyBartenderAI Deployment Status
 
-## Current Status: ✅ Snapshots API Working on Windows Consumption Plan
+## Current Status: ✅ All Functions Deployed to Windows Consumption Plan
 
 ### Summary
-After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. The snapshots-latest function is now operational.
+After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. All functions are now deployed and operational.
 
-### Working Endpoints
-- ✅ GET https://func-mba-fresh.azurewebsites.net/api/v1/snapshots/latest
-  - Returns cocktail database snapshot metadata with signed download URL
-  - Current snapshot: version 20251014.202149 (621 drinks)
+### Deployed Functions
+
+1. ✅ **GET /api/health**
+   - Health check endpoint
+   - Status: Working
+
+2. ✅ **GET /api/v1/snapshots/latest**
+   - Returns cocktail database snapshot metadata with signed download URL
+   - Current snapshot: version 20251014.202149 (621 drinks)
+   - Status: Working
+
+3. ✅ **POST /api/v1/recommend**
+   - AI-powered cocktail recommendations
+   - Requires: Function key + JWT authentication
+   - Status: Deployed (needs testing)
+
+4. ✅ **POST /api/v1/admin/download-images**
+   - Downloads cocktail images to Azure Blob Storage
+   - Requires: Admin key
+   - Status: Deployed (needs testing)
+
+5. ✅ **Timer: sync-cocktaildb**
+   - Runs daily at 3:30 AM UTC
+   - Syncs cocktail data and creates snapshots
+   - Status: Deployed (needs manual trigger for initial sync)
 
 ### Deployment Journey
 

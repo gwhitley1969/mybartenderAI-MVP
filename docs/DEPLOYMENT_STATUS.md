@@ -3,12 +3,30 @@
 ## Current Status: ✅ Snapshots API Working on Windows Consumption Plan
 
 ### Summary
-Successfully deployed `snapshots-latest` function to `func-mba-fresh` (Windows Consumption plan) using Azure Functions v3 SDK patterns.
+After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. The snapshots-latest function is now operational.
 
 ### Working Endpoints
 - ✅ GET https://func-mba-fresh.azurewebsites.net/api/v1/snapshots/latest
   - Returns cocktail database snapshot metadata with signed download URL
   - Current snapshot: version 20251014.202149 (621 drinks)
+
+### Deployment Journey
+
+#### Phase 1: v4 Migration Attempt (func-cocktaildb2 - Flex Consumption)
+- Attempted to migrate to Azure Functions v4 SDK for Flex Consumption plan
+- Resolved initial issues:
+  - Fixed GitHub Actions to deploy correct folder
+  - Implemented lazy initialization for services using Key Vault references
+  - Fixed import paths and removed v3 artifacts
+- Result: Functions briefly worked but subsequent deployments failed with "0 functions loaded"
+
+#### Phase 2: Revert to Windows Consumption (func-mba-fresh)
+- Created new Windows Consumption plan function app
+- Discovered that Windows Consumption with runtime v4 requires v3 SDK patterns
+- Key fixes:
+  - Each function needs `function.json` with bindings
+  - Use `module.exports = async function(context, req)` pattern
+  - Output binding name must match code usage (res vs $return)
 
 ### Key Learnings
 
@@ -23,9 +41,10 @@ Successfully deployed `snapshots-latest` function to `func-mba-fresh` (Windows C
    - Response is set via `context.res = { status, body }`
    - Output binding name in function.json must match code (e.g., "res" not "$return")
 
-3. **Deployment Method**:
-   - Using `az functionapp deployment source config-zip` for reliable deployments
-   - Avoids "dirty deployment" issues from residual files
+3. **Deployment Best Practices**:
+   - Use `az functionapp deployment source config-zip` for reliable deployments
+   - Avoid "dirty deployment" issues from residual files
+   - Test functions work locally before deploying
 
 ### Next Steps
 
@@ -68,3 +87,8 @@ func azure functionapp publish func-mba-fresh --javascript
 # Or using zip deployment
 az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --src deployment.zip
 ```
+
+### Resources
+- [Azure Functions v3 to v4 Migration](https://learn.microsoft.com/en-us/azure/azure-functions/functions-node-upgrade-v4)
+- [Azure Functions Hosting Plans](https://learn.microsoft.com/en-us/azure/azure-functions/functions-scale)
+- [Function.json Reference](https://learn.microsoft.com/en-us/azure/azure-functions/functions-bindings-http-webhook-trigger?tabs=javascript)

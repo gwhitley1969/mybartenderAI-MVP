@@ -1,0 +1,3 @@
+﻿"timestamp [UTC]",message,severityLevel
+"10/16/2025, 12:04:46.095 PM","Executed 'Functions.snapshots-latest' (Failed, Id=1de17a7c-2f3e-40c3-aa8f-4cd3e1ad9de9, Duration=1ms)",3
+"10/16/2025, 12:04:46.094 PM","Executing 'Functions.snapshots-latest' (Reason='This function was programmatically called via the host APIs.', Id=1de17a7c-2f3e-40c3-aa8f-4cd3e1ad9de9)",1

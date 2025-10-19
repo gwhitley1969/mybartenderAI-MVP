@@ -1,111 +1,129 @@
 # MyBartenderAI Backend
 
-Azure Functions backend for the MyBartenderAI application.
+Azure Functions backend for MyBartenderAI, providing cocktail data synchronization and AI-powered recommendations.
 
-## Status: OPERATIONAL ✅
+## Current Status
 
-All functions are deployed and working on Azure Functions (Windows Consumption Plan).
+⚠️ **Migration in Progress**: Migrating from v3 to v4 SDK for Flex Consumption plan compatibility. See [DEPLOYMENT_STATUS.md](../../docs/DEPLOYMENT_STATUS.md) for details.
+
+## Architecture
+
+- **Runtime**: Node.js 18 LTS
+- **Framework**: Azure Functions v4 SDK
+- **Language**: TypeScript
+- **Database**: Azure PostgreSQL
+- **Storage**: Azure Blob Storage
+- **AI**: OpenAI GPT-4
 
 ## Functions
 
-### 1. `snapshots-latest` (HTTP Trigger)
-- **Endpoint**: GET `/api/v1/snapshots/latest`
-- **Purpose**: Returns metadata and signed URL for the latest cocktail database snapshot
-- **Response**: JSON with snapshot version, size, hash, and download URL
+### HTTP Triggers
 
-### 2. `sync-cocktaildb` (Timer Trigger)
-- **Schedule**: Daily at 3:30 AM UTC
-- **Purpose**: Syncs cocktail data from TheCocktailDB API to PostgreSQL and creates snapshots
-- **Process**:
-  1. Fetches all cocktails from TheCocktailDB V2 API
-  2. Normalizes and stores in PostgreSQL
-  3. Builds compressed JSON snapshot
-  4. Uploads to Azure Blob Storage
-  5. Records metadata for retrieval
+1. **snapshots-latest** (`GET /api/v1/snapshots/latest`)
+   - Returns latest cocktail database snapshot metadata
+   - Public endpoint (anonymous auth)
 
-### 3. `recommend` (HTTP Trigger) [Coming Soon]
-- **Endpoint**: POST `/api/v1/cocktails/recommend`
-- **Purpose**: AI-powered cocktail recommendations
+2. **recommend** (`POST /api/v1/recommend`)
+   - AI-powered cocktail recommendations
+   - Requires function key authentication
 
-## Architecture Decisions
+3. **download-images** (`POST /api/admin/download-images`)
+   - Downloads cocktail images to Azure Blob Storage
+   - Admin authentication required
 
-### JSON Snapshots (ADR-0014)
-- Replaced SQLite with JSON snapshots to avoid native module dependencies
-- Uses built-in gzip compression (no native modules)
-- Mobile app imports JSON into local SQLite
-- Reliable cross-platform deployment
+### Timer Triggers
 
-### Technology Stack
-- **Runtime**: Node.js 20 LTS
-- **Azure Functions**: v3 SDK (CommonJS)
-- **Database**: PostgreSQL (Azure Database for PostgreSQL)
-- **Storage**: Azure Blob Storage
-- **Compression**: gzip (built-in Node.js)
+1. **sync-cocktaildb** (`0 30 3 * * *` - Daily at 3:30 AM)
+   - Fetches cocktail data from TheCocktailDB API
+   - Builds compressed JSON snapshot
+   - Uploads to Azure Blob Storage
 
-## Development
+## Local Development
 
-### Prerequisites
-- Node.js 20+
-- Azure Functions Core Tools v4
-- Azure CLI
-
-### Local Development
 ```bash
 # Install dependencies
 npm install
 
-# Build TypeScript (Note: Will show errors due to v4 imports in source)
+# Set up local.settings.json (copy from template)
+cp local.settings.template.json local.settings.json
+
+# Build TypeScript
 npm run build
 
-# Run locally (requires local.settings.json)
-func start
+# Start Functions locally
+npm start
 ```
 
-### Environment Variables
-Create `local.settings.json` (not committed):
-```json
-{
-  "IsEncrypted": false,
-  "Values": {
-    "AzureWebJobsStorage": "...",
-    "FUNCTIONS_WORKER_RUNTIME": "node",
-    "PG_CONNECTION_STRING": "postgresql://...",
-    "BLOB_STORAGE_CONNECTION_STRING": "...",
-    "COCKTAILDB-API-KEY": "...",
-    "OPENAI_API_KEY": "..."
-  }
-}
-```
+## Environment Variables
+
+Required settings in Azure:
+- `PG_CONNECTION_STRING`: PostgreSQL connection
+- `BLOB_STORAGE_CONNECTION_STRING`: Azure Storage connection
+- `COCKTAILDB-API-KEY`: TheCocktailDB API key
+- `OPENAI_API_KEY`: OpenAI API key (in Key Vault)
 
 ## Deployment
 
-### Manual Deployment
+### Current Deployment Target
+- **Function App**: func-cocktaildb2
+- **Plan**: Flex Consumption (Linux)
+- **Region**: South Central US
+
+### Deploy Command
 ```bash
-# From apps/backend directory
-cd deploy
-Compress-Archive -Path * -DestinationPath ../deploy.zip -Force
-az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --src ../deploy.zip
+cd apps/backend/v4-deploy
+func azure functionapp publish func-cocktaildb2 --javascript --nozip
 ```
-
-### CI/CD
-GitHub Actions workflows are configured but not yet enabled:
-- `.github/workflows/backend-test.yml` - Runs tests on PR
-- `.github/workflows/backend-deploy.yml` - Deploys on push to main
-
-## Monitoring
-
-- **Application Insights**: Available in Azure Portal
-- **Function Logs**: Use KQL queries in Log Analytics
-- **Smoke Test**: Run `.\smoke-check.ps1` from repo root
 
 ## Known Issues
 
-None - all systems operational ✅
+1. **Functions Not Loading**: Despite clean v4 structure, Azure Functions host reports "0 functions loaded"
+2. **Module Resolution**: Had to fix import paths from `../../../` to `../`
+3. **v3/v4 Conflicts**: Removed all function.json files and export statements
 
-## Future Enhancements
+## Directory Structure
 
-1. Move API key to Key Vault reference
-2. Enable GitHub Actions CI/CD
-3. Add comprehensive test coverage
-4. Implement recommend endpoint
-5. Configure Azure Front Door for image CDN
+```
+v4-deploy/                    # Clean v4 deployment folder
+├── index.js                 # Main entry point
+├── package.json            # With "main": "index.js"
+├── host.json              # Azure Functions host config
+├── [function-name]/       # Each function in its folder
+│   └── index.js          # Function implementation
+├── services/             # Business logic
+├── shared/              # Shared utilities
+└── config/             # Configuration
+```
+
+## Troubleshooting
+
+### Check Function Status
+```bash
+func azure functionapp list-functions func-cocktaildb2
+```
+
+### View Logs
+```bash
+az webapp log tail --name func-cocktaildb2 --resource-group rg-mba-prod
+```
+
+### Application Insights Queries
+```kql
+// Check if functions are loading
+traces
+| where timestamp > ago(5m)
+| where message contains "functions loaded"
+| project timestamp, message
+
+// View exceptions
+exceptions
+| where timestamp > ago(10m)
+| project timestamp, outerMessage, details
+```
+
+## Next Steps
+
+1. Get external review of v4 migration
+2. Resolve function discovery issue
+3. Test all endpoints once functions load
+4. Implement image sync in sync-cocktaildb

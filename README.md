@@ -2,11 +2,11 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status: OPERATIONAL ✅
+## 🚀 Current Status: DEPLOYMENT IN PROGRESS ⚠️
 
-- **Backend**: Fully deployed on Azure Functions
-- **Database**: 621 cocktails synced from TheCocktailDB
-- **API**: Snapshot endpoint serving compressed cocktail data
+- **Backend**: Migrating to Azure Functions v4 Flex Consumption plan
+- **Database**: PostgreSQL configured and operational
+- **API**: Troubleshooting module loading issues (see [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md))
 - **Mobile**: Flutter app ready to consume snapshots
 
 ## 📁 Project Structure
@@ -24,10 +24,11 @@ mybartenderAI-MVP/
 
 ## 🏗️ Architecture
 
-- **Backend**: Azure Functions v3 (Node.js 20, Windows Consumption Plan)
+- **Backend**: Azure Functions v4 (Node.js 20, Linux Flex Consumption Plan)
 - **Database**: PostgreSQL (Azure Database for PostgreSQL)
-- **Storage**: Azure Blob Storage for snapshot files
+- **Storage**: Azure Blob Storage for snapshots and images
 - **Mobile**: Flutter with local SQLite for offline access
+- **Security**: Azure Key Vault for secrets management
 - **AI**: OpenAI GPT-4.1 for cocktail recommendations
 
 ## 🔧 Quick Start
@@ -49,7 +50,7 @@ flutter run
 
 ### Smoke Test
 ```powershell
-.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-mba-fresh
+.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-cocktaildb2
 ```
 
 ## 📚 Documentation
@@ -71,11 +72,12 @@ flutter run
 1. ✅ Core backend infrastructure
 2. ✅ Database synchronization 
 3. ✅ Snapshot generation and delivery
-4. 🚧 Azure Front Door for image CDN
-5. 📱 Mobile app integration
-6. 🤖 AI recommendation engine
-7. 🎙️ Voice interaction features
-8. 📸 Vision AI for bottle recognition
+4. ✅ Image hosting in Azure Blob Storage (US)
+5. 🚧 Local image storage and delta sync for mobile
+6. 📱 Mobile app integration
+7. 🤖 AI recommendation engine
+8. 🎙️ Voice interaction features
+9. 📸 Vision AI for bar inventory recognition
 
 ## 🤝 Contributing
 

@@ -66,7 +66,7 @@ flutter run
 - **AI Recommendations**: Personalized suggestions based on inventory
 - **Tiered Access**: Free, Premium, and Pro subscription levels
 - **Privacy Focused**: No PII stored for free tier users
-- **Secure Storage**: All blob operations use Managed Identity (no SAS keys)
+- **Secure Storage**: Application code uses Managed Identity for all data operations
 
 ## 🔮 Roadmap
 

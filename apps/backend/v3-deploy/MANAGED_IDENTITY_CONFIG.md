@@ -1,11 +1,11 @@
-# Managed Identity Configuration for Azure Functions with SAS Disabled
+# Managed Identity Configuration for Azure Functions
 
-## Current Status
-With SAS disabled on the storage account, the Function App needs specific configuration to use Managed Identity.
+## Current Status (Updated 2025-10-20)
+**IMPORTANT UPDATE**: We had to re-enable SAS on the storage account due to Windows Consumption plan limitations. While the application code uses Managed Identity for all data operations, the Azure Functions runtime requires SAS for mounting the file share where the code is deployed.
 
 ## Required Configuration for Windows Consumption Plan
 
-For Windows Consumption plan with SAS disabled, you need to configure the following in the Azure Portal:
+For Windows Consumption plan, you need to configure the following in the Azure Portal:
 
 ### 1. Storage Account Configuration
 In the Function App Configuration settings, add/update:
@@ -42,6 +42,9 @@ Since the Function App has a System-Assigned Identity, you might need to:
 
 ## Note on Windows Consumption Plan Limitations
 
-Windows Consumption plans have limitations with Managed Identity for file shares. If the Function App still doesn't start, you may need to:
-- Consider migrating to a Premium plan
-- Or temporarily re-enable SAS for the storage account until Microsoft fully supports MI on Consumption plans
+Windows Consumption plans have limitations with Managed Identity for file shares. 
+
+**Update (2025-10-20)**: We had to re-enable SAS on the storage account for the Function App to work properly. This is a known limitation of Windows Consumption plans. The important distinction is:
+- The Azure Functions runtime uses SAS for mounting the file share (platform requirement)
+- All application code uses Managed Identity for data operations (our implementation)
+- This provides the best balance of functionality and security given the platform constraints

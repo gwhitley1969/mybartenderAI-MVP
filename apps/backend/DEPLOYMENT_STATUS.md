@@ -1,6 +1,6 @@
 # Backend Deployment Status
 
-**Last Updated:** 2025-10-20 (MANAGED IDENTITY MIGRATION ✅)
+**Last Updated:** 2025-10-20 (MANAGED IDENTITY MIGRATION WITH SAS RE-ENABLED ✅)
 
 ## ✅ Working Infrastructure
 
@@ -15,9 +15,10 @@
   - User: `pgadmin`
   - Schema: All tables created (drinks, ingredients, snapshot_metadata, etc.)
   
-- **Blob Storage:** `mbacocktaildb3` (SAS disabled, MI-only)
+- **Blob Storage:** `mbacocktaildb3` (SAS re-enabled for Function App runtime)
   - Containers: `snapshots`, `drink-images`
   - Using User-Assigned Managed Identity: `func-cocktaildb2-uami`
+  - Note: SAS had to be re-enabled due to Windows Consumption plan limitations
 
 - **Key Vault:** `kv-mybartenderai-prod` (in rg-mba-dev)
   - Secrets: COCKTAILDB-API-KEY, OpenAI
@@ -144,11 +145,14 @@ Invoke-RestMethod -Uri "https://func-mba-fresh.azurewebsites.net/api/v1/snapshot
    - All functions updated to use MI services
 
 3. **Storage Configuration**
-   - Storage account: `mbacocktaildb3` (SAS disabled)
+   - Storage account: `mbacocktaildb3` (SAS re-enabled)
    - User-Assigned MI: `func-cocktaildb2-uami`
    - Required RBAC roles assigned
 
-### Platform Limitations
+### Platform Limitations & SAS Re-enablement
 - Windows Consumption plans require a connection string for `WEBSITE_CONTENTAZUREFILECONNECTIONSTRING`
 - This is where the Function App code is deployed (Azure Files)
 - Cannot use MI for this specific setting on Windows Consumption
+- **IMPORTANT**: We had to re-enable SAS on the storage account `mbacocktaildb3` for the Function App to work
+- The application code still uses Managed Identity for all data operations
+- SAS is only used by Azure infrastructure for deployment and runtime file access

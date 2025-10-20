@@ -62,7 +62,7 @@ sequenceDiagram
 - **Replaced**: SQLite generation with JSON snapshots (pure JavaScript)
 - **Compression**: gzip instead of zstd (built-in, no dependencies)
 - **Images**: Downloaded from TheCocktailDB (UK) to Azure Blob Storage (US), then bundled for mobile app installation/updates
-- **Access**: Managed Identity with User Delegation SAS for client access
+- **Access**: Managed Identity with User Delegation SAS for client access (Note: SAS re-enabled for Function App runtime only)
 
 ### Components
 - **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC)

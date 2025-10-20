@@ -55,6 +55,7 @@ Deployment
 
 - AC1: Nightly timer run produces a new snapshot when upstream data changed; otherwise reuses last `snapshotVersion`.
 - AC2: `GET /v1/snapshots/latest` returns 200 with valid `signedUrl` (User Delegation SAS via Managed Identity ≤ 15 min expiry) and correct `sha256`.
+  - Note: Storage account has SAS re-enabled for Function App runtime (platform requirement)
 - AC3: A clean mobile install downloads snapshot, verifies `sha256`, stores DB to app documents, and queries locally with <100ms p95 for lookups.
 - AC4: Sync handles partial upstream failures with retry/backoff and leaves last good snapshot intact.
 - AC5: Logs contain `runId`, counts, and durations; **no secrets or PII**.

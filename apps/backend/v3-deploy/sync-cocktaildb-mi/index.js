@@ -1,7 +1,7 @@
 const { CocktailDbClient } = require('../services/cocktailDbClient');
 const { syncCocktailCatalog } = require('../services/cocktailDbSyncService');
 const { buildJsonSnapshot } = require('../services/jsonSnapshotBuilder');
-const { uploadSnapshotArtifacts } = require('../services/snapshotStorageServiceMI');
+const { uploadSnapshotArtifacts } = require('../services/snapshotStorageServiceMI'); // Use MI version
 const { recordSnapshotMetadata } = require('../services/snapshotMetadataService');
 
 const formatSnapshotVersion = (date) => {
@@ -12,29 +12,29 @@ const formatSnapshotVersion = (date) => {
 };
 
 const getCocktailApiKey = async (context, maxRetries = 5) => {
-    for (let i = 0; i < maxRetries; i++) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
         const value = process.env['COCKTAILDB-API-KEY'];
-        if (value) {
+        if (value && !value.startsWith('@Microsoft.KeyVault')) {
             return value;
         }
         
-        if (i < maxRetries - 1) {
-            context.log(`[sync-cocktaildb] Waiting for COCKTAILDB-API-KEY to be available from Key Vault (attempt ${i + 1}/${maxRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        if (attempt < maxRetries) {
+            context.log(`[sync-cocktaildb-mi] Waiting for Key Vault reference to resolve (attempt ${attempt}/${maxRetries})...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
     }
     
-    throw new Error('COCKTAILDB-API-KEY environment variable is required but not available after retries.');
+    throw new Error('COCKTAILDB-API-KEY environment variable is required or Key Vault reference did not resolve.');
 };
 
 const SCHEMA_VERSION = process.env.SNAPSHOT_SCHEMA_VERSION || '1';
 
 module.exports = async function (context, myTimer) {
     const start = Date.now();
-    context.log(`[sync-cocktaildb] Starting synchronization at ${new Date().toISOString()}`);
+    context.log(`[sync-cocktaildb-mi] Starting synchronization with Managed Identity at ${new Date().toISOString()}`);
     
     if (myTimer.isPastDue) {
-        context.log('[sync-cocktaildb] Timer trigger is past due!');
+        context.log('[sync-cocktaildb-mi] Timer trigger is past due!');
     }
     
     try {
@@ -44,18 +44,19 @@ module.exports = async function (context, myTimer) {
         
         // Fetch cocktail catalog
         const drinks = await client.fetchCatalog();
-        context.log(`[sync-cocktaildb] Retrieved ${drinks.length} drinks.`);
+        context.log(`[sync-cocktaildb-mi] Retrieved ${drinks.length} drinks.`);
         
         // Sync to PostgreSQL
         const counts = await syncCocktailCatalog(drinks);
-        context.log('[sync-cocktaildb] Normalized data into PostgreSQL tables.');
+        context.log('[sync-cocktaildb-mi] Normalized data into PostgreSQL tables.');
         
         // Build snapshot
         const snapshotVersion = formatSnapshotVersion(new Date());
         const snapshot = await buildJsonSnapshot();
-        context.log('[sync-cocktaildb] Built JSON snapshot.');
+        context.log('[sync-cocktaildb-mi] Built JSON snapshot.');
         
-        // Upload to blob storage
+        // Upload to blob storage using Managed Identity
+        context.log('[sync-cocktaildb-mi] Uploading snapshot using Managed Identity...');
         const uploadResult = await uploadSnapshotArtifacts({
             schemaVersion: SCHEMA_VERSION,
             snapshotVersion,
@@ -74,11 +75,18 @@ module.exports = async function (context, myTimer) {
             createdAtUtc: new Date().toISOString(),
         });
         
-        context.log(`[sync-cocktaildb] Completed in ${Date.now() - start}ms; snapshot=${uploadResult.blobPath}`);
+        context.log(`[sync-cocktaildb-mi] Completed in ${Date.now() - start}ms; snapshot=${uploadResult.blobPath}`);
+        context.log('[sync-cocktaildb-mi] Successfully used Managed Identity for blob storage operations.');
         
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        context.log.error(`[sync-cocktaildb] Failed: ${message}`);
+        context.log.error(`[sync-cocktaildb-mi] Sync failed: ${message}`);
+        
+        // Log specific MI-related errors
+        if (message.includes('DefaultAzureCredential') || message.includes('ManagedIdentityCredential')) {
+            context.log.error('[sync-cocktaildb-mi] Managed Identity authentication failed. Ensure the identity has proper roles assigned.');
+        }
+        
         throw error;
     }
 };

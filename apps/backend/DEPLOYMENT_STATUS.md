@@ -1,6 +1,6 @@
 # Backend Deployment Status
 
-**Last Updated:** 2025-10-14 (FULLY OPERATIONAL ✅)
+**Last Updated:** 2025-10-20 (MANAGED IDENTITY MIGRATION ✅)
 
 ## ✅ Working Infrastructure
 
@@ -15,8 +15,9 @@
   - User: `pgadmin`
   - Schema: All tables created (drinks, ingredients, snapshot_metadata, etc.)
   
-- **Blob Storage:** `cocktaildbfun`
-  - Container: `snapshots`
+- **Blob Storage:** `mbacocktaildb3` (SAS disabled, MI-only)
+  - Containers: `snapshots`, `drink-images`
+  - Using User-Assigned Managed Identity: `func-cocktaildb2-uami`
 
 - **Key Vault:** `kv-mybartenderai-prod` (in rg-mba-dev)
   - Secrets: COCKTAILDB-API-KEY, OpenAI
@@ -37,10 +38,11 @@
 ### Environment Variables Configured
 ```
 PG_CONNECTION_STRING=postgresql://pgadmin:[PASSWORD]@pg-mybartenderdb.postgres.database.azure.com:5432/mybartender?sslmode=require
-BLOB_STORAGE_CONNECTION_STRING=[CONFIGURED]
+STORAGE_ACCOUNT_NAME=mbacocktaildb3
+AZURE_CLIENT_ID=94d9cf74-99a3-49d5-9be4-98ce2eae1d33
 SNAPSHOT_CONTAINER_NAME=snapshots
 SNAPSHOT_SCHEMA_VERSION=1
-SNAPSHOT_SAS_TTL_MINUTES=15
+SNAPSHOT_SAS_TTL_MINUTES=15  # For User Delegation SAS via Managed Identity
 PROMPT_SYSTEM_VERSION=2025-10-08
 MONTHLY_TOKEN_LIMIT=200000
 COCKTAILDB-API-KEY=961249867 (V2 API - set directly)
@@ -127,3 +129,26 @@ Invoke-RestMethod -Uri "https://func-mba-fresh.azurewebsites.net/api/v1/snapshot
 ```powershell
 .\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-mba-fresh
 ```
+
+## Managed Identity Migration Details (2025-10-20)
+
+### What Changed
+1. **Removed all SAS-based code**
+   - Deleted `snapshotStorageService.js` (used storage account keys)
+   - Deleted `imageDownloadService.js` (used connection strings)
+   - Removed all `StorageSharedKeyCredential` usage
+
+2. **Implemented MI-based services**
+   - `snapshotStorageServiceMI.js` - Uses User Delegation SAS via MI
+   - `imageDownloadServiceMI.js` - Uses MI for blob operations
+   - All functions updated to use MI services
+
+3. **Storage Configuration**
+   - Storage account: `mbacocktaildb3` (SAS disabled)
+   - User-Assigned MI: `func-cocktaildb2-uami`
+   - Required RBAC roles assigned
+
+### Platform Limitations
+- Windows Consumption plans require a connection string for `WEBSITE_CONTENTAZUREFILECONNECTIONSTRING`
+- This is where the Function App code is deployed (Azure Files)
+- Cannot use MI for this specific setting on Windows Consumption

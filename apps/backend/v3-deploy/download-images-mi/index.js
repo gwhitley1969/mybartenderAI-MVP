@@ -1,5 +1,5 @@
 const { getPool } = require('../shared/db/postgresPool');
-const { batchDownloadImages } = require('../services/imageDownloadServiceMI');
+const { batchDownloadImages } = require('../services/imageDownloadServiceMI'); // Use MI version
 
 module.exports = async function (context, req) {
     context.log('[download-images-mi] Starting image download process with Managed Identity');

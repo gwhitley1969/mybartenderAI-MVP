@@ -54,7 +54,7 @@ Deployment
 **Acceptance criteria**
 
 - AC1: Nightly timer run produces a new snapshot when upstream data changed; otherwise reuses last `snapshotVersion`.
-- AC2: `GET /v1/snapshots/latest` returns 200 with valid `signedUrl` (SAS ≤ 15 min expiry) and correct `sha256`.
+- AC2: `GET /v1/snapshots/latest` returns 200 with valid `signedUrl` (User Delegation SAS via Managed Identity ≤ 15 min expiry) and correct `sha256`.
 - AC3: A clean mobile install downloads snapshot, verifies `sha256`, stores DB to app documents, and queries locally with <100ms p95 for lookups.
 - AC4: Sync handles partial upstream failures with retry/backoff and leaves last good snapshot intact.
 - AC5: Logs contain `runId`, counts, and durations; **no secrets or PII**.
@@ -73,7 +73,7 @@ Deployment
 **Acceptance criteria**
 
 - AC1: Nightly timer run detects upstream changes and produces a **new `snapshotVersion`**; otherwise reuses last good snapshot.
-- AC2: `GET /v1/snapshots/latest` returns 200 with valid **SAS URL** expiring ≤ 15 minutes and a **sha256** that matches the uploaded artifact.
+- AC2: `GET /v1/snapshots/latest` returns 200 with valid **User Delegation SAS URL** (via Managed Identity) expiring ≤ 15 minutes and a **sha256** that matches the uploaded artifact.
 - AC3: Clean app install downloads, verifies sha256, and opens SQLite with **sqflite**; local search (by name/ingredient) p95 < 100 ms.
 - AC4: If CocktailDB returns 429/5xx, the run retries with **exponential backoff + jitter** and preserves last good snapshot.
 - AC5: Logs include `runId`, counts, durations; **no secrets** (key/URLs) anywhere.
@@ -134,7 +134,7 @@ Deployment
 
 **Happy path**
 
-- App obtains SAS (`GET /v1/uploads/images/sas`), uploads to Blob, calls `POST /v1/vision/scan-bottle` with blobUrl, polls `GET /v1/vision/scan-bottle?requestId=…` until status=done and gets detected items.
+- App obtains User Delegation SAS via Managed Identity (`GET /v1/uploads/images/sas`), uploads to Blob, calls `POST /v1/vision/scan-bottle` with blobUrl, polls `GET /v1/vision/scan-bottle?requestId=…` until status=done and gets detected items.
 
 **Errors**
 
@@ -179,7 +179,7 @@ Cost
 
 - [ ] Scaffold Functions in `/apps/backend` with handlers for all `/v1` paths.
 - [ ] Add data layer for **Azure PostgreSQL** (pooled connections; SQL migrations with Flyway/Liquibase).
-- [ ] Add **Blob SAS** generation function and storage bindings.
+- [ ] Add **User Delegation SAS** generation via Managed Identity for Blob storage access.
 - [ ] Integrate **Azure OpenAI** in `/v1/assistant/generate` with output schema guard.
 - [ ] Add **Application Insights**; correlation of `traceId` from header.
 

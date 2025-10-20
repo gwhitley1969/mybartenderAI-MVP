@@ -4,10 +4,10 @@ AI-powered bartender app that helps users discover and create cocktails based on
 
 ## 🚀 Current Status: DEPLOYMENT IN PROGRESS ⚠️
 
-- **Backend**: Migrating to Azure Functions v4 Flex Consumption plan
+- **Backend**: Migrating to Azure Functions v3 Windows Consumption Plan
 - **Database**: PostgreSQL configured and operational
 - **API**: Troubleshooting module loading issues (see [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md))
-- **Mobile**: Flutter app ready to consume snapshots
+- **Mobile**: Flutter app ready to consume snapshots with SQLite
 
 ## 📁 Project Structure
 
@@ -24,12 +24,12 @@ mybartenderAI-MVP/
 
 ## 🏗️ Architecture
 
-- **Backend**: Azure Functions v4 (Node.js 20, Linux Flex Consumption Plan)
+- **Backend**: Azure Functions v4 (Node.js 20, Windows Consumption Plan)
 - **Database**: PostgreSQL (Azure Database for PostgreSQL)
 - **Storage**: Azure Blob Storage for snapshots and images
 - **Mobile**: Flutter with local SQLite for offline access
 - **Security**: Azure Key Vault for secrets management
-- **AI**: OpenAI GPT-4.1 for cocktail recommendations
+- **AI**: OpenAI GPT-4.1-mini for cocktail recommendations
 
 ## 🔧 Quick Start
 
@@ -50,7 +50,7 @@ flutter run
 
 ### Smoke Test
 ```powershell
-.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-cocktaildb2
+.\smoke-check.ps1 -ResourceGroup rg-mba-prod -FunctionApp func-mba-fresh
 ```
 
 ## 📚 Documentation
@@ -66,6 +66,7 @@ flutter run
 - **AI Recommendations**: Personalized suggestions based on inventory
 - **Tiered Access**: Free, Premium, and Pro subscription levels
 - **Privacy Focused**: No PII stored for free tier users
+- **Secure Storage**: All blob operations use Managed Identity (no SAS keys)
 
 ## 🔮 Roadmap
 

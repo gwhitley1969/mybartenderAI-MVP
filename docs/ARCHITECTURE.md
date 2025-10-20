@@ -62,7 +62,7 @@ sequenceDiagram
 - **Replaced**: SQLite generation with JSON snapshots (pure JavaScript)
 - **Compression**: gzip instead of zstd (built-in, no dependencies)
 - **Images**: Downloaded from TheCocktailDB (UK) to Azure Blob Storage (US), then bundled for mobile app installation/updates
-- **Access**: RBAC-based (Managed Identity) - no SAS tokens
+- **Access**: Managed Identity with User Delegation SAS for client access
 
 ### Components
 - **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC)
@@ -112,7 +112,8 @@ sequenceDiagram
 ### Authentication & Access
 - JWT authentication for API endpoints
 - Azure Managed Identity (RBAC) for all service-to-service access
-- RBAC-based blob access (no SAS tokens)
+- Managed Identity for all storage operations
+- User Delegation SAS (via MI) for temporary client access
 - Function keys for admin endpoints
 
 ### PII Policy

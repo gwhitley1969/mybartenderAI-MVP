@@ -1,5 +1,5 @@
 const { getLatestSnapshotMetadata } = require('../services/snapshotMetadataService');
-const { generateSnapshotSas } = require('../services/snapshotStorageService');
+const { generateSnapshotSas } = require('../services/snapshotStorageServiceMI');
 
 module.exports = async function (context, req) {
     context.log('[snapshots/latest] Handling request.');
@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
             return;
         }
         
-        const signedUrl = generateSnapshotSas(metadata.blobPath);
+        const signedUrl = await generateSnapshotSas(metadata.blobPath);
         
         context.res = {
             status: 200,

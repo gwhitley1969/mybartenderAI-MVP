@@ -45,4 +45,3 @@ const getLatestSnapshotMetadata = async () => {
     };
 };
 exports.getLatestSnapshotMetadata = getLatestSnapshotMetadata;
-

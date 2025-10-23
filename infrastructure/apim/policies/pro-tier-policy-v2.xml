@@ -1,0 +1,81 @@
+<!--
+  Pro Tier Policy for MyBartenderAI ($9.99/month)
+  - Daily quota: 10,000 calls per day (abuse prevention)
+  - Rate limit: 50 calls per minute
+  - Features: Unlimited AI, Voice (5 hours/month), Vision (50 scans/month)
+  - Highest priority routing
+  - Dedicated support
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Rate limiting: 50 calls per minute (abuse prevention) -->
+        <rate-limit calls="50" renewal-period="60" />
+
+        <!-- Daily quota: 10,000 calls per day -->
+        <quota calls="10000" renewal-period="86400" />
+
+        <!-- Add tier information -->
+        <set-header name="X-User-Tier" exists-action="override">
+            <value>pro</value>
+        </set-header>
+
+        <!-- Add priority flag for backend -->
+        <set-header name="X-Priority-User" exists-action="override">
+            <value>true</value>
+        </set-header>
+
+        <!-- Add correlation ID if not present -->
+        <choose>
+            <when condition="@(!context.Request.Headers.ContainsKey("X-Correlation-Id"))">
+                <set-header name="X-Correlation-Id" exists-action="override">
+                    <value>@(Guid.NewGuid().ToString())</value>
+                </set-header>
+            </when>
+        </choose>
+
+        <!-- Forward to backend -->
+        <set-backend-service base-url="https://func-mba-fresh.azurewebsites.net/api" />
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+
+        <!-- Add tier information to response headers -->
+        <set-header name="X-User-Tier" exists-action="override">
+            <value>pro</value>
+        </set-header>
+
+        <!-- Add rate limit headers -->
+        <set-header name="X-Rate-Limit-Limit" exists-action="override">
+            <value>10000</value>
+        </set-header>
+
+        <!-- Add Pro tier indicator -->
+        <set-header name="X-Pro-Tier" exists-action="override">
+            <value>true</value>
+        </set-header>
+    </outbound>
+
+    <on-error>
+        <base />
+
+        <!-- Custom error response -->
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+            return new JObject(
+                new JProperty("code", context.LastError.Source),
+                new JProperty("message", context.LastError.Message),
+                new JProperty("traceId", context.RequestId),
+                new JProperty("support", "For Pro tier support, contact support@mybartenderai.com")
+            ).ToString();
+        }</set-body>
+    </on-error>
+</policies>

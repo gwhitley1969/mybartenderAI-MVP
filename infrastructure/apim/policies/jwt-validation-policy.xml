@@ -1,0 +1,86 @@
+<!--
+  JWT Validation Policy for Microsoft Entra External ID (Azure AD B2C)
+  Apply this policy at the API level for endpoints requiring authentication
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Validate JWT token from Azure AD B2C -->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Valid JWT token required.">
+
+            <!-- OpenID Connect discovery URL for your B2C tenant -->
+            <!-- Replace {tenant-name} with your actual B2C tenant name -->
+            <openid-config url="https://{tenant-name}.b2clogin.com/{tenant-name}.onmicrosoft.com/B2C_1_signupsignin/v2.0/.well-known/openid-configuration" />
+
+            <!-- Validate audience (your client ID) -->
+            <audiences>
+                <audience>{your-client-id}</audience>
+            </audiences>
+
+            <!-- Validate issuer -->
+            <issuers>
+                <issuer>https://{tenant-name}.b2clogin.com/{tenant-id}/v2.0/</issuer>
+            </issuers>
+
+            <!-- Required claims -->
+            <required-claims>
+                <claim name="aud" match="any">
+                    <value>{your-client-id}</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+
+        <!-- Extract user ID from JWT and add to header for backend -->
+        <set-header name="X-User-Id" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt);
+                return jwt?.Subject ?? "";
+            }</value>
+        </set-header>
+
+        <!-- Extract user email if available -->
+        <set-header name="X-User-Email" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Claims.GetValueOrDefault("emails", "") ?? jwt?.Claims.GetValueOrDefault("email", "") ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+    </outbound>
+
+    <on-error>
+        <base />
+
+        <!-- Return proper 401 for authentication failures -->
+        <choose>
+            <when condition="@(context.LastError.Source == "validate-jwt")">
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "UNAUTHORIZED"),
+                            new JProperty("message", "Valid authentication token required"),
+                            new JProperty("traceId", context.RequestId)
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+    </on-error>
+</policies>

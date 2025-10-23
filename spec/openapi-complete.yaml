@@ -1,0 +1,317 @@
+openapi: 3.0.3
+info:
+  title: MyBartenderAI API
+  description: AI-powered bartending assistant with offline-first mobile experience
+  version: 1.0.0
+  contact:
+    name: MyBartenderAI Support
+    email: support@mybartenderai.com
+
+servers:
+  - url: https://apim-mba-001.azure-api.net/api
+    description: Production APIM Gateway
+  - url: https://func-mba-fresh.azurewebsites.net/api
+    description: Direct Function App (internal only)
+  - url: http://localhost:7073/api
+    description: Local development
+
+tags:
+  - name: catalog
+    description: Cocktail database and snapshots
+  - name: ai
+    description: AI-powered recommendations and chat
+  - name: voice
+    description: Voice assistant features
+  - name: vision
+    description: Visual inventory scanning
+  - name: user
+    description: User profile and inventory
+  - name: admin
+    description: Administrative operations
+
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      operationId: getHealth
+      tags: [catalog]
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /v1/snapshots/latest:
+    get:
+      summary: Get latest cocktail database snapshot
+      description: Returns metadata with SAS URL for downloading compressed JSON snapshot
+      operationId: getLatestSnapshot
+      tags: [catalog]
+      security:
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Snapshot metadata with signed URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SnapshotInfo'
+        '503':
+          description: Snapshot not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/images/manifest:
+    get:
+      summary: Get image manifest for mobile sync
+      description: Returns list of all cocktail images with URLs for download
+      operationId: getImageManifest
+      tags: [catalog]
+      security:
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Image manifest with SAS URLs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version:
+                    type: string
+                  images:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        drinkId:
+                          type: string
+                        filename:
+                          type: string
+                        url:
+                          type: string
+                        sha256:
+                          type: string
+
+  /v1/recommend:
+    post:
+      summary: Get AI cocktail recommendations
+      description: GPT-4o-mini powered recommendations based on inventory
+      operationId: recommendCocktails
+      tags: [ai]
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [inventory]
+              properties:
+                inventory:
+                  $ref: '#/components/schemas/SimpleInventory'
+                tasteProfile:
+                  $ref: '#/components/schemas/TasteProfile'
+      responses:
+        '200':
+          description: Cocktail recommendations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+                  tokensUsed:
+                    type: integer
+                  quotaRemaining:
+                    type: integer
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
+  /v1/ask-bartender:
+    post:
+      summary: Conversational AI bartender chat
+      operationId: askBartender
+      tags: [ai]
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query:
+                  type: string
+                context:
+                  type: string
+                  enum: [text, voice]
+                conversationHistory:
+                  type: array
+                  items:
+                    type: object
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  text:
+                    type: string
+                  tokensUsed:
+                    type: integer
+
+  /v1/speech/token:
+    get:
+      summary: Get Azure Speech Services token
+      operationId: getSpeechToken
+      tags: [voice]
+      security:
+        - apiKeyAuth: []
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Speech token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  region:
+                    type: string
+                  expiresIn:
+                    type: integer
+
+  /v1/admin/sync:
+    post:
+      summary: Manually trigger CocktailDB sync
+      operationId: triggerSync
+      tags: [admin]
+      security:
+        - functionKeyAuth: []
+      responses:
+        '202':
+          description: Sync started
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: Ocp-Apim-Subscription-Key
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    functionKeyAuth:
+      type: apiKey
+      in: header
+      name: x-functions-key
+
+  responses:
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    SnapshotInfo:
+      type: object
+      required: [schemaVersion, snapshotVersion, sizeBytes, sha256, blobUrl]
+      properties:
+        schemaVersion:
+          type: string
+        snapshotVersion:
+          type: string
+        sizeBytes:
+          type: integer
+        sha256:
+          type: string
+        blobUrl:
+          type: string
+        counts:
+          type: object
+
+    SimpleInventory:
+      type: object
+      properties:
+        spirits:
+          type: array
+          items:
+            type: string
+        mixers:
+          type: array
+          items:
+            type: string
+
+    TasteProfile:
+      type: object
+      properties:
+        preferredFlavors:
+          type: array
+          items:
+            type: string
+        abvRange:
+          type: string
+
+    Recommendation:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        ingredients:
+          type: array
+          items:
+            type: object
+        instructions:
+          type: array
+          items:
+            type: string
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        traceId:
+          type: string

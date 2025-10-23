@@ -27,3 +27,5 @@ apps/backend/fix-sync/
 
 # Node / Azure Functions common
 node_modules/
+infrastructure/database/*.exe
+*.png

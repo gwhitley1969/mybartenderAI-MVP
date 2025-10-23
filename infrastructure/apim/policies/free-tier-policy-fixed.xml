@@ -1,0 +1,110 @@
+<!--
+  Free Tier Policy for MyBartenderAI
+  - Daily quota: 100 API calls per day
+  - Rate limit: 10 calls per minute (abuse prevention)
+  - Features: Snapshot downloads only
+  - Blocked from: AI, Voice, Vision endpoints
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Rate limiting: 10 calls per minute (abuse prevention) -->
+        <rate-limit calls="10" renewal-period="60" />
+
+        <!-- Daily quota: 100 calls per day -->
+        <quota calls="100" renewal-period="86400" />
+
+        <!-- Block access to Premium/Pro features -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.Contains("/v1/ask-bartender") || context.Request.Url.Path.Contains("/v1/recommend"))">
+                <!-- Allow limited AI recommendations (10/month enforced by backend) -->
+                <set-header name="X-User-Tier" exists-action="override">
+                    <value>free</value>
+                </set-header>
+            </when>
+            <when condition="@(context.Request.Url.Path.Contains("/v1/speech/") || context.Request.Url.Path.Contains("/v1/voice/"))">
+                <!-- Block voice features -->
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "UPGRADE_REQUIRED"),
+                            new JProperty("message", "Voice features require Premium or Pro subscription"),
+                            new JProperty("currentTier", "free"),
+                            new JProperty("requiredTier", "premium"),
+                            new JProperty("upgradeUrl", "https://mybartenderai.com/upgrade")
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+            <when condition="@(context.Request.Url.Path.Contains("/v1/vision/"))">
+                <!-- Block vision features -->
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "UPGRADE_REQUIRED"),
+                            new JProperty("message", "Vision features require Premium or Pro subscription"),
+                            new JProperty("currentTier", "free"),
+                            new JProperty("requiredTier", "premium"),
+                            new JProperty("upgradeUrl", "https://mybartenderai.com/upgrade")
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <!-- Add correlation ID if not present -->
+        <choose>
+            <when condition="@(!context.Request.Headers.ContainsKey("X-Correlation-Id"))">
+                <set-header name="X-Correlation-Id" exists-action="override">
+                    <value>@(Guid.NewGuid().ToString())</value>
+                </set-header>
+            </when>
+        </choose>
+
+        <!-- Forward to backend (using service URL, not backend-id for now) -->
+        <set-backend-service base-url="https://func-mba-fresh.azurewebsites.net/api" />
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+
+        <!-- Add tier information to response headers -->
+        <set-header name="X-User-Tier" exists-action="override">
+            <value>free</value>
+        </set-header>
+
+        <!-- Add rate limit headers -->
+        <set-header name="X-Rate-Limit-Limit" exists-action="override">
+            <value>100</value>
+        </set-header>
+    </outbound>
+
+    <on-error>
+        <base />
+
+        <!-- Custom error response -->
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <set-body>@{
+            return new JObject(
+                new JProperty("code", context.LastError.Source),
+                new JProperty("message", context.LastError.Message),
+                new JProperty("traceId", context.RequestId)
+            ).ToString();
+        }</set-body>
+    </on-error>
+</policies>

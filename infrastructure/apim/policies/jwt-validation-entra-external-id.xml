@@ -1,0 +1,114 @@
+<!--
+  JWT Validation Policy for Microsoft Entra External ID
+  Apply this policy to API operations requiring user authentication
+
+  Tenant: mybartenderai.onmicrosoft.com
+  Tenant ID: a82813af-1054-4e2d-a8ec-c6b9c2908c91
+  Client ID: f9f7f159-b847-4211-98c9-18e5b8193045
+  User Flow: mba-signin-signup
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Validate JWT token from Entra External ID -->
+        <validate-jwt
+            header-name="Authorization"
+            failed-validation-httpcode="401"
+            failed-validation-error-message="Unauthorized. Valid JWT token required."
+            require-expiration-time="true"
+            require-scheme="Bearer"
+            require-signed-tokens="true">
+
+            <!-- OpenID Connect discovery URL for Entra External ID -->
+            <openid-config url="https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/v2.0/.well-known/openid-configuration" />
+
+            <!-- Validate audience (MyBartenderAI Mobile app client ID) -->
+            <audiences>
+                <audience>f9f7f159-b847-4211-98c9-18e5b8193045</audience>
+            </audiences>
+
+            <!-- Validate issuer (Entra External ID tenant) -->
+            <issuers>
+                <issuer>https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/v2.0</issuer>
+            </issuers>
+
+            <!-- Required claims -->
+            <required-claims>
+                <claim name="aud" match="any">
+                    <value>f9f7f159-b847-4211-98c9-18e5b8193045</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+
+        <!-- Extract user ID from JWT and add to header for backend -->
+        <set-header name="X-User-Id" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Subject ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+
+        <!-- Extract user email if available -->
+        <set-header name="X-User-Email" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Claims.GetValueOrDefault("email", "") ?? jwt?.Claims.GetValueOrDefault("preferred_username", "") ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+
+        <!-- Extract user name if available -->
+        <set-header name="X-User-Name" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Claims.GetValueOrDefault("name", "") ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+    </outbound>
+
+    <on-error>
+        <base />
+
+        <!-- Return proper 401 for JWT authentication failures -->
+        <choose>
+            <when condition="@(context.LastError.Source == "validate-jwt")">
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="WWW-Authenticate" exists-action="override">
+                        <value>Bearer realm="MyBartenderAI"</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "UNAUTHORIZED"),
+                            new JProperty("message", "Valid authentication token required. Please sign in."),
+                            new JProperty("traceId", context.RequestId)
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+    </on-error>
+</policies>

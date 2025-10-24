@@ -2,9 +2,14 @@ openapi: 3.0.3
 info:
   title: MyBartenderAI API
   version: 1.0.0
+  description: MyBartenderAI Backend API for cocktail recommendations, inventory management, and CocktailDB snapshot distribution
 servers:
-  - url: https://bluebuildapps.com/mybartenderai-func  # Function App HTTPS endpoint
+  - url: https://apim-mba-001.azure-api.net
+    description: Azure API Management (Production)
+  - url: https://func-mba-fresh.azurewebsites.net/api
+    description: Azure Function App (Direct - for testing only)
   - url: http://localhost:7073
+    description: Local development
 
 paths:
   /v1/snapshots/latest:

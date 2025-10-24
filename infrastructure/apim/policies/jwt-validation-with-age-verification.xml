@@ -1,0 +1,160 @@
+<!--
+  JWT Validation Policy with Age Verification for Microsoft Entra External ID
+  Apply this policy to Premium/Pro operations requiring user authentication AND 21+ age verification
+
+  Tenant: mybartenderai.onmicrosoft.com
+  Tenant ID: a82813af-1054-4e2d-a8ec-c6b9c2908c91
+  Client ID: f9f7f159-b847-4211-98c9-18e5b8193045
+  User Flow: mba-signin-signup
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Validate JWT token from Entra External ID -->
+        <validate-jwt
+            header-name="Authorization"
+            failed-validation-httpcode="401"
+            failed-validation-error-message="Unauthorized. Valid JWT token required."
+            require-expiration-time="true"
+            require-scheme="Bearer"
+            require-signed-tokens="true">
+
+            <!-- OpenID Connect discovery URL for Entra External ID -->
+            <openid-config url="https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/v2.0/.well-known/openid-configuration" />
+
+            <!-- Validate audience (MyBartenderAI Mobile app client ID) -->
+            <audiences>
+                <audience>f9f7f159-b847-4211-98c9-18e5b8193045</audience>
+            </audiences>
+
+            <!-- Validate issuer (Entra External ID tenant) -->
+            <issuers>
+                <issuer>https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/v2.0</issuer>
+            </issuers>
+
+            <!-- Required claims -->
+            <required-claims>
+                <claim name="aud" match="any">
+                    <value>f9f7f159-b847-4211-98c9-18e5b8193045</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+
+        <!-- Validate age_verified claim (21+ requirement) -->
+        <choose>
+            <when condition="@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault(&quot;Authorization&quot;,&quot;&quot;).Replace(&quot;Bearer &quot;, &quot;&quot;).TryParseJwt(out jwt))
+                {
+                    var ageVerified = jwt?.Claims.GetValueOrDefault(&quot;age_verified&quot;, &quot;false&quot;);
+                    var extensionAgeVerified = jwt?.Claims.GetValueOrDefault(&quot;extension_age_verified&quot;, &quot;false&quot;);
+                    // Check both possible claim names (age_verified and extension_age_verified)
+                    return ageVerified != &quot;true&quot; &amp;&amp; extensionAgeVerified != &quot;true&quot;;
+                }
+                return true;  // No JWT or can't parse = reject
+            }">
+                <return-response>
+                    <set-status code="403" reason="Forbidden" />
+                    <set-header name="WWW-Authenticate" exists-action="override">
+                        <value>Bearer realm="MyBartenderAI", error="age_verification_required"</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "AGE_VERIFICATION_REQUIRED"),
+                            new JProperty("message", "You must be 21 years or older to access this feature. Please verify your age in your account settings."),
+                            new JProperty("traceId", context.RequestId)
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+
+        <!-- Extract user ID from JWT and add to header for backend -->
+        <set-header name="X-User-Id" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Subject ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+
+        <!-- Extract user email if available -->
+        <set-header name="X-User-Email" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Claims.GetValueOrDefault("email", "") ?? jwt?.Claims.GetValueOrDefault("preferred_username", "") ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+
+        <!-- Extract user name if available -->
+        <set-header name="X-User-Name" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    return jwt?.Claims.GetValueOrDefault("name", "") ?? "";
+                }
+                return "";
+            }</value>
+        </set-header>
+
+        <!-- Add age verification status header for backend logging -->
+        <set-header name="X-Age-Verified" exists-action="override">
+            <value>@{
+                Jwt jwt;
+                if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
+                {
+                    var ageVerified = jwt?.Claims.GetValueOrDefault("age_verified", "false");
+                    var extensionAgeVerified = jwt?.Claims.GetValueOrDefault("extension_age_verified", "false");
+                    return ageVerified == "true" || extensionAgeVerified == "true" ? "true" : "false";
+                }
+                return "false";
+            }</value>
+        </set-header>
+    </inbound>
+
+    <backend>
+        <base />
+    </backend>
+
+    <outbound>
+        <base />
+    </outbound>
+
+    <on-error>
+        <base />
+
+        <!-- Return proper 401 for JWT authentication failures -->
+        <choose>
+            <when condition="@(context.LastError.Source == &quot;validate-jwt&quot;)">
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="WWW-Authenticate" exists-action="override">
+                        <value>Bearer realm="MyBartenderAI"</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("code", "UNAUTHORIZED"),
+                            new JProperty("message", "Valid authentication token required. Please sign in."),
+                            new JProperty("traceId", context.RequestId)
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+        </choose>
+    </on-error>
+</policies>

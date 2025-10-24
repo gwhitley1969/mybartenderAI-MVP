@@ -316,6 +316,14 @@ Deployment
 - [ ] Add `AuthRepository` (Riverpod) to fetch/refresh tokens; unit tests.
 - [ ] Backend: JWT validation at APIM; map `sub` → `user_id` in Functions.
 - [ ] Implement subscription key provisioning during user signup.
+- [ ] **Age Verification (21+ requirement)**:
+  - [ ] Deploy `validate-age` Azure Function for Entra External ID API connector
+  - [ ] Configure Entra External ID custom attributes (`birthdate`, `age_verified`)
+  - [ ] Add API connector to user flow for signup validation
+  - [ ] Update JWT token configuration to include `age_verified` claim
+  - [ ] Update APIM policies with age verification validation
+  - [ ] Implement mobile app age gate screen (first launch)
+  - [ ] Test complete age verification flow (app → signup → API)
 
 ### Sprint 4 — State & Navigation Migration
 
@@ -364,6 +372,9 @@ Deployment
 - [ ] Validate rate limits (Free vs Premium vs Pro).
 - [ ] Verify no PII persisted (DB schema, logs samples).
 - [ ] Offline mode: SQLite cache used; reconciling on re-connect.
+- [ ] Age verification: Test under-21 blocked, 21+ allowed.
+- [ ] Age verification: Test JWT tokens include age_verified claim.
+- [ ] Age verification: Test APIM rejects requests without age_verified.
 - [ ] Voice feature: Test latency, accuracy, quota enforcement.
 - [ ] APIM: Test all tier restrictions and rate limits.
 - [ ] Regression: legacy screens replaced; no Provider references remain.

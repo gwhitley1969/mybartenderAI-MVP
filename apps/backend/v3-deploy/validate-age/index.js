@@ -18,7 +18,7 @@ module.exports = async function (context, req) {
     // Validate birthdate is provided
     if (!birthdate) {
         context.log.error('Missing birthdate in request');
-        return {
+        context.res = {
             status: 400,
             body: {
                 version: "1.0.0",
@@ -26,13 +26,14 @@ module.exports = async function (context, req) {
                 userMessage: "Date of birth is required. Please try again."
             }
         };
+        return;
     }
 
     // Validate birthdate format (YYYY-MM-DD)
     const birthdateRegex = /^\d{4}-\d{2}-\d{2}$/;
     if (!birthdateRegex.test(birthdate)) {
         context.log.error(`Invalid birthdate format: ${birthdate}`);
-        return {
+        context.res = {
             status: 400,
             body: {
                 version: "1.0.0",
@@ -40,13 +41,14 @@ module.exports = async function (context, req) {
                 userMessage: "Please enter a valid birthdate in YYYY-MM-DD format."
             }
         };
+        return;
     }
 
     // Validate birthdate is a valid date
     const birthDate = new Date(birthdate);
     if (isNaN(birthDate.getTime())) {
         context.log.error(`Invalid birthdate value: ${birthdate}`);
-        return {
+        context.res = {
             status: 400,
             body: {
                 version: "1.0.0",
@@ -54,6 +56,7 @@ module.exports = async function (context, req) {
                 userMessage: "Please enter a valid date."
             }
         };
+        return;
     }
 
     // Calculate age
@@ -71,7 +74,7 @@ module.exports = async function (context, req) {
     // Check if user is 21 or older
     if (age < 21) {
         context.log.warn(`User under 21 (age: ${age}), blocking signup`);
-        return {
+        context.res = {
             status: 200,
             body: {
                 version: "1.0.0",
@@ -79,12 +82,13 @@ module.exports = async function (context, req) {
                 userMessage: "You must be 21 years or older to use MyBartenderAI. This app is intended for adults of legal drinking age only."
             }
         };
+        return;
     }
 
     // User is 21+, allow signup and set age_verified flag
     context.log(`User is 21+ (age: ${age}), allowing signup with age_verified=true`);
 
-    return {
+    context.res = {
         status: 200,
         body: {
             version: "1.0.0",

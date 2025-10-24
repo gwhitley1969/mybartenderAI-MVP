@@ -99,26 +99,38 @@ sequenceDiagram
 - JWT validation at APIM layer
 - Rate limiting policies per product
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
+- **Status**: ✅ Operational as of 2025-10-23
+- **Direct endpoint**: https://func-mba-fresh.azurewebsites.net/api/v1/snapshots/latest
+- **APIM endpoint**: TBD (pending APIM-to-Functions backend configuration)
 
 ## Feature: CocktailDB Mirror & JSON Snapshot Service
 
-**Goal:** Nightly sync from TheCocktailDB V2 API into PostgreSQL, download all images to Azure Blob Storage (US), build compressed JSON snapshots for mobile offline use.
+**Status:** ✅ **OPERATIONAL** (as of 2025-10-23)
+
+**Goal:** Nightly sync from TheCocktailDB V2 API into PostgreSQL, download all images to Azure Blob Storage (US), build compressed snapshots for mobile offline use.
 
 ### Architecture Changes (Current MVP State)
 - **Storage Access**: SAS tokens (due to Windows Consumption Plan Managed Identity limitations)
-- **Compression**: gzip (built-in, no dependencies)
+- **Snapshot Format**: SQLite binary files (.db.zst) with zstd compression
+- **Compression**: Built-in gzip for transport, zstd for storage
 - **Images**: Downloaded from TheCocktailDB (UK) to Azure Blob Storage (US), then bundled for mobile app
-- **Distribution**: Via APIM endpoints with tier-based rate limiting
+- **Distribution**: Via direct endpoint (APIM integration pending)
+- **Current Metrics** (v20251023.033020):
+  - 621 drinks, 2491 ingredients, 40 glass types, 11 categories, 67 tags
+  - Snapshot size: 71KB compressed
+  - Sync duration: ~16 seconds
+  - Response time: <100ms
 
 ### Components
-- **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC)
-- **HTTP Function** `GET /v1/snapshots/latest` → metadata with SAS-secured access
-- **HTTP Function** `GET /v1/images/manifest` → image bundle manifest for mobile sync
+- **Timer Function** `sync-cocktaildb` (nightly @ 03:30 UTC, disabled duplicate `sync-cocktaildb-mi`)
+- **HTTP Function** `GET /v1/snapshots/latest` → metadata with SAS-secured access (✅ operational)
+- **HTTP Function** `GET /v1/images/manifest` → image bundle manifest for mobile sync (pending)
 - **PostgreSQL**: Authoritative data with AI enhancements
-- **Blob Storage**: 
-  - `/snapshots/json/{schemaVersion}/{snapshotVersion}.json.gz`
+  - Connection string format: `postgresql://user:pass@host/db?sslmode=require` (URI format required by pg library)
+- **Blob Storage**:
+  - `/snapshots/sqlite/{schemaVersion}/{snapshotVersion}.db.zst` (SQLite binary with zstd compression)
   - `/drink-images/drinks/{filename}.jpg` (original resolution from TheCocktailDB)
-- **Mobile**: Downloads JSON + all images during installation, stores locally for offline use
+- **Mobile**: Downloads snapshot + all images during installation, stores locally for offline use
 
 ### Data Pipeline
 ```mermaid
@@ -137,12 +149,13 @@ sequenceDiagram
   T->>CDB: Download ALL drink images
   T->>BL: Store images (SAS - original resolution)
   T->>PG: Query all data for snapshot
-  T->>T: Build JSON, gzip compress
-  T->>BL: Upload snapshot.json.gz (SAS)
-  T->>PG: Record metadata
+  T->>T: Build SQLite binary, zstd compress
+  T->>BL: Upload snapshot.db.zst (SAS)
+  T->>PG: Record metadata (snapshot_version, size, sha256, counts)
   M->>APIM: GET /v1/snapshots/latest (API Key + Tier validation)
-  APIM->>M: { version, blobUrl, imageBundleUrl }
-  M->>BL: Download JSON snapshot (SAS)
+  Note right of M: Currently: Direct endpoint (APIM pending)
+  APIM->>M: { version, signedUrl, sha256, counts }
+  M->>BL: Download SQLite snapshot (15-min SAS)
   M->>BL: Download ALL images during install/update (SAS)
   M->>M: Store images + data locally
   M->>M: All free features run offline
@@ -204,20 +217,25 @@ sequenceDiagram
 - **Key Vault**: `kv-mybartenderai-prod` (in `rg-mba-dev`)
   - Secret `COCKTAILDB-API-KEY`: TheCocktailDB V2 API key
   - Secret `OpenAI`: Azure OpenAI API key (GPT-4o-mini)
-  - Secret `POSTGRES-CONNECTION-STRING`: PostgreSQL connection string
+  - Secret `POSTGRES-CONNECTION-STRING`: PostgreSQL URI format (updated 2025-10-23)
+    - **CRITICAL**: Must use URI format `postgresql://user:pass@host/db?sslmode=require`
+    - Named parameter format (`Host=...;Database=...;`) causes `getaddrinfo ENOTFOUND base` errors
   - Temporary: SAS tokens for blob access
-- **Function App**: Uses connection strings to Key Vault (MVP)
-- **Future**: Managed Identity (`func-mba-fresh-uami`) with Key Vault Secrets User role
-- **App Settings**: Use `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=...)`
+- **Function App (Current MVP)**:
+  - Direct connection strings set in app settings (bypasses Key Vault caching issues)
+  - `PG_CONNECTION_STRING`: PostgreSQL URI
+  - `BLOB_STORAGE_CONNECTION_STRING`: Storage account connection string with AccountKey
+  - API keys via Key Vault references: `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=...)`
+- **Future**: Migrate to Managed Identity (`func-mba-fresh-uami`) with Key Vault Secrets User role when upgrading from Windows Consumption Plan
 
 ## Mobile App Updates
 
-### JSON Import Strategy
-1. Download compressed JSON snapshot via APIM
-2. Decompress in memory
-3. Parse JSON structure
-4. Import to local SQLite using transactions
-5. Atomic database swap
+### Snapshot Download Strategy
+1. Download compressed SQLite snapshot (.db.zst) via signed URL
+2. Verify sha256 checksum for integrity
+3. Decompress zstd file
+4. Atomic database file swap
+5. Verify local database integrity (drink count, schema version)
 
 ### Image Storage Strategy
 - **Initial Install**: Download ALL drink images (~621 images) from Azure Blob to device
@@ -268,13 +286,19 @@ flutter run
 
 ### Deployment
 - **Azure Functions**: ZIP deployment to Windows Consumption plan (`func-mba-fresh`)
-- **SDK**: Azure Functions v4 programming model
+- **SDK**: Azure Functions v3 (@azure/functions v3.5.0) with CommonJS modules
 - **Runtime**: Node.js 20 on Windows
-- **No native dependencies**: Pure JavaScript/TypeScript (no better-sqlite3)
+- **Module Pattern**: `module.exports = async function (context, req) { ... }`
+- **No native dependencies**: Pure JavaScript (no better-sqlite3, no native addons)
+- **Deployment Command**: `func azure functionapp publish func-mba-fresh --javascript`
 - **CI/CD**: GitHub Actions workflow (`.github/workflows/main_func-mba-fresh.yml`)
-- **Secrets**: All environment variables via Key Vault references
-- **Access**: Connection strings (MVP), Managed Identity (future)
+- **Secrets**: Direct connection strings in app settings, API keys via Key Vault references
+- **Access**: Connection strings (MVP), Managed Identity (future post-Consumption plan upgrade)
 - **APIM**: Manual configuration via Azure Portal (Developer tier)
+- **Known Issues**:
+  - Connection string parsing requires indexOf() for keys ending in `==`
+  - PostgreSQL URI format required (not named parameters)
+  - Full dependency install required (pg-types/lib subdirectories)
 
 ## Cost Optimization
 

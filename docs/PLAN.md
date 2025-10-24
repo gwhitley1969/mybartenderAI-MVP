@@ -66,6 +66,7 @@ Deployment
 - No OpenAI Realtime API (cost prohibitive)
 
 **Acceptance Criteria:**
+
 - AC1: `GET /v1/speech/token` returns valid 10-minute Azure Speech token (Premium/Pro only)
 - AC2: End-to-end voice session latency < 2 seconds p95 (STT → API → TTS start)
 - AC3: Voice sessions tracked in PostgreSQL; enforces tier limits:
@@ -78,6 +79,7 @@ Deployment
 - AC8: APIM rate limits for speech token endpoint: 60 calls/hour
 
 **Test Ideas:**
+
 - Unit: GPT-4o-mini prompt quality for voice instructions
 - Integration: Full voice flow (mock STT/TTS, real API calls)
 - Performance: Measure latency at each step (STT, API, TTS)
@@ -87,15 +89,27 @@ Deployment
 
 ### CocktailDB Mirror & JSON Snapshot
 
+**Status:** ✅ **OPERATIONAL** (as of 2025-10-23)
+
 **Acceptance criteria**
 
-- AC1: Nightly timer run produces a new snapshot when upstream data changed; otherwise reuses last `snapshotVersion`.
-- AC2: `GET /v1/snapshots/latest` (via APIM) returns 200 with valid `signedUrl` (SAS ≤ 15 min expiry) and correct `sha256`.
-  - APIM enforces tier access (all tiers can download snapshots)
-  - Rate limiting: 10 requests/hour per user (prevent abuse)
-- AC3: A clean mobile install downloads snapshot, verifies `sha256`, stores DB to app documents, and queries locally with <100ms p95 for lookups.
-- AC4: Sync handles partial upstream failures with retry/backoff and leaves last good snapshot intact.
-- AC5: Logs contain `runId`, counts, and durations; **no secrets or PII**.
+- ✅ AC1: Nightly timer run produces a new snapshot when upstream data changed; otherwise reuses last `snapshotVersion`.
+  - Timer: Daily at 03:30 UTC
+  - Current version: 20251023.033020 (71KB compressed)
+  - Sync duration: ~16 seconds
+- ✅ AC2: `GET /v1/snapshots/latest` returns 200 with valid `signedUrl` (SAS ≤ 15 min expiry) and correct `sha256`.
+  - Direct endpoint: https://func-mba-fresh.azurewebsites.net/api/v1/snapshots/latest
+  - APIM endpoint: TBD (will enforce tier access when APIM configured)
+  - Response includes: schemaVersion, snapshotVersion, sizeBytes, sha256, signedUrl, createdAtUtc, counts
+  - Rate limiting: TBD (via APIM policies)
+- 📋 AC3: A clean mobile install downloads snapshot, verifies `sha256`, stores DB to app documents, and queries locally with <100ms p95 for lookups.
+  - Mobile app integration pending
+- ✅ AC4: Sync handles partial upstream failures with retry/backoff and leaves last good snapshot intact.
+  - Sync implemented with error handling
+  - Last good snapshot preserved on failure
+- ✅ AC5: Logs contain `runId`, counts, and durations; **no secrets or PII**.
+  - Application Insights configured
+  - Structured logging in place
 - AC6: Manual `POST /v1/admin/sync` (with function key, bypasses APIM) enqueues/starts a run and returns 202.
 
 **Test ideas**
@@ -112,16 +126,19 @@ Deployment
 ### Products (Subscription Tiers)
 
 **Free Tier:**
+
 - Rate limit: 100 API calls/day
 - Features: Snapshot downloads only
 - No AI features (blocked at APIM)
 
 **Premium Tier ($4.99/month):**
+
 - Rate limit: 1,000 API calls/day
 - Features: AI recommendations (100/month), Voice (30 min/month), Vision (5 scans/month)
 - Cost coverage: ~$0.50/user/month for AI services
 
 **Pro Tier ($9.99/month):**
+
 - Rate limit: Unlimited API calls
 - Features: Unlimited AI recommendations, Voice (5 hours/month), Vision (50 scans/month)
 - Priority support
@@ -246,6 +263,7 @@ Deployment
 ## Cost Management
 
 ### MVP Budget (~$60-70/month)
+
 - APIM Developer tier: $50/month (fixed)
 - Functions (Consumption): ~$0.20/million executions (minimal)
 - PostgreSQL Basic: ~$12-30/month
@@ -253,6 +271,7 @@ Deployment
 - AI services: Pay-per-use (~$0.50/user/month for Premium)
 
 ### Production Target (~$20-30/month base + usage)
+
 - APIM Consumption: ~$5-15/month (based on usage)
 - Functions: Same (~$0.20/million)
 - PostgreSQL: Optimized tier ~$12-20/month
@@ -260,6 +279,7 @@ Deployment
 - AI services: Covered by Premium/Pro revenue
 
 ### Revenue Model
+
 - Premium users cover their AI costs ($0.50) + margin
 - Target: 1,000 Premium users = $5,000 revenue, ~$500 AI costs = 90% margin
 
@@ -284,7 +304,7 @@ Deployment
 ### Sprint 2 — APIM Configuration
 
 - [x] Create APIM instance: `apim-mba-001` (Developer tier).
-- [ ] Configure three Products: Free, Premium, Pro with rate limit policies.
+- [x] Configure three Products: Free, Premium, Pro with rate limit policies.
 - [ ] Import Function App as backend API in APIM.
 - [ ] Configure JWT validation policy (Entra External ID).
 - [ ] Set up APIM Developer Portal for API key management.
@@ -364,6 +384,7 @@ Deployment
 ### Hand-off note
 
 This plan reflects the current architecture decisions:
+
 - APIM for API gateway (tier management, rate limiting)
 - Azure Speech Services for voice (cost-optimized)
 - GPT-4o-mini for AI recommendations (cost-optimized)

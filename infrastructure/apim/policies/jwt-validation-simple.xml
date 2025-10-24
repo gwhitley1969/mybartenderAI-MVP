@@ -1,0 +1,34 @@
+<!--
+  JWT Validation Policy for Microsoft Entra External ID (SIMPLIFIED)
+  Apply this policy to API operations requiring user authentication
+
+  Tenant: mybartenderai.onmicrosoft.com
+  Tenant ID: a82813af-1054-4e2d-a8ec-c6b9c2908c91
+  Client ID: f9f7f159-b847-4211-98c9-18e5b8193045
+-->
+<policies>
+    <inbound>
+        <base />
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Valid JWT token required." require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true">
+            <openid-config url="https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/v2.0/.well-known/openid-configuration" />
+            <audiences>
+                <audience>f9f7f159-b847-4211-98c9-18e5b8193045</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/v2.0</issuer>
+            </issuers>
+        </validate-jwt>
+        <set-header name="X-User-Id" exists-action="override">
+            <value>@(context.Request.Headers.GetValueOrDefault("Authorization","").Split(' ').Length > 1 ? context.Request.Headers.GetValueOrDefault("Authorization","").Split(' ')[1].AsJwt()?.Subject : "")</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

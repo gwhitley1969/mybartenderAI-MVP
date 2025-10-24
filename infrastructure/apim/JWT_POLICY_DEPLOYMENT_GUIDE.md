@@ -216,7 +216,7 @@ class AuthConfig {
 ## Next Steps
 
 1. ✅ JWT policy created with correct Entra External ID configuration
-2. ⬜ Apply policy to Premium/Pro operations (askBartender, recommendCocktails, getSpeechToken)
+2. ✅ Apply policy to Premium/Pro operations (askBartender, recommendCocktails, getSpeechToken)
 3. ⬜ Test with valid JWT token (requires mobile app or Postman OAuth flow)
 4. ⬜ Update mobile app with Entra External ID authentication
 5. ⬜ Document user registration/login flow for mobile app

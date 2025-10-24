@@ -305,8 +305,8 @@ Deployment
 
 - [x] Create APIM instance: `apim-mba-001` (Developer tier).
 - [x] Configure three Products: Free, Premium, Pro with rate limit policies.
-- [ ] Import Function App as backend API in APIM.
-- [ ] Configure JWT validation policy (Entra External ID).
+- [x] Import Function App as backend API in APIM.
+- [x] Configure JWT validation policy (Entra External ID).
 - [ ] Set up APIM Developer Portal for API key management.
 - [ ] Test rate limiting and tier enforcement.
 

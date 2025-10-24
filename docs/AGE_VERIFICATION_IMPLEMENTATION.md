@@ -112,38 +112,46 @@ Check JWT claim: age_verified = true?
    - Update label: "Date of Birth (must be 21 or older)"
    - Click **Save**
 
-### Step 1.3: Add Age Validation API Connector
+### Step 1.3: Add Age Validation Custom Authentication Extension
 
-Entra External ID supports API connectors to validate data during signup.
+Entra External ID supports Custom Authentication Extensions to validate data during signup.
 
-**Create Azure Function for Age Validation**:
+**The validate-age function is already deployed with:**
+- **OAuth 2.0/OIDC authentication** (validates Bearer tokens from Entra)
+- **Microsoft Graph API response format** (for OnAttributeCollectionSubmit events)
+- **Privacy-focused** (does NOT store birthdate, only age verification flag)
 
-1. **Create Function**: `validate-age` in your Function App
+**Function Code Overview** (see `apps/backend/v3-deploy/validate-age/index.js`):
 
 ```javascript
-// apps/backend/v3-deploy/validate-age/index.js
-
 module.exports = async function (context, req) {
-    context.log('Age validation request received');
+    // Validate OAuth Bearer token from Entra External ID
+    const authHeader = req.headers.authorization || req.headers.Authorization;
 
-    const { birthdate, email } = req.body;
-
-    // Validate birthdate format (YYYY-MM-DD)
-    const birthdateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!birthdateRegex.test(birthdate)) {
-        return {
-            status: 400,
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // Return Microsoft Graph API format error
+        context.res = {
+            status: 401,
             body: {
-                version: "1.0.0",
-                action: "ShowBlockPage",
-                userMessage: "Please enter a valid birthdate in YYYY-MM-DD format."
+                data: {
+                    "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+                    "actions": [{
+                        "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
+                        "message": "Authentication required. Please contact support if this error persists."
+                    }]
+                }
             }
         };
+        return;
     }
 
-    // Calculate age
-    const today = new Date();
+    // Extract birthdate from Entra External ID request format
+    const attributes = req.body?.data?.userSignUpInfo?.attributes;
+    const birthdate = attributes?.birthdate?.value || attributes?.birthdate;
+
+    // Calculate age (same logic as before)
     const birthDate = new Date(birthdate);
+    const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
 
@@ -151,55 +159,65 @@ module.exports = async function (context, req) {
         age--;
     }
 
-    context.log(`User age calculated: ${age} years`);
-
     // Check if user is 21 or older
     if (age < 21) {
-        context.log(`User under 21 (age: ${age}), blocking signup`);
-        return {
+        // Return Microsoft Graph API format block response
+        context.res = {
             status: 200,
             body: {
-                version: "1.0.0",
-                action: "ShowBlockPage",
-                userMessage: "You must be 21 years or older to use MyBartenderAI. If you believe this is an error, please contact support."
+                data: {
+                    "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+                    "actions": [{
+                        "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
+                        "message": "You must be 21 years or older to use MyBartenderAI. This app is intended for adults of legal drinking age only."
+                    }]
+                }
             }
         };
+        return;
     }
 
-    // User is 21+, allow signup and set age_verified flag
-    context.log(`User is 21+ (age: ${age}), allowing signup`);
-    return {
+    // User is 21+, allow signup
+    context.res = {
         status: 200,
         body: {
-            version: "1.0.0",
-            action: "Continue",
-            extension_age_verified: true  // Set custom claim
-            // Note: We do NOT store the birthdate in claims for privacy
+            data: {
+                "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+                "actions": [{
+                    "@odata.type": "microsoft.graph.attributeCollectionSubmit.continueWithDefaultBehavior"
+                }]
+            }
         }
     };
 };
 ```
 
-2. **Deploy Function**:
-```bash
-cd apps/backend/v3-deploy
-func azure functionapp publish func-mba-fresh
-```
+2. **Function is already deployed** at:
+   - URL: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
+   - Authentication: OAuth 2.0 Bearer tokens
+   - Status: ✅ Tested and working
 
-3. **Configure API Connector in Entra External ID**:
-   - Go to **External Identities** → **API connectors**
-   - Click **+ New API connector**
+3. **Configure Custom Authentication Extension in Entra External ID**:
+   - Go to **External Identities** → **Custom authentication extensions**
+   - Click **+ Create a custom extension**
    - Configure:
      - **Name**: "Age Verification"
-     - **Endpoint URL**: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
-     - **Authentication**: Function key (copy from Azure Portal)
-   - Click **Save**
+     - **Event type**: **OnAttributeCollectionSubmit** ⚠️ (CRITICAL - must be this type!)
+     - **Target URL**: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
+     - **Timeout**: 10000 ms
+     - **Maximum retries**: 1
+   - On **API Authentication** page:
+     - Select: **Create new app registration**
+     - **Display name**: "Age Verification API"
+   - On **Claims** page:
+     - Add claim: `birthdate` from user attribute `birthdate`
+   - Click **Create**
 
-4. **Add API Connector to User Flow**:
+4. **Add Custom Extension to User Flow**:
    - Go to **User flows** → **mba-signin-signup**
-   - Click **API connectors**
-   - Select step: **Before creating the user**
-   - Choose connector: **Age Verification**
+   - Click **Custom authentication extensions**
+   - Select event: **OnAttributeCollectionSubmit**
+   - Choose extension: **Age Verification**
    - Click **Save**
 
 ### Step 1.4: Add age_verified to JWT Token Claims
@@ -685,14 +703,17 @@ Your birthdate is used only for one-time age verification and is not stored in o
 
 ### Phase 1: Backend Infrastructure (Current Sprint)
 - ✅ Create age verification documentation
-- ⬜ Deploy `validate-age` Azure Function
+- ✅ Deploy `validate-age` Azure Function with OAuth authentication
+- ✅ Update function for OnAttributeCollectionSubmit event type
 - ⬜ Configure Entra External ID custom attributes
-- ⬜ Add API connector to user flow
+- ⬜ Delete old custom authentication extension (wrong event type)
+- ⬜ Create new custom authentication extension (OnAttributeCollectionSubmit)
+- ⬜ Add custom extension to user flow
 - ⬜ Update JWT token configuration
 - ⬜ Test age verification in Entra External ID
 
 ### Phase 2: APIM Policy Updates (Current Sprint)
-- ⬜ Create age verification policy file
+- ✅ Create age verification policy file (jwt-validation-with-age-verification.xml)
 - ⬜ Update JWT validation policy with age check
 - ⬜ Apply to Premium/Pro operations
 - ⬜ Test with valid/invalid age_verified claims

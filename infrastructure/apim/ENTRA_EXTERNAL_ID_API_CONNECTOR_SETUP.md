@@ -1,7 +1,9 @@
-# Entra External ID API Connector Setup - Quick Reference
+# Entra External ID Custom Authentication Extension Setup - Quick Reference
 
 **Purpose:** Configure age verification (21+) in Entra External ID signup flow
 **Function:** validate-age Azure Function
+**Event Type:** OnAttributeCollectionSubmit (validates AFTER user submits birthdate)
+**Authentication:** OAuth 2.0 / OIDC Bearer tokens
 **Status:** ✅ Deployed and Tested
 
 ---
@@ -10,18 +12,14 @@
 
 ✅ **validate-age Function Deployed**
 - URL: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
+- Authentication: OAuth 2.0 Bearer token (NOT function keys)
 - Status: Deployed and tested
 - Test Results: All passing (under-21 blocks, 21+ allows)
 
-✅ **Function Key Available**
-- Retrieve with Azure CLI:
-  ```bash
-  az functionapp function keys list \
-    --name func-mba-fresh \
-    --resource-group rg-mba-prod \
-    --function-name validate-age \
-    --query "default" -o tsv
-  ```
+✅ **Function Authentication**
+- Uses OAuth 2.0 / OIDC authentication
+- Validates Bearer tokens from Entra External ID
+- authLevel: "anonymous" (validates token in code)
 
 ---
 
@@ -51,37 +49,44 @@
 
 ---
 
-### Step 2: Configure API Connector (5 minutes)
+### Step 2: Create Custom Authentication Extension (10 minutes)
 
-1. **Navigate to API Connectors**:
-   - **External Identities** → **API connectors**
-   - Click **+ New API connector**
+1. **Navigate to Custom Authentication Extensions**:
+   - **External Identities** → **Custom authentication extensions**
+   - Click **+ Create a custom extension**
 
-2. **Configure Connector**:
+2. **Configure Extension Details**:
    - **Name**: `Age Verification`
-   - **Endpoint URL**: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
-   - **Authentication type**: `API key in header`
-   - **Header name**: `code`
-   - **Header value**: [Paste function key from Azure CLI]
-   - Click **Save**
+   - **Event type**: **OnAttributeCollectionSubmit** ⚠️ CRITICAL - must be this event type!
+   - **Target URL**: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
+   - **Timeout (milliseconds)**: `10000`
+   - **Maximum retries**: `1`
+   - Click **Next**
 
-3. **Test the Connector** (Optional):
-   - Click **Test** button
-   - Enter test JSON:
-     ```json
-     {
-       "birthdate": "1990-01-01",
-       "email": "test@example.com"
-     }
-     ```
-   - Expected response:
-     ```json
-     {
-       "version": "1.0.0",
-       "action": "Continue",
-       "extension_age_verified": true
-     }
-     ```
+3. **Configure API Authentication**:
+   - **Authentication type**: `Create new app registration`
+   - **Display name**: `Age Verification API`
+   - This creates an app registration that Entra uses to send OAuth Bearer tokens to your function
+   - Click **Next**
+
+4. **Configure Claims**:
+   - Click **+ Add claim**
+   - **Claim name**: `birthdate`
+   - **Source**: `User attribute`
+   - **User attribute**: `birthdate`
+   - Click **Add**
+   - Click **Next**
+
+5. **Review and Create**:
+   - Review configuration
+   - Click **Create**
+
+**What this does:**
+- Fires AFTER user submits signup form (including birthdate)
+- Sends OAuth Bearer token to your function for authentication
+- Validates age on server side
+- Blocks account creation if under 21
+- Allows creation and continues if 21+
 
 ---
 
@@ -108,21 +113,21 @@
 
 ---
 
-### Step 4: Add API Connector to User Flow (3 minutes)
+### Step 4: Add Custom Authentication Extension to User Flow (3 minutes)
 
-1. **Navigate to User Flow API Connectors**:
-   - Still in **mba-signin-signup** user flow
-   - Click **API connectors** in the left menu
+1. **Navigate to User Flow Extensions**:
+   - Go to **User flows** → **mba-signin-signup**
+   - Click **Custom authentication extensions** in the left menu
 
-2. **Configure "Before creating the user" Step**:
-   - Find the section: **Before creating the user**
+2. **Configure OnAttributeCollectionSubmit Event**:
+   - Find the section: **OnAttributeCollectionSubmit**
    - Select from dropdown: **Age Verification**
    - Click **Save**
 
 **What this does:**
-- Runs age validation BEFORE the user account is created
-- If under 21: Blocks account creation, shows error page
-- If 21+: Creates account and sets `extension_age_verified: true`
+- Runs age validation AFTER user submits the form (when birthdate is available)
+- If under 21: Blocks account creation, shows custom error message
+- If 21+: Continues with account creation flow
 
 ---
 
@@ -234,23 +239,23 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 
 ## Troubleshooting
 
-### Issue: API Connector Returns 500 Error
+### Issue: Custom Authentication Extension Returns Error
 
 **Possible Causes:**
-1. Function key is incorrect
-2. Function is not deployed
+1. Wrong event type selected (AttributeCollectionStart instead of OnAttributeCollectionSubmit)
+2. Function is not deployed or not responding
 3. Function endpoint URL is wrong
+4. OAuth app registration not configured correctly
 
 **Solution:**
-1. Verify function key:
-   ```bash
-   az functionapp function keys list --name func-mba-fresh --resource-group rg-mba-prod --function-name validate-age --query "default" -o tsv
-   ```
-2. Test function directly (use test script):
+1. **Verify event type**: Must be **OnAttributeCollectionSubmit** (NOT AttributeCollectionStart)
+   - If wrong, delete extension and recreate with correct event type
+2. Test function directly with OAuth token:
    ```powershell
-   .\test-age-validation.ps1
+   .\test-validate-age-oauth.ps1
    ```
 3. Check function URL is exactly: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
+4. Verify OAuth app registration was created during extension setup
 
 ---
 
@@ -323,36 +328,51 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 - **Name**: validate-age
 - **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
 - **Method**: POST
-- **Auth**: Function key (code parameter)
+- **Auth**: OAuth 2.0 Bearer token (from Entra External ID app registration)
+- **Event Type**: OnAttributeCollectionSubmit
 
-**Request Format:**
+**Request Format (from Entra External ID):**
 ```json
 {
-  "birthdate": "YYYY-MM-DD",
-  "email": "user@example.com"
+  "type": "microsoft.graph.authenticationEvent.attributeCollectionSubmit",
+  "data": {
+    "userSignUpInfo": {
+      "attributes": {
+        "birthdate": { "value": "YYYY-MM-DD" },
+        "email": { "value": "user@example.com" }
+      }
+    }
+  }
 }
 ```
 
-**Response Format (Under 21):**
+**Response Format (Under 21 - Block):**
 ```json
 {
-  "version": "1.0.0",
-  "action": "ShowBlockPage",
-  "userMessage": "You must be 21 years or older to use MyBartenderAI..."
+  "data": {
+    "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+    "actions": [{
+      "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
+      "message": "You must be 21 years or older to use MyBartenderAI. This app is intended for adults of legal drinking age only."
+    }]
+  }
 }
 ```
 
-**Response Format (21+):**
+**Response Format (21+ - Allow):**
 ```json
 {
-  "version": "1.0.0",
-  "action": "Continue",
-  "extension_age_verified": true
+  "data": {
+    "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+    "actions": [{
+      "@odata.type": "microsoft.graph.attributeCollectionSubmit.continueWithDefaultBehavior"
+    }]
+  }
 }
 ```
 
 ---
 
-**Status**: ✅ Function deployed and tested
-**Estimated Configuration Time**: 20-25 minutes
+**Status**: ✅ Function deployed and tested with OAuth authentication
+**Estimated Configuration Time**: 25-30 minutes
 **Difficulty**: Moderate (requires Entra External ID admin access)

@@ -293,6 +293,41 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 
 ## Security & Privacy Notes
 
+### Security Architecture - Why OAuth Instead of API Keys
+
+**We use OAuth 2.0 Bearer tokens (NOT API keys) for several critical security reasons:**
+
+#### ❌ API Key Approach (NOT USED - Insecure):
+- API keys would be exposed in Azure configuration
+- Long-lived secrets that don't expire automatically
+- Difficult to rotate without updating configuration
+- No audit trail of usage
+- If compromised, attacker has permanent access
+- Would need Azure Key Vault management
+
+#### ✅ OAuth 2.0 Approach (CURRENT - Secure):
+- **No secrets in configuration** - Entra creates an app registration automatically
+- **Short-lived tokens** - Bearer tokens expire and are automatically refreshed
+- **Managed by Azure AD** - Token issuance handled by Microsoft's identity platform
+- **Fully auditable** - All authentication attempts logged in Azure AD
+- **No Key Vault needed** - Uses Azure AD trust relationship, not stored secrets
+- **Standard protocol** - Industry-standard OAuth 2.0/OIDC authentication
+
+#### How OAuth Works:
+```
+1. Entra External ID creates "Age Verification API" app registration
+2. When user submits signup form, Entra requests OAuth token from Azure AD
+3. Azure AD issues short-lived Bearer token
+4. Entra sends request to validate-age function:
+   Authorization: Bearer eyJ0eXAiOiJKV1Q...
+5. Function validates token cryptographically (no secret lookup needed)
+6. Token expires automatically after short period
+```
+
+**Key Point:** OAuth authentication happens between Azure services using cryptographic trust, not stored secrets. This is more secure than any API key approach.
+
+---
+
 ### What We Store
 - ✅ **age_verified: true** (boolean flag only)
 - ❌ **NOT the birthdate** (discarded after validation)
@@ -307,7 +342,7 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 ### Age Verification Layers
 1. **App Store**: 21+ age rating
 2. **Mobile App**: Age gate on first launch
-3. **Entra External ID**: Server-side validation during signup
+3. **Entra External ID**: Server-side validation during signup (OAuth secured)
 4. **APIM**: JWT claim validation before API access
 
 ---

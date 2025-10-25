@@ -239,13 +239,14 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 
 ## Troubleshooting
 
-### Issue: Custom Authentication Extension Returns Error
+### Issue 1: Custom Authentication Extension Returns Error
 
 **Possible Causes:**
 1. Wrong event type selected (AttributeCollectionStart instead of OnAttributeCollectionSubmit)
 2. Function is not deployed or not responding
 3. Function endpoint URL is wrong
 4. OAuth app registration not configured correctly
+5. Extension attribute name mismatch
 
 **Solution:**
 1. **Verify event type**: Must be **OnAttributeCollectionSubmit** (NOT AttributeCollectionStart)
@@ -256,6 +257,45 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
    ```
 3. Check function URL is exactly: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
 4. Verify OAuth app registration was created during extension setup
+5. **Check Function Invocations** in Azure Portal to see if function is being called
+
+### Issue 2: Extension Attribute Name Contains GUID Prefix
+
+**Symptom:** Function receives birthdate as `extension_<GUID>_DateofBirth` instead of `birthdate`
+
+**Cause:** Custom directory extension attributes in Entra External ID automatically get a GUID prefix
+
+**Solution:** The function now searches for any attribute containing "dateofbirth" or "birthdate" (case-insensitive)
+
+### Issue 3: Date Format Issues
+
+**Supported Formats:**
+- `MM/DD/YYYY` (e.g., 01/05/1990) - US format with slashes
+- `MMDDYYYY` (e.g., 01051990) - US format without separators
+- `YYYY-MM-DD` (e.g., 1990-01-05) - ISO format
+
+**Note:** The form may strip slashes and send `MMDDYYYY` format. The function handles all three formats.
+
+### Issue 4: "Something went wrong" Error During Signup
+
+**Debugging Steps:**
+1. Check Azure Function **Invocations** tab
+   - If invocations show **Success (200)** → Function is working, issue is elsewhere
+   - If no invocations → Extension not calling function
+2. Click on a recent invocation to view logs
+3. Look for:
+   - "Found birthdate in extension attribute"
+   - "Parsed US date format"
+   - "User age calculated"
+   - "User is 21+" or "User under 21"
+
+### Issue 5: CORS Errors
+
+**Solution:** CORS has been configured on the Function App for Entra External ID domains:
+```bash
+az functionapp cors add --name func-mba-fresh --resource-group rg-mba-prod \
+  --allowed-origins "https://mybartenderai.ciamlogin.com" "https://*.ciamlogin.com"
+```
 
 ---
 

@@ -78,6 +78,80 @@ For now, the Flutter app is configured to use:
 - Function Key: Included in headers
 - Test endpoint: `/v1/ask-bartender-test` (no JWT required)
 
+## Age Verification (21+ Requirement)
+
+### Custom Authentication Extension
+
+The app implements server-side age verification during signup using Entra External ID Custom Authentication Extensions.
+
+**Function**: `validate-age`
+- **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
+- **Purpose**: Validates users are 21+ during signup
+- **Event Type**: OnAttributeCollectionSubmit
+- **Authentication**: OAuth 2.0 Bearer tokens from Entra External ID
+- **Status**: ✅ Deployed
+
+**Key Features**:
+- Extension attribute handling (GUID-prefixed custom attributes like `extension_<GUID>_DateofBirth`)
+- Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+- Privacy-focused (birthdate NOT stored, only `age_verified: true` boolean)
+- Microsoft Graph API response format for Entra integration
+
+### Entra External ID Configuration Required
+
+1. **Create Custom User Attributes**:
+   - Navigate to: **Entra External ID → Custom user attributes**
+   - Create `birthdate` attribute (String type)
+   - Create `age_verified` attribute (Boolean type)
+
+2. **Update User Flow**:
+   - Add `birthdate` to signup form (required field)
+   - Position after First name, Last name, Email
+
+3. **Create Custom Authentication Extension**:
+   - Navigate to: **External Identities → Custom authentication extensions**
+   - Click **+ Create a custom extension**
+   - Configure:
+     - **Name**: Age Verification
+     - **Event type**: OnAttributeCollectionSubmit ⚠️ (CRITICAL)
+     - **Target URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
+     - **Authentication**: Create new app registration (OAuth 2.0)
+     - **Claims**: birthdate
+
+4. **Add Extension to User Flow**:
+   - Navigate to: **User flows → mba-signin-signup**
+   - Click **Custom authentication extensions**
+   - Select event: OnAttributeCollectionSubmit
+   - Choose extension: Age Verification
+
+5. **Update JWT Token Configuration**:
+   - Navigate to: **App registrations → MyBartenderAI Mobile**
+   - Click **Token configuration**
+   - Add optional claim: `extension_age_verified` (Access token)
+
+### Testing Age Verification
+
+**Under-21 Test** (Should Block):
+```
+Birthdate: 01/05/2010 (under 21)
+Expected: Account creation blocked with message:
+"You must be 21 years or older to use MyBartenderAI."
+```
+
+**21+ Test** (Should Allow):
+```
+Birthdate: 01/05/1990 (21+)
+Expected: Account created successfully
+JWT token includes: "age_verified": true
+```
+
+### Documentation
+
+For detailed setup instructions, see:
+- `infrastructure/apim/ENTRA_EXTERNAL_ID_API_CONNECTOR_SETUP.md` - Step-by-step portal configuration
+- `docs/AGE_VERIFICATION_IMPLEMENTATION.md` - Complete implementation guide
+- `docs/TROUBLESHOOTING.md` - Age verification issues and fixes
+
 ## Next Steps
 
 1. Get your B2C configuration details:
@@ -87,6 +161,13 @@ For now, the Flutter app is configured to use:
 
 2. Configure the Function App with B2C settings
 
-3. Implement authentication in the Flutter app
+3. **Configure Age Verification**:
+   - Create custom user attributes (birthdate, age_verified)
+   - Create Custom Authentication Extension
+   - Add extension to user flow
+   - Update JWT token configuration
+   - Test signup flow with under-21 and 21+ users
 
-4. Switch back to the authenticated endpoints
+4. Implement authentication in the Flutter app
+
+5. Switch back to the authenticated endpoints

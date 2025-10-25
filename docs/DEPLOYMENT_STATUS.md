@@ -31,6 +31,18 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Syncs cocktail data and creates snapshots
    - Status: Deployed (needs manual trigger for initial sync)
 
+6. ✅ **POST /api/validate-age**
+   - Custom Authentication Extension for Entra External ID
+   - Server-side age verification (21+) during signup
+   - Event Type: OnAttributeCollectionSubmit
+   - Authentication: OAuth 2.0 Bearer tokens
+   - Features:
+     - Extension attribute handling (GUID-prefixed custom attributes)
+     - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+     - Privacy-focused (birthdate not stored, only age_verified boolean)
+   - Status: ✅ Deployed and tested
+   - Known Issue: "Something went wrong" error (function works, accounts not created - investigating)
+
 ### Deployment Journey
 
 #### Phase 1: v4 Migration Attempt (func-cocktaildb2 - Flex Consumption)

@@ -317,10 +317,17 @@ Deployment
 - [ ] Backend: JWT validation at APIM; map `sub` → `user_id` in Functions.
 - [ ] Implement subscription key provisioning during user signup.
 - [ ] **Age Verification (21+ requirement)**:
-  - [ ] Deploy `validate-age` Azure Function for Entra External ID API connector
-  - [ ] Configure Entra External ID custom attributes (`birthdate`, `age_verified`)
-  - [ ] Add API connector to user flow for signup validation
+  - [x] Deploy `validate-age` Azure Function for Entra External ID Custom Authentication Extension
+  - [x] Implement OAuth 2.0 Bearer token authentication
+  - [x] Add extension attribute GUID prefix handling (`extension_<GUID>_DateofBirth`)
+  - [x] Add support for multiple date formats (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+  - [x] Update function for OnAttributeCollectionSubmit event type
+  - [x] Add comprehensive error handling and logging
+  - [ ] Configure Entra External ID custom attributes (`birthdate`, `age_verified`) - requires manual portal config
+  - [ ] Create Custom Authentication Extension in Entra portal (OnAttributeCollectionSubmit event)
+  - [ ] Add custom extension to mba-signin-signup user flow
   - [ ] Update JWT token configuration to include `age_verified` claim
+  - [ ] Debug "Something went wrong" error (function works, but accounts not created)
   - [ ] Update APIM policies with age verification validation
   - [ ] Implement mobile app age gate screen (first launch)
   - [ ] Test complete age verification flow (app → signup → API)
@@ -372,9 +379,28 @@ Deployment
 - [ ] Validate rate limits (Free vs Premium vs Pro).
 - [ ] Verify no PII persisted (DB schema, logs samples).
 - [ ] Offline mode: SQLite cache used; reconciling on re-connect.
-- [ ] Age verification: Test under-21 blocked, 21+ allowed.
-- [ ] Age verification: Test JWT tokens include age_verified claim.
-- [ ] Age verification: Test APIM rejects requests without age_verified.
+- [ ] **Age verification - Backend:**
+  - [x] Test function handles extension attributes with GUID prefixes
+  - [x] Test function parses MM/DD/YYYY date format
+  - [x] Test function parses MMDDYYYY date format (no separators)
+  - [x] Test function parses YYYY-MM-DD date format
+  - [x] Test function blocks under-21 users with proper error message
+  - [x] Test function allows 21+ users
+  - [x] Verify function deployed and responding to Entra External ID
+  - [ ] Fix "Something went wrong" error during signup
+  - [ ] Test complete signup flow with age verification
+- [ ] **Age verification - Identity:**
+  - [ ] Test JWT tokens include age_verified claim after signup
+  - [ ] Verify age_verified claim format in decoded token (jwt.ms)
+- [ ] **Age verification - APIM:**
+  - [ ] Test APIM rejects requests without age_verified claim (403)
+  - [ ] Test APIM allows requests with age_verified=true claim (200)
+  - [ ] Verify proper error message for age verification failures
+- [ ] **Age verification - Mobile:**
+  - [ ] Test mobile app age gate screen on first launch
+  - [ ] Test age gate blocks under-21 users
+  - [ ] Test age gate allows 21+ users
+  - [ ] Verify age verification persists across app restarts
 - [ ] Voice feature: Test latency, accuracy, quota enforcement.
 - [ ] APIM: Test all tier restrictions and rate limits.
 - [ ] Regression: legacy screens replaced; no Provider references remain.

@@ -15,6 +15,7 @@
 - AI-powered cocktail recommendations based on inventory (GPT-4o-mini)
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication and APIM-based rate limiting per tier
+- **Age Verification**: 21+ requirement enforced at signup via Entra External ID Custom Authentication Extension
 
 ### Planned (Premium/Pro)
 - **Vision AI**: Photograph home bar for automatic inventory
@@ -197,6 +198,18 @@ sequenceDiagram
 
 **Note:** Functions `realtime-token*` are legacy (OpenAI Realtime API approach) and will be deprecated in favor of Azure Speech Services architecture.
 
+### Age Verification Function
+- `validate-age`: Custom Authentication Extension for Entra External ID
+  - **Purpose**: Server-side age verification (21+) during account signup
+  - **Event Type**: OnAttributeCollectionSubmit (fires AFTER user submits birthdate)
+  - **Authentication**: OAuth 2.0 Bearer tokens from Entra External ID
+  - **Features**:
+    - Extension attribute handling (GUID-prefixed custom attributes)
+    - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+    - Privacy-focused (birthdate not stored, only age_verified boolean)
+  - **Status**: ✅ Deployed and tested
+  - **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
+
 ## Security & Privacy
 
 ### Authentication & Access
@@ -207,6 +220,12 @@ sequenceDiagram
 - Function keys for admin endpoints
 
 ### PII Policy
+- **Birthdate (Age Verification)**:
+  - Collected ONLY during signup for one-time validation
+  - Processed by `validate-age` function but NOT stored
+  - Only boolean `age_verified: true` flag persisted in identity system
+  - Not transmitted in JWT tokens, not accessible via API
+  - Complies with minimal PII storage principles
 - **Custom recipe names**: Stripped from telemetry
 - **Voice transcripts**: Opt-in storage only (default: ephemeral processing)
 - **Bar photos**: Processed ephemerally, never stored

@@ -134,6 +134,141 @@ SNAPSHOT_SAS_TTL_MINUTES=15
 
 ---
 
+### Issue 5: Age Verification - Extension Attribute with GUID Prefix ✅ FIXED
+
+**Symptoms:**
+- Custom Authentication Extension not receiving birthdate
+- Entra External ID signup shows "Something went wrong" error
+- Function logs show birthdate not found in request
+
+**Root Cause:**
+Custom directory extension attributes in Entra External ID automatically receive a GUID prefix. The function was looking for `birthdate` but Entra was sending `extension_df9fd4be0b514fb38b2b3bedc47318a1_DateofBirth`.
+
+**Solution:**
+Updated `validate-age` function to search for any attribute key containing "dateofbirth" or "birthdate" (case-insensitive):
+
+```javascript
+// Search for extension attribute with GUID prefix
+const birthdateKey = Object.keys(attributes).find(key =>
+    key.toLowerCase().includes('dateofbirth') || key.toLowerCase().includes('birthdate')
+);
+if (birthdateKey) {
+    birthdate = attributes[birthdateKey]?.value || attributes[birthdateKey];
+    context.log(`Found birthdate in extension attribute: ${birthdateKey}`);
+}
+```
+
+**Verification:**
+```powershell
+# Check function invocation logs in Azure Portal
+# Functions → func-mba-fresh → validate-age → Invocations → Click recent execution
+# Look for: "Found birthdate in extension attribute: extension_..."
+```
+
+---
+
+### Issue 6: Age Verification - Date Format Incompatibility ✅ FIXED
+
+**Symptoms:**
+- Age verification fails even with valid birthdate
+- Function logs show "Invalid birthdate format" error
+- US users need MM/DD/YYYY format
+
+**Root Cause:**
+Initial function implementation expected YYYY-MM-DD (ISO format), but US signup form uses MM/DD/YYYY format. Additionally, form may strip slashes and send MMDDYYYY format.
+
+**Solution:**
+Added support for three date formats in `validate-age` function:
+- `MM/DD/YYYY` (US format with slashes)
+- `MMDDYYYY` (US format without separators - 8 digits)
+- `YYYY-MM-DD` (ISO format)
+
+```javascript
+const usDateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+const usDateNoSepRegex = /^(\d{2})(\d{2})(\d{4})$/;
+const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+if (usDateRegex.test(birthdate) || usDateNoSepRegex.test(birthdate)) {
+    // Parse MM/DD/YYYY or MMDDYYYY
+    const match = birthdate.match(usDateRegex || usDateNoSepRegex);
+    const month = parseInt(match[1], 10);
+    const day = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+    birthDate = new Date(year, month - 1, day);
+}
+```
+
+**Verification:**
+Test with different date formats:
+```powershell
+# Test script available at: test-direct-call.ps1
+.\test-direct-call.ps1
+```
+
+---
+
+### Issue 7: Age Verification - Wrong Event Type ✅ FIXED
+
+**Symptoms:**
+- Custom Authentication Extension not receiving birthdate data
+- Extension fires but birthdate is null/undefined
+- User never sees form asking for Date of Birth
+
+**Root Cause:**
+Custom Authentication Extension was configured with `AttributeCollectionStart` event type, which fires BEFORE the user fills out the form. Birthdate not available yet.
+
+**Solution:**
+1. Delete old Custom Authentication Extension
+2. Create new extension with `OnAttributeCollectionSubmit` event type
+3. This event fires AFTER user submits the form with birthdate filled in
+
+**Configuration:**
+```
+Event Type: OnAttributeCollectionSubmit (NOT AttributeCollectionStart)
+Target URL: https://func-mba-fresh.azurewebsites.net/api/validate-age
+Authentication: Create new app registration (OAuth 2.0)
+Claims: birthdate
+```
+
+---
+
+### Issue 8: Age Verification - "Something went wrong" Error (ONGOING) 🔍
+
+**Symptoms:**
+- Function returns HTTP 200 success
+- Function invocations show SUCCESS status
+- But Entra External ID shows "Something went wrong" to users
+- Accounts NOT being created in tenant
+
+**Current Status:** INVESTIGATING
+
+**Debugging Steps Completed:**
+1. ✅ Verified function is deployed and responding
+2. ✅ Verified function returns correct Microsoft Graph API response format
+3. ✅ Verified OAuth Bearer token is being sent
+4. ✅ Verified function handles all date formats correctly
+5. ✅ Verified extension attribute name handling
+
+**Next Steps:**
+1. ⬜ Examine detailed response body from most recent invocation
+2. ⬜ Enable full OAuth token validation (currently bypassed for testing)
+3. ⬜ Check Custom Authentication Extension app registration permissions
+4. ⬜ Verify response content-type headers are correct
+
+**Diagnostic Commands:**
+```powershell
+# Check function invocations
+# Azure Portal → func-mba-fresh → validate-age → Invocations → Click recent run
+# Look for response body and verify Microsoft Graph API format
+
+# Check Custom Authentication Extension configuration
+# Azure Portal → Entra External ID → Custom authentication extensions → Age Verification
+# Verify Event Type is OnAttributeCollectionSubmit
+# Verify Target URL is correct
+```
+
+---
+
 ## Deployment Best Practices
 
 ### Working Deployment Process

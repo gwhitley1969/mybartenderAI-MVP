@@ -123,62 +123,75 @@ Entra External ID supports Custom Authentication Extensions to validate data dur
 
 **Function Code Overview** (see `apps/backend/v3-deploy/validate-age/index.js`):
 
+**Key Features:**
+- OAuth 2.0 Bearer token validation (temporarily bypassed for testing, full validation pending)
+- Extension attribute handling (finds attributes with GUID prefixes like `extension_<GUID>_DateofBirth`)
+- Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+- Microsoft Graph API response format for Entra External ID
+- Privacy-focused (no birthdate storage)
+
+**Simplified Code Example:**
 ```javascript
 module.exports = async function (context, req) {
-    // Validate OAuth Bearer token from Entra External ID
+    // OAuth validation (temporarily bypassed for testing)
     const authHeader = req.headers.authorization || req.headers.Authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        // Return Microsoft Graph API format error
-        context.res = {
-            status: 401,
-            body: {
-                data: {
-                    "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
-                    "actions": [{
-                        "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
-                        "message": "Authentication required. Please contact support if this error persists."
-                    }]
-                }
-            }
-        };
-        return;
+    if (authHeader) {
+        context.log('OAuth token present (validation temporarily bypassed for testing)');
     }
 
-    // Extract birthdate from Entra External ID request format
+    // Extract birthdate - handles extension attributes with GUID prefixes
     const attributes = req.body?.data?.userSignUpInfo?.attributes;
-    const birthdate = attributes?.birthdate?.value || attributes?.birthdate;
+    let birthdate = attributes?.birthdate?.value || attributes?.birthdate;
 
-    // Calculate age (same logic as before)
-    const birthDate = new Date(birthdate);
+    // Search for extension attribute (e.g., extension_<GUID>_DateofBirth)
+    if (!birthdate) {
+        const birthdateKey = Object.keys(attributes).find(key =>
+            key.toLowerCase().includes('dateofbirth') || key.toLowerCase().includes('birthdate')
+        );
+        if (birthdateKey) {
+            birthdate = attributes[birthdateKey]?.value || attributes[birthdateKey];
+        }
+    }
+
+    // Parse multiple date formats: MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD
+    let birthDate;
+    const usDateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    const usDateNoSepRegex = /^(\d{2})(\d{2})(\d{4})$/;
+    const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (usDateRegex.test(birthdate) || usDateNoSepRegex.test(birthdate)) {
+        // Parse US format (with or without slashes)
+        // ... parsing logic ...
+    } else if (isoDateRegex.test(birthdate)) {
+        birthDate = new Date(birthdate);
+    }
+
+    // Calculate age
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
     }
 
-    // Check if user is 21 or older
+    // Return block response if under 21
     if (age < 21) {
-        // Return Microsoft Graph API format block response
-        context.res = {
+        return {
             status: 200,
             body: {
                 data: {
                     "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
                     "actions": [{
                         "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
-                        "message": "You must be 21 years or older to use MyBartenderAI. This app is intended for adults of legal drinking age only."
+                        "message": "You must be 21 years or older to use MyBartenderAI."
                     }]
                 }
             }
         };
-        return;
     }
 
-    // User is 21+, allow signup
-    context.res = {
+    // Allow signup for 21+
+    return {
         status: 200,
         body: {
             data: {
@@ -191,6 +204,9 @@ module.exports = async function (context, req) {
     };
 };
 ```
+
+**Full implementation** includes comprehensive error handling, date validation, and extensive logging.
+See `apps/backend/v3-deploy/validate-age/index.js` for complete code.
 
 2. **Function is already deployed** at:
    - URL: `https://func-mba-fresh.azurewebsites.net/api/validate-age`
@@ -705,12 +721,16 @@ Your birthdate is used only for one-time age verification and is not stored in o
 - ✅ Create age verification documentation
 - ✅ Deploy `validate-age` Azure Function with OAuth authentication
 - ✅ Update function for OnAttributeCollectionSubmit event type
-- ⬜ Configure Entra External ID custom attributes
+- ✅ Implement extension attribute GUID prefix handling
+- ✅ Add support for multiple date formats (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
+- ✅ Add comprehensive error handling and logging
+- ⬜ Configure Entra External ID custom attributes (requires manual portal configuration)
 - ⬜ Delete old custom authentication extension (wrong event type)
 - ⬜ Create new custom authentication extension (OnAttributeCollectionSubmit)
 - ⬜ Add custom extension to user flow
 - ⬜ Update JWT token configuration
 - ⬜ Test age verification in Entra External ID
+- ⬜ Debug ongoing "Something went wrong" error (function returns 200 but accounts not created)
 
 ### Phase 2: APIM Policy Updates (Current Sprint)
 - ✅ Create age verification policy file (jwt-validation-with-age-verification.xml)
@@ -735,18 +755,69 @@ Your birthdate is used only for one-time age verification and is not stored in o
 
 ## Troubleshooting
 
-### Issue: Age gate shows every time app opens
+### Issue 1: Extension Attribute Name with GUID Prefix
+
+**Symptom**: Function looking for `birthdate` but Entra sends `extension_<GUID>_DateofBirth`
+
+**Cause**: Custom directory extension attributes in Entra External ID automatically get a GUID prefix
+
+**Solution**: ✅ **FIXED** - Function now searches for any attribute key containing "dateofbirth" or "birthdate" (case-insensitive)
+
+```javascript
+const birthdateKey = Object.keys(attributes).find(key =>
+    key.toLowerCase().includes('dateofbirth') || key.toLowerCase().includes('birthdate')
+);
+```
+
+### Issue 2: Date Format Incompatibility
+
+**Symptom**: Function expected YYYY-MM-DD, but US users need MM/DD/YYYY format
+
+**Cause**: US date format standard differs from ISO format
+
+**Solution**: ✅ **FIXED** - Function now supports three formats:
+- `MM/DD/YYYY` (US format with slashes)
+- `MMDDYYYY` (US format without separators - form may strip slashes)
+- `YYYY-MM-DD` (ISO format)
+
+### Issue 3: Wrong Event Type
+
+**Symptom**: Extension not receiving birthdate data
+
+**Cause**: Used `AttributeCollectionStart` event type (fires BEFORE form submission)
+
+**Solution**: ✅ **FIXED** - Changed to `OnAttributeCollectionSubmit` event type (fires AFTER form submission when birthdate is available)
+
+### Issue 4: "Something went wrong" Error During Signup (ONGOING)
+
+**Symptom**: Function returns HTTP 200 success but accounts not created
+
+**Current Status**: 🔄 **INVESTIGATING**
+- Function invocations show SUCCESS (200 status)
+- Function IS being called and returning proper Microsoft Graph API response format
+- But Entra External ID still shows "Something went wrong" to users
+- Accounts NOT being created in tenant
+
+**Debugging Steps**:
+1. ✅ Verified function is deployed and responding
+2. ✅ Verified function returns correct Microsoft Graph API response format
+3. ✅ Verified OAuth Bearer token is being sent
+4. ⬜ Need to examine detailed response body from most recent invocation
+5. ⬜ May need to enable full OAuth validation instead of bypass
+
+### Issue 5: Age gate shows every time app opens (Mobile)
 
 **Solution**: Check SharedPreferences is persisting correctly. Verify provider is reading initial state on app start.
 
-### Issue: JWT doesn't contain age_verified claim
+### Issue 6: JWT doesn't contain age_verified claim
 
 **Solution**:
 1. Check token configuration in App Registration
-2. Verify API connector is running and returning `extension_age_verified: true`
+2. Verify custom authentication extension is setting `age_verified` claim
 3. Re-login to get new token with updated claims
+4. Decode token at https://jwt.ms to verify claim exists
 
-### Issue: APIM still allows access without age_verified
+### Issue 7: APIM still allows access without age_verified
 
 **Solution**:
 1. Verify policy is saved at operation level

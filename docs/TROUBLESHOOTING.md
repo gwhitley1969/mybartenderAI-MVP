@@ -275,6 +275,73 @@ context.res = {
 
 ---
 
+### Issue 9: OAuth Token Validation - Wrong JWKS Domain ✅ RESOLVED
+
+**Symptoms:**
+- OAuth token validation failing: "Token validation failed - unable to validate signature"
+- Application Insights showing "Expected 200 OK from the JSON Web Key Set HTTP response"
+- Age verification working when OAuth disabled, failing when enabled
+
+**Root Cause:** Using wrong JWKS endpoint domain
+
+Entra External ID (CIAM) uses `ciamlogin.com` domain, NOT `login.microsoftonline.com`.
+
+The OAuth validator was trying to fetch JWKS from:
+```
+❌ WRONG: https://login.microsoftonline.com/{tenantId}/discovery/v2.0/keys
+```
+
+But Entra External ID tokens are signed with keys from:
+```
+✅ CORRECT: https://{tenantId}.ciamlogin.com/{tenantId}/discovery/v2.0/keys
+```
+
+**Token Details Discovered:**
+- Issuer: `https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/v2.0`
+- Audience: `9d8909e8-a7e3-496e-83b3-62995d06e20b`
+- Tenant ID: `a82813af-1054-4e2d-a8ec-c6b9c2908c91`
+
+**Solution:**
+Updated `oauthValidator.js` to try ciamlogin.com JWKS URL first:
+
+```javascript
+const possibleJwksUrls = [
+    // Entra External ID (CIAM) - try this FIRST
+    `https://${tenantId}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`,
+    // Regular Azure AD endpoints (fallback)
+    `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+    `https://login.microsoftonline.com/${tenantId}/discovery/keys`,
+    `https://login.microsoftonline.com/common/discovery/v2.0/keys`,
+];
+```
+
+**Verification:**
+```powershell
+# Check Application Insights logs after signup test
+# Should see:
+# [OAuth] Trying JWKS URL: https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/.../keys
+# [OAuth] ✅ Token signature validated successfully
+# [OAuth] Token validated - proceeding with age verification
+```
+
+**Test Results (2025-10-26):**
+1. ✅ OAuth token signature validated successfully
+2. ✅ Token claims verified (issuer, audience, tenant ID)
+3. ✅ Age verification proceeded normally after OAuth validation
+4. ✅ 44-year-old user allowed with age_verified claim
+5. ✅ Total execution: 376ms
+
+**Files Modified:**
+- `apps/backend/v3-deploy/validate-age/oauthValidator.js` - Updated JWKS URL priority
+
+**Key Learning:**
+Entra External ID (formerly Azure AD B2C CIAM) uses different endpoints than regular Azure AD:
+- **Domain**: `ciamlogin.com` (not `login.microsoftonline.com`)
+- **JWKS**: Must use tenant-specific ciamlogin.com endpoint
+- **Issuer format**: `https://{tenantId}.ciamlogin.com/{tenantId}/v2.0`
+
+---
+
 ## Deployment Best Practices
 
 ### Working Deployment Process

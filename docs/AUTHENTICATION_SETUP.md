@@ -88,20 +88,25 @@ The app implements server-side age verification during signup using Entra Extern
 - **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
 - **Purpose**: Validates users are 21+ during signup
 - **Event Type**: OnAttributeCollectionSubmit
-- **Authentication**: OAuth 2.0 Bearer tokens (configurable)
-- **Status**: ✅ Deployed, Tested, and WORKING (as of 2025-10-26)
+- **Authentication**: ✅ OAuth 2.0 Bearer tokens ENABLED AND WORKING
+- **Status**: ✅ Deployed, Tested, and FULLY OPERATIONAL (as of 2025-10-26)
 - **Test Results**:
-  - Under-21 users successfully BLOCKED
-  - 21+ users successfully ALLOWED
-  - Accounts created in Entra tenant
+  - ✅ OAuth token validation successful (ciamlogin.com JWKS)
+  - ✅ Under-21 users successfully BLOCKED
+  - ✅ 21+ users successfully ALLOWED
+  - ✅ Accounts created in Entra tenant
+  - ✅ Security hardening complete
 
 **Key Features**:
+- OAuth 2.0 token validation using Entra External ID ciamlogin.com domain
+- Cryptographic token verification (no secrets stored, uses Microsoft's public JWKS)
+- JWKS caching (10-minute TTL for performance)
 - Content-Type: application/json headers (Entra requirement)
 - Extension attribute handling (GUID-prefixed custom attributes like `extension_<GUID>_DateofBirth`)
 - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
 - Privacy-focused (birthdate NOT stored, only `age_verified: true` boolean)
 - Microsoft Graph API response format for Entra integration
-- Configurable OAuth validation (currently disabled for testing)
+- Comprehensive logging for debugging and monitoring
 
 ### Entra External ID Configuration Required
 

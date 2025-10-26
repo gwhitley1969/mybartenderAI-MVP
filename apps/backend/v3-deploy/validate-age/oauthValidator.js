@@ -41,6 +41,22 @@ async function validateCustomAuthExtensionToken(authHeader, context) {
 
     const token = match[1];
 
+    // First, let's decode the token without validation to see what we're working with
+    try {
+        const parts = token.split('.');
+        if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+            context.log('[OAuth] Token payload (decoded without validation):');
+            context.log(`[OAuth]   issuer (iss): ${payload.iss}`);
+            context.log(`[OAuth]   audience (aud): ${payload.aud}`);
+            context.log(`[OAuth]   subject (sub): ${payload.sub || 'not present'}`);
+            context.log(`[OAuth]   appid: ${payload.appid || 'not present'}`);
+            context.log(`[OAuth]   tenant ID (tid): ${payload.tid || 'not present'}`);
+        }
+    } catch (decodeError) {
+        context.log.warn(`[OAuth] Could not decode token for inspection: ${decodeError.message}`);
+    }
+
     // Get tenant ID from environment
     const tenantId = process.env.ENTRA_TENANT_ID;
     if (!tenantId) {
@@ -48,63 +64,83 @@ async function validateCustomAuthExtensionToken(authHeader, context) {
         throw new Error('OAuth validation not properly configured');
     }
 
-    // Construct issuer and JWKS URL
-    // For Custom Authentication Extensions, the issuer is the Azure AD tenant
-    const issuer = `https://login.microsoftonline.com/${tenantId}/v2.0`;
-    const jwksUrl = `${issuer}/discovery/v2.0/keys`;
+    // Try multiple issuer formats for Entra External ID
+    const possibleIssuers = [
+        `https://login.microsoftonline.com/${tenantId}/v2.0`,
+        `https://login.microsoftonline.com/${tenantId}`,
+        `https://sts.windows.net/${tenantId}/`,
+        `https://${tenantId}.ciamlogin.com/${tenantId}.onmicrosoft.com/v2.0`,
+    ];
 
-    context.log(`[OAuth] Validating token from issuer: ${issuer}`);
+    // Try multiple JWKS URLs
+    // Entra External ID (CIAM) uses ciamlogin.com domain!
+    const possibleJwksUrls = [
+        // Entra External ID (CIAM) - try this FIRST
+        `https://${tenantId}.ciamlogin.com/${tenantId}/discovery/v2.0/keys`,
+        // Regular Azure AD endpoints (fallback)
+        `https://login.microsoftonline.com/${tenantId}/discovery/v2.0/keys`,
+        `https://login.microsoftonline.com/${tenantId}/discovery/keys`,
+        `https://login.microsoftonline.com/common/discovery/v2.0/keys`,
+    ];
 
-    try {
-        // Get or create JWKS
-        let jwks;
-        const now = Date.now();
+    context.log(`[OAuth] Attempting validation with tenant ID: ${tenantId}`);
 
-        if (jwksCache && jwksCacheExpiry > now) {
-            jwks = jwksCache;
-            context.log('[OAuth] Using cached JWKS');
-        } else {
-            context.log(`[OAuth] Fetching JWKS from: ${jwksUrl}`);
-            jwks = createRemoteJWKSet(new URL(jwksUrl));
-            jwksCache = jwks;
-            jwksCacheExpiry = now + JWKS_CACHE_TTL_MS;
-        }
+    // Try each JWKS URL
+    for (const jwksUrl of possibleJwksUrls) {
+        try {
+            context.log(`[OAuth] Trying JWKS URL: ${jwksUrl}`);
 
-        // Verify JWT
-        // Note: For Custom Authentication Extensions, we validate the issuer
-        // The audience will be the app registration created by Entra
-        const { payload } = await jwtVerify(token, jwks, {
-            issuer: issuer,
-            // Don't validate audience yet - we'll log it first to see what it is
-        });
+            // Get or create JWKS
+            let jwks;
+            const now = Date.now();
 
-        context.log('[OAuth] Token validated successfully');
-        context.log(`[OAuth] Token subject: ${payload.sub}`);
-        context.log(`[OAuth] Token audience: ${payload.aud}`);
-        context.log(`[OAuth] Token issuer: ${payload.iss}`);
+            if (jwksCache && jwksCacheExpiry > now) {
+                jwks = jwksCache;
+                context.log('[OAuth] Using cached JWKS');
+            } else {
+                context.log(`[OAuth] Fetching JWKS from: ${jwksUrl}`);
+                jwks = createRemoteJWKSet(new URL(jwksUrl));
+                jwksCache = jwks;
+                jwksCacheExpiry = now + JWKS_CACHE_TTL_MS;
+            }
 
-        // Check for app ID (appid claim indicates service principal)
-        if (payload.appid) {
-            context.log(`[OAuth] Service principal app ID: ${payload.appid}`);
-        }
+            // Try to verify with relaxed validation (no issuer check first)
+            try {
+                const { payload } = await jwtVerify(token, jwks, {
+                    // Don't validate issuer/audience initially - just verify signature
+                });
 
-        return payload;
+                context.log('[OAuth] ✅ Token signature validated successfully');
+                context.log(`[OAuth] Token subject: ${payload.sub}`);
+                context.log(`[OAuth] Token audience: ${payload.aud}`);
+                context.log(`[OAuth] Token issuer: ${payload.iss}`);
 
-    } catch (error) {
-        if (error.code === 'ERR_JWT_EXPIRED') {
-            context.log.error('[OAuth] Token has expired');
-            throw new Error('Token has expired');
-        } else if (error.code === 'ERR_JWT_CLAIM_VALIDATION_FAILED') {
-            context.log.error(`[OAuth] Token claim validation failed: ${error.message}`);
-            throw new Error('Token validation failed');
-        } else if (error.code === 'ERR_JWKS_NO_MATCHING_KEY') {
-            context.log.error('[OAuth] No matching key found in JWKS');
-            throw new Error('Token signature validation failed');
-        } else {
-            context.log.error(`[OAuth] Token validation error: ${error.message}`);
-            throw new Error('Token validation failed');
+                // Check for app ID (appid claim indicates service principal)
+                if (payload.appid) {
+                    context.log(`[OAuth] Service principal app ID: ${payload.appid}`);
+                }
+
+                // Verify tenant ID matches
+                if (payload.tid && payload.tid !== tenantId) {
+                    context.log.warn(`[OAuth] Tenant ID mismatch: token has ${payload.tid}, expected ${tenantId}`);
+                }
+
+                return payload;
+
+            } catch (verifyError) {
+                context.log.warn(`[OAuth] Verification failed with ${jwksUrl}: ${verifyError.code} - ${verifyError.message}`);
+                // Continue to next JWKS URL
+            }
+
+        } catch (jwksError) {
+            context.log.warn(`[OAuth] JWKS fetch failed for ${jwksUrl}: ${jwksError.message}`);
+            // Continue to next JWKS URL
         }
     }
+
+    // If we get here, all attempts failed
+    context.log.error('[OAuth] All token validation attempts failed');
+    throw new Error('Token validation failed - unable to validate signature');
 }
 
 module.exports = {

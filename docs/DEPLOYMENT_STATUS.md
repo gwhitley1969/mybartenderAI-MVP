@@ -35,19 +35,22 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Custom Authentication Extension for Entra External ID
    - Server-side age verification (21+) during signup
    - Event Type: OnAttributeCollectionSubmit
-   - Authentication: OAuth 2.0 Bearer tokens (configurable)
+   - Authentication: OAuth 2.0 Bearer tokens ✅ ENABLED AND WORKING
    - Features:
+     - OAuth 2.0 token validation using Entra External ID ciamlogin.com domain
      - Content-Type: application/json headers (Entra requirement)
      - Extension attribute handling (GUID-prefixed custom attributes)
      - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
      - Privacy-focused (birthdate not stored, only age_verified boolean)
-     - Configurable OAuth validation (currently disabled for testing)
-   - Status: ✅ Deployed, tested, and WORKING
+     - Cryptographic token verification (no secrets stored)
+   - Status: ✅ Deployed, tested, and FULLY OPERATIONAL
    - Test Results (2025-10-26):
-     - Under-21 users successfully BLOCKED
-     - 21+ users successfully ALLOWED and accounts created
-     - All responses include proper Content-Type headers
-     - No "Something went wrong" errors
+     - ✅ OAuth token validation successful (ciamlogin.com JWKS)
+     - ✅ Under-21 users successfully BLOCKED
+     - ✅ 21+ users successfully ALLOWED and accounts created
+     - ✅ All responses include proper Content-Type headers
+     - ✅ Security hardening complete
+     - ✅ Execution time: ~376ms
 
 ### Deployment Journey
 

@@ -232,7 +232,7 @@ Claims: birthdate
 
 ---
 
-### Issue 8: Age Verification - "Something went wrong" Error (ONGOING) 🔍
+### Issue 8: Age Verification - "Something went wrong" Error ✅ RESOLVED
 
 **Symptoms:**
 - Function returns HTTP 200 success
@@ -240,32 +240,38 @@ Claims: birthdate
 - But Entra External ID shows "Something went wrong" to users
 - Accounts NOT being created in tenant
 
-**Current Status:** INVESTIGATING
+**Root Cause:** Missing `Content-Type: application/json` headers in function responses
 
-**Debugging Steps Completed:**
-1. ✅ Verified function is deployed and responding
-2. ✅ Verified function returns correct Microsoft Graph API response format
-3. ✅ Verified OAuth Bearer token is being sent
-4. ✅ Verified function handles all date formats correctly
-5. ✅ Verified extension attribute name handling
+**Resolution:** Added proper Content-Type headers to ALL responses (2025-10-26)
 
-**Next Steps:**
-1. ⬜ Examine detailed response body from most recent invocation
-2. ⬜ Enable full OAuth token validation (currently bypassed for testing)
-3. ⬜ Check Custom Authentication Extension app registration permissions
-4. ⬜ Verify response content-type headers are correct
-
-**Diagnostic Commands:**
-```powershell
-# Check function invocations
-# Azure Portal → func-mba-fresh → validate-age → Invocations → Click recent run
-# Look for response body and verify Microsoft Graph API format
-
-# Check Custom Authentication Extension configuration
-# Azure Portal → Entra External ID → Custom authentication extensions → Age Verification
-# Verify Event Type is OnAttributeCollectionSubmit
-# Verify Target URL is correct
+**Fix Applied:**
+```javascript
+context.res = {
+    status: 200,
+    headers: {
+        'Content-Type': 'application/json'  // ← This was missing!
+    },
+    body: { /* Microsoft Graph API response */ }
+};
 ```
+
+**Test Results (2025-10-26):**
+1. ✅ Under-21 users successfully BLOCKED with correct message
+2. ✅ 21+ users successfully ALLOWED and accounts created
+3. ✅ All responses include proper Content-Type headers
+4. ✅ No more "Something went wrong" errors
+5. ✅ Accounts appear in Entra External ID tenant
+
+**Additional Fixes:**
+- Added configurable OAuth token validation
+- Implemented comprehensive error handling
+- Created testing scripts and documentation
+
+**Files Modified:**
+- `apps/backend/v3-deploy/validate-age/index.js` - Added headers to all 5 response types
+- `apps/backend/v3-deploy/validate-age/oauthValidator.js` - OAuth validation module
+- `docs/AGE_VERIFICATION_TESTING_GUIDE.md` - Complete testing guide
+- `READY_TO_TEST.md` - Personalized setup guide
 
 ---
 

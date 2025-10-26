@@ -44,21 +44,51 @@
  * Privacy: Birthdate is NOT stored. Only age_verified boolean is set in claims.
  */
 
+const { validateCustomAuthExtensionToken } = require('./oauthValidator');
+
 module.exports = async function (context, req) {
     context.log('=== Age verification request received (OnAttributeCollectionSubmit) ===');
 
     // Validate OAuth/OIDC Bearer token from Entra External ID
     const authHeader = req.headers.authorization || req.headers.Authorization;
 
-    // Log the auth header for debugging (remove in production)
-    context.log('Authorization header present:', !!authHeader);
+    // Check if OAuth validation is enabled (set ENABLE_OAUTH_VALIDATION=true to enable)
+    const oauthEnabled = process.env.ENABLE_OAUTH_VALIDATION === 'true';
 
-    // TEMPORARILY BYPASS OAuth validation for testing
-    // TODO: Implement proper JWT validation with Azure AD
-    if (authHeader) {
-        context.log('OAuth token present (validation temporarily bypassed for testing)');
+    if (oauthEnabled) {
+        // OAuth validation ENABLED - validate the token
+        context.log('[OAuth] Validation ENABLED - validating token');
+        try {
+            const tokenPayload = await validateCustomAuthExtensionToken(authHeader, context);
+            context.log('[OAuth] Token validated - proceeding with age verification');
+            context.log(`[OAuth] Request from service principal: ${tokenPayload.appid || 'unknown'}`);
+        } catch (error) {
+            context.log.error(`[OAuth] Token validation failed: ${error.message}`);
+            context.res = {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: {
+                    data: {
+                        "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
+                        "actions": [{
+                            "@odata.type": "microsoft.graph.attributeCollectionSubmit.showBlockPage",
+                            "message": "Authentication failed. Please try again or contact support."
+                        }]
+                    }
+                }
+            };
+            return;
+        }
     } else {
-        context.log.warn('No Authorization header, but continuing for testing');
+        // OAuth validation DISABLED - log warning and continue
+        context.log.warn('[OAuth] Validation DISABLED - proceeding without token validation (set ENABLE_OAUTH_VALIDATION=true to enable)');
+        if (authHeader) {
+            context.log('[OAuth] Token present but not validated');
+        } else {
+            context.log.warn('[OAuth] No Authorization header present');
+        }
     }
 
     // Log the entire request for debugging
@@ -106,7 +136,10 @@ module.exports = async function (context, req) {
         context.log.error('Missing birthdate in request');
         context.log.error('Request body:', JSON.stringify(req.body));
         context.res = {
-            status: 400,
+            status: 200,  // CRITICAL: Entra requires HTTP 200 even for errors
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: {
                 data: {
                     "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
@@ -153,7 +186,10 @@ module.exports = async function (context, req) {
     } else {
         context.log.error(`Invalid birthdate format: ${birthdate} (expected MM/DD/YYYY, MMDDYYYY, or YYYY-MM-DD)`);
         context.res = {
-            status: 400,
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: {
                 data: {
                     "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
@@ -171,7 +207,10 @@ module.exports = async function (context, req) {
     if (isNaN(birthDate.getTime())) {
         context.log.error(`Invalid birthdate value: ${birthdate}`);
         context.res = {
-            status: 400,
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: {
                 data: {
                     "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
@@ -202,6 +241,9 @@ module.exports = async function (context, req) {
         context.log.warn(`User under 21 (age: ${age}), blocking signup`);
         context.res = {
             status: 200,
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: {
                 data: {
                     "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",
@@ -220,6 +262,9 @@ module.exports = async function (context, req) {
 
     context.res = {
         status: 200,
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: {
             data: {
                 "@odata.type": "microsoft.graph.onAttributeCollectionSubmitResponseData",

@@ -88,14 +88,20 @@ The app implements server-side age verification during signup using Entra Extern
 - **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
 - **Purpose**: Validates users are 21+ during signup
 - **Event Type**: OnAttributeCollectionSubmit
-- **Authentication**: OAuth 2.0 Bearer tokens from Entra External ID
-- **Status**: ✅ Deployed
+- **Authentication**: OAuth 2.0 Bearer tokens (configurable)
+- **Status**: ✅ Deployed, Tested, and WORKING (as of 2025-10-26)
+- **Test Results**:
+  - Under-21 users successfully BLOCKED
+  - 21+ users successfully ALLOWED
+  - Accounts created in Entra tenant
 
 **Key Features**:
+- Content-Type: application/json headers (Entra requirement)
 - Extension attribute handling (GUID-prefixed custom attributes like `extension_<GUID>_DateofBirth`)
 - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
 - Privacy-focused (birthdate NOT stored, only `age_verified: true` boolean)
 - Microsoft Graph API response format for Entra integration
+- Configurable OAuth validation (currently disabled for testing)
 
 ### Entra External ID Configuration Required
 

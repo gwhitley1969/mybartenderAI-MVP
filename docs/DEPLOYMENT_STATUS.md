@@ -35,13 +35,19 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Custom Authentication Extension for Entra External ID
    - Server-side age verification (21+) during signup
    - Event Type: OnAttributeCollectionSubmit
-   - Authentication: OAuth 2.0 Bearer tokens
+   - Authentication: OAuth 2.0 Bearer tokens (configurable)
    - Features:
+     - Content-Type: application/json headers (Entra requirement)
      - Extension attribute handling (GUID-prefixed custom attributes)
      - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
      - Privacy-focused (birthdate not stored, only age_verified boolean)
-   - Status: ✅ Deployed and tested
-   - Known Issue: "Something went wrong" error (function works, accounts not created - investigating)
+     - Configurable OAuth validation (currently disabled for testing)
+   - Status: ✅ Deployed, tested, and WORKING
+   - Test Results (2025-10-26):
+     - Under-21 users successfully BLOCKED
+     - 21+ users successfully ALLOWED and accounts created
+     - All responses include proper Content-Type headers
+     - No "Something went wrong" errors
 
 ### Deployment Journey
 

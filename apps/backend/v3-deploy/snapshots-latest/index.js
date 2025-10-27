@@ -7,6 +7,9 @@ module.exports = async function (context, req) {
     if (!metadata) {
         context.res = {
             status: 503,
+            headers: {
+                'Content-Type': 'application/json',
+            },
             body: {
                 code: 'snapshot_unavailable',
                 message: 'No snapshot available yet.',
@@ -18,6 +21,9 @@ module.exports = async function (context, req) {
     const signedUrl = (0, snapshotStorageService_1.generateSnapshotSas)(metadata.blobPath);
     context.res = {
         status: 200,
+        headers: {
+            'Content-Type': 'application/json',
+        },
         body: {
             schemaVersion: metadata.schemaVersion,
             snapshotVersion: metadata.snapshotVersion,

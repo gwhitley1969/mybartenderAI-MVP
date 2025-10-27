@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:web_socket_channel/io.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
@@ -34,19 +35,16 @@ class WebSocketConnection {
       
       final response = await request.close();
       final socket = await response.detachSocket();
-      
-      return IOWebSocketChannel(socket);
+
+      return IOWebSocketChannel(socket as WebSocket);
     } catch (e) {
       throw Exception('Failed to connect WebSocket: $e');
     }
   }
   
   static String _generateWebSocketKey() {
-    final random = List<int>.generate(16, (i) => 
+    final random = List<int>.generate(16, (i) =>
       DateTime.now().millisecondsSinceEpoch * i % 256);
     return base64.encode(random);
   }
 }
-
-// Missing import
-import 'dart:convert';

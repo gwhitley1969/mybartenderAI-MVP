@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../ask_bartender/chat_screen.dart';
+import '../../theme/theme.dart';
+import '../../widgets/widgets.dart';
 import '../ask_bartender/voice_chat_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
@@ -11,258 +11,428 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppColors.backgroundPrimary,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: AppSpacing.screenPaddingHorizontal,
+            vertical: AppSpacing.screenPaddingTop,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // App Title
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'MyBartenderAI',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Your personal mixology assistant',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Features Grid
-              Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: [
-                    _FeatureCard(
-                      icon: Icons.chat_bubble_outline,
-                      title: 'Ask the Bartender',
-                      subtitle: 'Chat with AI',
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const AskBartenderScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _FeatureCard(
-                      icon: Icons.mic,
-                      title: 'Voice Assistant',
-                      subtitle: 'Talk to your bartender',
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF11998E), Color(0xFF38EF7D)],
-                      ),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const VoiceChatScreen(),
-                          ),
-                        );
-                      },
-                    ),
-                    _FeatureCard(
-                      icon: Icons.search,
-                      title: 'Find Cocktails',
-                      subtitle: 'Browse recipes',
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFEB3349), Color(0xFFF45C43)],
-                      ),
-                      onTap: () {
-                        // TODO: Navigate to cocktail search
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Cocktail search coming soon!'),
-                          ),
-                        );
-                      },
-                    ),
-                    _FeatureCard(
-                      icon: Icons.download,
-                      title: 'Offline Mode',
-                      subtitle: 'Download recipes',
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
-                      ),
-                      onTap: () {
-                        // TODO: Navigate to offline download
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Offline mode coming soon!'),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Voice Demo Button
-              Container(
-                margin: const EdgeInsets.only(bottom: 16),
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/voice-demo');
-                  },
-                  icon: const Icon(Icons.science),
-                  label: const Text('Voice Demo (Test WebSocket)'),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 48),
-                    backgroundColor: Colors.purple,
-                  ),
-                ),
-              ),
-              
-              // Bottom Navigation Hint
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF16213E),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      color: Colors.white54,
-                      size: 20,
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        'Tap any feature to get started',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              // App Header
+              _buildAppHeader(),
+              SizedBox(height: AppSpacing.xxl),
+
+              // AI Cocktail Concierge Section
+              _buildConciergeSection(context),
+              SizedBox(height: AppSpacing.sectionSpacing),
+
+              // Lounge Essentials Section
+              _buildLoungeEssentials(context),
+              SizedBox(height: AppSpacing.sectionSpacing),
+
+              // Master Mixologist Section
+              _buildMasterMixologist(context),
+              SizedBox(height: AppSpacing.sectionSpacing),
+
+              // Tonight's Special
+              _buildTonightsSpecial(context),
+              SizedBox(height: AppSpacing.xxl),
             ],
           ),
         ),
       ),
     );
   }
-}
 
-class _FeatureCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Gradient gradient;
-  final VoidCallback onTap;
-
-  const _FeatureCard({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.gradient,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: gradient,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Stack(
+  Widget _buildAppHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // App Logo Icon (optional - can add circular icon here)
+        Row(
           children: [
-            // Background pattern
-            Positioned(
-              right: -20,
-              bottom: -20,
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: AppColors.cardBackground,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppColors.cardBorder,
+                  width: 1,
+                ),
+              ),
               child: Icon(
-                icon,
-                size: 100,
-                color: Colors.white.withOpacity(0.1),
+                Icons.local_bar,
+                color: AppColors.iconCircleBlue,
+                size: 32,
               ),
             ),
-            // Content
-            Padding(
-              padding: const EdgeInsets.all(16),
+            SizedBox(width: AppSpacing.lg),
+            // Title and Subtitle
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 32,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
                   Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    'MyBartenderAI',
+                    style: AppTypography.appTitle,
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: AppSpacing.xs),
                   Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 14,
-                    ),
+                    'Premium mixology experience',
+                    style: AppTypography.appSubtitle,
                   ),
                 ],
               ),
             ),
           ],
         ),
+        SizedBox(height: AppSpacing.lg),
+        // User Level Badges
+        Row(
+          children: [
+            AppBadge.intermediate(),
+            SizedBox(width: AppSpacing.sm),
+            AppBadge.spiritCount(count: 8),
+            SizedBox(width: AppSpacing.sm),
+            BackendStatus(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConciergeSection(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardLargeBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Concierge Header
+          Row(
+            children: [
+              Container(
+                width: AppSpacing.iconCircleMedium,
+                height: AppSpacing.iconCircleMedium,
+                decoration: BoxDecoration(
+                  color: AppColors.accentBlue,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.auto_awesome,
+                  color: AppColors.textPrimary,
+                  size: AppSpacing.iconSizeMedium,
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'AI Cocktail Concierge',
+                      style: AppTypography.cardTitle.copyWith(
+                        fontSize: 18,
+                      ),
+                    ),
+                    SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Sophisticated cocktail intelligence for the evening',
+                      style: AppTypography.cardSubtitle,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.lg),
+          // Action Buttons
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  icon: Icons.mic,
+                  title: 'Ask the Bartender',
+                  subtitle: 'Speak naturally',
+                  color: AppColors.iconCircleBlue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const VoiceChatScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  icon: Icons.auto_fix_high,
+                  title: 'Create',
+                  subtitle: 'Signature cocktails',
+                  color: AppColors.primaryPurple,
+                  onTap: () {
+                    // TODO: Navigate to create screen
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Create Studio coming soon!'),
+                        backgroundColor: AppColors.cardBackground,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+          border: Border.all(
+            color: AppColors.cardBorder,
+            width: AppSpacing.borderWidthThin,
+          ),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: AppSpacing.iconCircleSmall,
+              height: AppSpacing.iconCircleSmall,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                icon,
+                color: AppColors.textPrimary,
+                size: AppSpacing.iconSizeSmall,
+              ),
+            ),
+            SizedBox(height: AppSpacing.sm),
+            Text(
+              title,
+              style: AppTypography.buttonSmall,
+              textAlign: TextAlign.center,
+            ),
+            SizedBox(height: AppSpacing.xs),
+            Text(
+              subtitle,
+              style: AppTypography.caption,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildLoungeEssentials(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(title: 'Lounge Essentials'),
+        GridView.count(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: AppSpacing.gridSpacing,
+          mainAxisSpacing: AppSpacing.gridSpacing,
+          childAspectRatio: 0.9,
+          children: [
+            FeatureCard(
+              icon: Icons.camera_alt,
+              title: 'Smart Scanner',
+              subtitle: 'Identify premium ingredients',
+              iconColor: AppColors.iconCirclePurple,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Smart Scanner coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+            FeatureCard(
+              icon: Icons.menu_book,
+              title: 'Recipe Vault',
+              subtitle: 'Curated cocktail collection',
+              iconColor: AppColors.iconCircleOrange,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Recipe Vault coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+            FeatureCard(
+              icon: Icons.inventory_2,
+              title: 'Premium Bar',
+              subtitle: 'Track your collection',
+              iconColor: AppColors.iconCircleTeal,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Premium Bar coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+            FeatureCard(
+              icon: Icons.person,
+              title: 'Taste Profile',
+              subtitle: 'Personal preferences',
+              iconColor: AppColors.accentBlue,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Taste Profile coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMasterMixologist(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Master Mixologist',
+          badgeText: 'Elite',
+        ),
+        GridView.count(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          crossAxisSpacing: AppSpacing.gridSpacing,
+          mainAxisSpacing: AppSpacing.gridSpacing,
+          childAspectRatio: 0.9,
+          children: [
+            FeatureCard(
+              icon: Icons.school,
+              title: 'Academy',
+              subtitle: 'Professional techniques',
+              iconColor: AppColors.iconCirclePink,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Academy coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+            FeatureCard(
+              icon: Icons.calculate,
+              title: 'Pro Tools',
+              subtitle: 'Precision instruments',
+              iconColor: AppColors.iconCircleOrange,
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Pro Tools coming soon!'),
+                    backgroundColor: AppColors.cardBackground,
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTonightsSpecial(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardLargeBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: AppSpacing.iconCircleMedium,
+            height: AppSpacing.iconCircleMedium,
+            decoration: BoxDecoration(
+              color: AppColors.primaryPurple,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.nightlight_round,
+              color: AppColors.textPrimary,
+              size: AppSpacing.iconSizeMedium,
+            ),
+          ),
+          SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tonight\'s Special',
+                  style: AppTypography.cardTitle.copyWith(
+                    fontSize: 18,
+                  ),
+                ),
+                SizedBox(height: AppSpacing.xs),
+                Text(
+                  'Perfectly crafted for your palate: Sweet + Citrusy',
+                  style: AppTypography.cardSubtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

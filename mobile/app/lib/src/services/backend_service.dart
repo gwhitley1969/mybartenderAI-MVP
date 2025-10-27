@@ -51,7 +51,7 @@ class BackendService {
   /// Get the latest snapshot metadata
   Future<SnapshotMetadata> getLatestSnapshot() async {
     try {
-      final response = await _dio.get('/v1/snapshots/latest-mi');
+      final response = await _dio.get('/v1/snapshots/latest');
       return SnapshotMetadata.fromJson(response.data);
     } catch (e) {
       throw Exception('Failed to get snapshot metadata: $e');

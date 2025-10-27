@@ -2,15 +2,16 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status
+## 🚀 Current Status (Updated: October 27, 2025)
 
 - **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
 - **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
 - **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
 - **AI**: ✅ GPT-4o-mini integrated for recommendations
+- **Authentication**: ✅ Entra External ID with age verification (Email, Google, Facebook)
 - **Voice**: 🚧 Azure Speech Services planned
-- **Mobile**: 📱 Flutter app ready for integration
+- **Mobile**: 📱 Flutter app - Design system & home screen complete, backend connected
 
 ## 📁 Project Structure
 
@@ -155,8 +156,14 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 - ✅ Database synchronization from TheCocktailDB
 - ✅ JSON snapshot generation and delivery
 - ✅ GPT-4o-mini integration
-- 🚧 Mobile app integration with APIM
-- 🚧 Authentication with Entra External ID
+- ✅ Authentication with Entra External ID (Email, Google, Facebook)
+- ✅ Server-side age verification (21+) via Custom Authentication Extension
+- ✅ Flutter design system matching UI mockups
+- ✅ Flutter home screen implementation
+- ✅ Flutter backend connection (snapshots endpoint)
+- 🚧 Mobile app full integration (Recipe Vault, Voice Chat, Premium Bar)
+- 🚧 AI recommendations with JWT authentication
+- 🚧 Voice assistant implementation
 
 ### Phase 2: Premium Features (Q1 2026)
 

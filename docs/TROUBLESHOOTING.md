@@ -342,6 +342,117 @@ Entra External ID (formerly Azure AD B2C CIAM) uses different endpoints than reg
 
 ---
 
+### Issue 10: Google Sign-In - Redirect URI Mismatch ✅ RESOLVED
+
+**Symptoms:**
+- Google OAuth error: "Error 400: redirect_uri_mismatch"
+- Error message: "Access blocked: MyBartenderAI's request is invalid"
+- Users cannot sign in with Google
+
+**Root Cause:** Entra External ID uses TWO different redirect URI formats
+
+Entra External ID may use either:
+1. Tenant ID format: `https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/federation/oidc/accounts.google.com`
+2. Tenant name format: `https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/federation/oauth2`
+
+Initially only the tenant ID format was configured in Google Cloud Console, causing failures when Entra used the tenant name format.
+
+**Solution:**
+Configure BOTH redirect URIs in Google Cloud Console:
+
+1. Navigate to: Google Cloud Console → APIs & Services → Credentials
+2. Click on OAuth 2.0 Client ID: "EntraExternalID-Google"
+3. Under "Authorized redirect URIs", ensure BOTH are present:
+   ```
+   https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/federation/oidc/accounts.google.com
+   https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/federation/oauth2
+   ```
+4. Remove any incorrect URIs using login.microsoftonline.com domain
+5. Save and wait 5-10 minutes for changes to propagate
+
+**Test Results (2025-10-27):**
+✅ Google sign-in working with both redirect URI formats
+✅ Users can sign up/sign in with Google accounts
+✅ Age verification seamlessly integrated
+
+---
+
+### Issue 11: Facebook Sign-In - URL Blocked ✅ RESOLVED
+
+**Symptoms:**
+- Facebook error: "Can't Load URL"
+- Error message: "The domain of this URL isn't included in the app's domains"
+- Users cannot sign in with Facebook
+
+**Root Cause #1:** Missing domain in Facebook App Domains
+
+The Facebook app did not have `ciamlogin.com` whitelisted in App Domains.
+
+**Root Cause #2:** Missing OAuth redirect URIs
+
+Similar to Google, Facebook needs BOTH redirect URI formats configured.
+
+**Solution:**
+
+**Step 1: Add Domain to App Settings**
+1. Navigate to: Facebook Developers → MyBartenderAI → Settings → Basic
+2. In "App Domains" field, add: `ciamlogin.com`
+3. Keep existing domain: `bluebuildapps.com`
+4. Save Changes
+
+**Step 2: Configure OAuth Redirect URIs**
+1. Navigate to: Use cases → Customize → Facebook Login → Settings
+2. In "Valid OAuth Redirect URIs", add BOTH:
+   ```
+   https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/federation/oidc/www.facebook.com
+   https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/federation/oauth2
+   ```
+3. In "Allowed Domains for the JavaScript SDK", add: `ciamlogin.com`
+   (Facebook will auto-format to `https://ciamlogin.com/`)
+4. Save Changes
+
+**Test Results (2025-10-27):**
+✅ Facebook sign-in working with both redirect URI formats
+✅ Users can sign up/sign in with Facebook accounts
+✅ Age verification seamlessly integrated
+
+---
+
+### Issue 12: Facebook Sign-In - Invalid Scopes: email ✅ RESOLVED
+
+**Symptoms:**
+- Facebook error after fixing redirect URI: "Invalid Scopes: email"
+- Error message: "This content isn't available right now"
+- Users still cannot complete Facebook sign-in
+
+**Root Cause:** Email permission not added to Facebook app
+
+When the Facebook app is in Development Mode, permissions must be explicitly added to the Facebook Login use case. The "email" permission was not added, causing Entra's request for email scope to fail.
+
+**Solution:**
+
+1. Navigate to: Facebook Developers → MyBartenderAI → Use cases → Customize
+2. Select "Facebook Login" from dropdown
+3. Click "Permissions and features" in left sidebar
+4. Find "email" permission in the list
+5. Click **"+ Add"** button next to email
+6. Email status should change to "Ready for testing"
+7. Verify "public_profile" is also present (default permission)
+
+**Verification:**
+- Email permission shows "Ready for testing" status
+- public_profile permission shows "Ready for testing" status
+
+**Test Results (2025-10-27):**
+✅ Facebook accepts email scope in OAuth request
+✅ Users redirected to Facebook login page successfully
+✅ Complete sign-in flow works end-to-end
+
+**Important Note:**
+When the Facebook app transitions from Development Mode to Live Mode, these permissions will need to be reviewed by Facebook through their App Review process. For development and testing, "Ready for testing" status is sufficient.
+
+---
+
 ## Deployment Best Practices
 
 ### Working Deployment Process

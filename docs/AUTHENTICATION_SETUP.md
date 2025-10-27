@@ -2,7 +2,43 @@
 
 ## Current Status
 
-The backend functions are deployed and working, but the authenticated endpoints (`ask-bartender`, `recommend`, `realtime-token`) require Azure AD B2C (Entra External ID) configuration.
+✅ **Authentication System: FULLY OPERATIONAL** (as of 2025-10-27)
+
+### Supported Authentication Methods
+
+1. **Email + Password** ✅ Working
+   - Native Entra External ID authentication
+   - Password-based signup and signin
+
+2. **Google Sign-In** ✅ Working
+   - OAuth 2.0 federation with Google
+   - One-click signup/signin
+   - Seamless age verification integration
+
+3. **Facebook Sign-In** ✅ Working
+   - OAuth 2.0 federation with Facebook
+   - One-click signup/signin
+   - Seamless age verification integration
+
+4. **Age Verification (21+)** ✅ Working
+   - Custom Authentication Extension
+   - OAuth 2.0 secured endpoint
+   - Works with all authentication methods
+   - Privacy-focused (birthdate not stored)
+
+### What's Configured
+
+- ✅ Entra External ID tenant (mybartenderai)
+- ✅ User flows (mba-signin-signup)
+- ✅ Identity providers (Email, Google, Facebook)
+- ✅ Custom user attributes (Date of Birth, Age Verified)
+- ✅ Custom Authentication Extension (validate-age)
+- ✅ OAuth 2.0 token validation
+- ✅ Social login redirect URIs
+
+## Backend Authentication Status
+
+The backend functions are deployed and working, but the authenticated endpoints (`ask-bartender`, `recommend`, `realtime-token`) require JWT tokens from Entra External ID.
 
 ## Temporary Solution
 
@@ -162,6 +198,132 @@ For detailed setup instructions, see:
 - `infrastructure/apim/ENTRA_EXTERNAL_ID_API_CONNECTOR_SETUP.md` - Step-by-step portal configuration
 - `docs/AGE_VERIFICATION_IMPLEMENTATION.md` - Complete implementation guide
 - `docs/TROUBLESHOOTING.md` - Age verification issues and fixes
+
+## Social Identity Providers (Google & Facebook)
+
+### Status: ✅ Configured and Working (as of 2025-10-27)
+
+Both Google and Facebook are configured as identity providers, allowing users to sign up and sign in with their existing social accounts. Age verification works seamlessly with both providers.
+
+### Google Sign-In Configuration
+
+**Google Cloud Console Setup:**
+
+1. **Project**: MyBartenderAI-auth
+2. **OAuth 2.0 Client**:
+   - Name: EntraExternalID-Google
+   - Type: Web application
+   - Client ID: `469059267896-qaan4dcbmp2ejgbm1jh17kgjioaciddg.apps.googleusercontent.com`
+
+3. **Authorized Redirect URIs** (Both Required):
+   ```
+   https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/federation/oidc/accounts.google.com
+   https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/federation/oauth2
+   ```
+
+**Why Two Redirect URIs?**
+- First URI uses tenant ID format (OIDC federation endpoint)
+- Second URI uses tenant name format (OAuth2 endpoint)
+- Entra External ID may use either depending on configuration
+
+**Entra External ID Configuration:**
+
+1. Navigate to: **External Identities → All identity providers**
+2. Google is configured with:
+   - Client ID from Google Cloud Console
+   - Client Secret from Google Cloud Console
+   - Status: ✅ Configured
+
+3. Google is added to user flow:
+   - User flow: mba-signin-signup
+   - Users see "Continue with Google" button
+
+### Facebook Sign-In Configuration
+
+**Facebook Developer Console Setup:**
+
+1. **App**: MyBartenderAI
+   - App ID: `1833559960622020`
+   - Mode: In development
+
+2. **App Domains** (Settings → Basic):
+   ```
+   bluebuildapps.com
+   ciamlogin.com
+   ```
+
+3. **Facebook Login Settings** (Use cases → Facebook Login → Settings):
+
+   **Valid OAuth Redirect URIs** (Both Required):
+   ```
+   https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/federation/oidc/www.facebook.com
+   https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/federation/oauth2
+   ```
+
+   **Allowed Domains for JavaScript SDK**:
+   ```
+   https://ciamlogin.com/
+   ```
+   (Facebook auto-formats with https:// protocol)
+
+4. **Permissions** (Use cases → Facebook Login → Permissions and features):
+   - ✅ email (Required - must be added manually)
+   - ✅ public_profile (Default)
+
+**Entra External ID Configuration:**
+
+1. Navigate to: **External Identities → All identity providers**
+2. Facebook is configured with:
+   - App ID from Facebook Developer Console
+   - App Secret from Facebook Developer Console
+   - Status: ✅ Configured
+
+3. Facebook is added to user flow:
+   - User flow: mba-signin-signup
+   - Users see "Continue with Facebook" button
+
+### User Experience Flow
+
+**Google/Facebook Sign-Up Process:**
+
+1. User navigates to MyBartenderAI signup page
+2. Clicks "Continue with Google" or "Continue with Facebook"
+3. Authenticates with their Google/Facebook account
+4. Redirected back to Entra signup page
+5. Prompted for **Date of Birth** (required for age verification)
+6. Age verification validates (21+ requirement)
+7. If 21+: Account created with `age_verified: true` claim
+8. If under 21: Account creation blocked with appropriate message
+
+**Key Features:**
+- One-click signup/signin for existing Google/Facebook users
+- Age verification seamlessly integrated into social login flow
+- All authentication methods (email, Google, Facebook) require age verification
+- Consistent user experience across all providers
+
+### Testing Social Login
+
+**Test Google Sign-In:**
+1. Navigate to signup page
+2. Click "Continue with Google"
+3. Select Google account
+4. Enter birthdate (21+ to test success)
+5. Verify account created in Entra External ID
+
+**Test Facebook Sign-In:**
+1. Navigate to signup page
+2. Click "Continue with Facebook"
+3. Log in to Facebook
+4. Enter birthdate (21+ to test success)
+5. Verify account created in Entra External ID
+
+### Troubleshooting Social Login
+
+See `docs/TROUBLESHOOTING.md` for detailed troubleshooting of social login issues, including:
+- Redirect URI mismatch errors
+- Invalid scopes errors
+- Domain not whitelisted errors
+- Permission configuration issues
 
 ## Next Steps
 

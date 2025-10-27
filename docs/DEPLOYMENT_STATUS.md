@@ -1,9 +1,11 @@
 # MyBartenderAI Deployment Status
 
-## Current Status: ✅ All Functions Deployed to Windows Consumption Plan
+## Current Status: ✅ All Functions Deployed - Authentication Fully Operational
 
 ### Summary
 After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. All functions are now deployed and operational.
+
+**Latest Update (2025-10-27):** Social identity providers (Google and Facebook) are now fully configured and working with seamless age verification integration.
 
 ### Deployed Functions
 
@@ -36,6 +38,10 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Server-side age verification (21+) during signup
    - Event Type: OnAttributeCollectionSubmit
    - Authentication: OAuth 2.0 Bearer tokens ✅ ENABLED AND WORKING
+   - Supported Authentication Methods:
+     - ✅ Email + Password (Entra External ID native)
+     - ✅ Google Sign-In (OAuth 2.0 federation)
+     - ✅ Facebook Sign-In (OAuth 2.0 federation)
    - Features:
      - OAuth 2.0 token validation using Entra External ID ciamlogin.com domain
      - Content-Type: application/json headers (Entra requirement)
@@ -43,13 +49,17 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
      - Multiple date format support (MM/DD/YYYY, MMDDYYYY, YYYY-MM-DD)
      - Privacy-focused (birthdate not stored, only age_verified boolean)
      - Cryptographic token verification (no secrets stored)
+     - Works seamlessly with all authentication methods
    - Status: ✅ Deployed, tested, and FULLY OPERATIONAL
-   - Test Results (2025-10-26):
+   - Test Results (2025-10-26 to 2025-10-27):
      - ✅ OAuth token validation successful (ciamlogin.com JWKS)
      - ✅ Under-21 users successfully BLOCKED
      - ✅ 21+ users successfully ALLOWED and accounts created
      - ✅ All responses include proper Content-Type headers
      - ✅ Security hardening complete
+     - ✅ Email signup working
+     - ✅ Google sign-in working with age verification
+     - ✅ Facebook sign-in working with age verification
      - ✅ Execution time: ~376ms
 
 ### Deployment Journey

@@ -1,6 +1,6 @@
 const { CocktailDbClient } = require('../services/cocktailDbClient');
 const { syncCocktailCatalog } = require('../services/cocktailDbSyncService');
-const { buildJsonSnapshot } = require('../services/jsonSnapshotBuilder');
+const { buildSqliteSnapshot } = require('../services/sqliteSnapshotBuilder');
 const { uploadSnapshotArtifacts } = require('../services/snapshotStorageService');
 const { recordSnapshotMetadata } = require('../services/snapshotMetadataService');
 
@@ -40,8 +40,8 @@ module.exports = async function (context, myTimer) {
         context.log('[sync-cocktaildb] Normalized data into PostgreSQL tables.');
 
         const snapshotVersion = formatSnapshotVersion(new Date());
-        const snapshot = await buildJsonSnapshot();
-        context.log('[sync-cocktaildb] Built JSON snapshot.');
+        const snapshot = await buildSqliteSnapshot(snapshotVersion);
+        context.log('[sync-cocktaildb] Built SQLite snapshot.');
 
         const uploadResult = await uploadSnapshotArtifacts({
             schemaVersion: SCHEMA_VERSION,

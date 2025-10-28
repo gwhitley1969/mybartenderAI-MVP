@@ -38,9 +38,11 @@ This directory contains Azure Functions using v3 SDK patterns for deployment to 
 - **Features**:
   - Fetches complete cocktail catalog
   - Syncs to PostgreSQL database
-  - Builds JSON snapshot
-  - Uploads to blob storage
-  - Records metadata
+  - Builds SQLite snapshot using sql.js (pure JavaScript, no native deps)
+  - Compresses with Zstandard (.zst)
+  - Sets `user_version = 1` pragma for sqflite compatibility
+  - Uploads to blob storage with SHA256 hash
+  - Records metadata with snapshot version
 
 ### 5. health
 - **Type**: HTTP Trigger
@@ -75,3 +77,23 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 3. HTTP responses use `context.res = { status, body }`
 4. Timer functions receive `myTimer` parameter
 5. All imports use CommonJS `require()` syntax
+
+## Important Notes
+
+### SQLite Snapshot Generation
+
+The snapshot builder uses **sql.js** (pure JavaScript SQLite) instead of native libraries like better-sqlite3. This is required for Azure Functions Windows Consumption plan compatibility.
+
+**Critical**: When setting PRAGMA statements in sql.js, use `db.exec()` instead of `db.run()`:
+
+```javascript
+// ✅ CORRECT - Pragma persists to exported binary
+db.exec('PRAGMA user_version = 1');
+
+// ❌ WRONG - Pragma does not persist
+db.run('PRAGMA user_version = 1');
+```
+
+The `user_version` pragma is essential for Flutter's sqflite to recognize the database as initialized. Without it, sqflite will attempt to recreate tables that already exist in the snapshot, causing errors.
+
+See [SQLITE_SNAPSHOT_FIX.md](../../../SQLITE_SNAPSHOT_FIX.md) for details about this fix.

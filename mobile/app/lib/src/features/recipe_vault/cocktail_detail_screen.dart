@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
+import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 
@@ -49,6 +50,52 @@ class CocktailDetailScreen extends ConsumerWidget {
                   icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
                   onPressed: () => Navigator.pop(context),
                 ),
+                actions: [
+                  // Favorite button
+                  Consumer(
+                    builder: (context, ref, child) {
+                      final isFavoriteAsync = ref.watch(isFavoriteProvider(cocktailId));
+
+                      return isFavoriteAsync.when(
+                        data: (isFavorite) {
+                          return IconButton(
+                            icon: Icon(
+                              isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: isFavorite ? AppColors.accentRed : AppColors.textPrimary,
+                            ),
+                            onPressed: () async {
+                              final notifier = ref.read(favoritesNotifierProvider.notifier);
+                              await notifier.toggleFavorite(cocktailId);
+
+                              // Show feedback
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isFavorite
+                                          ? 'Removed from favorites'
+                                          : 'Added to favorites',
+                                    ),
+                                    backgroundColor: AppColors.cardBackground,
+                                    duration: Duration(seconds: 2),
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                        loading: () => IconButton(
+                          icon: Icon(Icons.favorite_border, color: AppColors.textPrimary),
+                          onPressed: null,
+                        ),
+                        error: (_, __) => IconButton(
+                          icon: Icon(Icons.favorite_border, color: AppColors.textPrimary),
+                          onPressed: null,
+                        ),
+                      );
+                    },
+                  ),
+                ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: cocktail.imageUrl != null
                       ? Image.network(

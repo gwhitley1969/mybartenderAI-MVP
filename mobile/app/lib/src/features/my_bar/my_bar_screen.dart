@@ -24,7 +24,7 @@ class MyBarScreen extends ConsumerWidget {
           icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('My Bar', style: AppTypography.h2),
+        title: Text('My Bar', style: AppTypography.heading2),
         actions: [
           IconButton(
             icon: Icon(Icons.add, color: AppColors.primaryPurple),
@@ -147,7 +147,7 @@ class MyBarScreen extends ConsumerWidget {
                       SizedBox(height: AppSpacing.md),
                       Text(
                         'Error loading inventory',
-                        style: AppTypography.body,
+                        style: AppTypography.bodyMedium,
                       ),
                       SizedBox(height: AppSpacing.sm),
                       Text(
@@ -193,13 +193,13 @@ class MyBarScreen extends ConsumerWidget {
             SizedBox(height: AppSpacing.lg),
             Text(
               'Your bar is empty',
-              style: AppTypography.h3,
+              style: AppTypography.heading3,
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
               'Add ingredients to track what you have\nand discover cocktails you can make',
-              style: AppTypography.body.copyWith(
+              style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
@@ -324,11 +324,11 @@ class MyBarScreen extends ConsumerWidget {
         backgroundColor: AppColors.cardBackground,
         title: Text(
           'Remove Ingredient?',
-          style: AppTypography.h3,
+          style: AppTypography.heading3,
         ),
         content: Text(
           'Are you sure you want to remove "$ingredientName" from your bar?',
-          style: AppTypography.body,
+          style: AppTypography.bodyMedium,
         ),
         actions: [
           TextButton(

@@ -6,7 +6,9 @@ A Flutter-based mobile application for cocktail recommendations and bartender as
 
 - **Ask the Bartender**: Chat with an AI bartender for cocktail recommendations and drink advice
 - **Voice Assistant**: Real-time voice interaction using OpenAI's Realtime API
-- **Cocktail Database**: Browse and search thousands of cocktail recipes
+- **Recipe Vault**: Browse and search thousands of cocktail recipes with filtering options
+- **Favorites**: Save and organize your favorite cocktails with one tap
+- **My Bar**: Track your ingredient inventory and discover cocktails you can make
 - **Offline Mode**: Access your favorite cocktails without an internet connection
 
 ## Setup

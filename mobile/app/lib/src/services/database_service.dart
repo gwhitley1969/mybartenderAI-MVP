@@ -31,7 +31,7 @@ class DatabaseService {
       print('Attempting to open database...');
       final db = await openDatabase(
         path,
-        version: 1,
+        version: 2,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -54,7 +54,7 @@ class DatabaseService {
       print('Attempting to open database again after deletion...');
       final db = await openDatabase(
         path,
-        version: 1,
+        version: 2,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -145,11 +145,38 @@ class DatabaseService {
 
     // Create index for inventory search
     await db.execute('CREATE INDEX idx_inventory_name ON user_inventory(ingredient_name)');
+
+    // Favorites table
+    await db.execute('''
+      CREATE TABLE favorite_cocktails (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cocktail_id TEXT NOT NULL UNIQUE,
+        added_at INTEGER NOT NULL,
+        notes TEXT
+      )
+    ''');
+
+    // Create index for favorites
+    await db.execute('CREATE INDEX idx_favorites_cocktail_id ON favorite_cocktails(cocktail_id)');
+    await db.execute('CREATE INDEX idx_favorites_added_at ON favorite_cocktails(added_at DESC)');
   }
 
   /// Handle database upgrades
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // Handle schema migrations here if needed in future versions
+    // Version 1 to 2: Add favorites table
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE favorite_cocktails (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cocktail_id TEXT NOT NULL UNIQUE,
+          added_at INTEGER NOT NULL,
+          notes TEXT
+        )
+      ''');
+
+      await db.execute('CREATE INDEX idx_favorites_cocktail_id ON favorite_cocktails(cocktail_id)');
+      await db.execute('CREATE INDEX idx_favorites_added_at ON favorite_cocktails(added_at DESC)');
+    }
   }
 
   // ==========================================
@@ -536,6 +563,85 @@ class DatabaseService {
     }
 
     return cocktails;
+  }
+
+  // ==========================================
+  // Favorites Operations
+  // ==========================================
+
+  /// Add cocktail to favorites
+  Future<void> addToFavorites(String cocktailId, {String? notes}) async {
+    final db = await database;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    await db.insert(
+      'favorite_cocktails',
+      {
+        'cocktail_id': cocktailId,
+        'added_at': now,
+        'notes': notes,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Remove cocktail from favorites
+  Future<void> removeFromFavorites(String cocktailId) async {
+    final db = await database;
+    await db.delete(
+      'favorite_cocktails',
+      where: 'cocktail_id = ?',
+      whereArgs: [cocktailId],
+    );
+  }
+
+  /// Get all favorite cocktails
+  Future<List<Map<String, dynamic>>> getFavorites() async {
+    final db = await database;
+    return await db.query(
+      'favorite_cocktails',
+      orderBy: 'added_at DESC',
+    );
+  }
+
+  /// Check if cocktail is favorited
+  Future<bool> isFavorite(String cocktailId) async {
+    final db = await database;
+    final result = await db.query(
+      'favorite_cocktails',
+      where: 'cocktail_id = ?',
+      whereArgs: [cocktailId],
+    );
+    return result.isNotEmpty;
+  }
+
+  /// Get count of favorited cocktails
+  Future<int> getFavoritesCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM favorite_cocktails');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Get favorite cocktail IDs
+  Future<List<String>> getFavoriteCocktailIds() async {
+    final db = await database;
+    final result = await db.query(
+      'favorite_cocktails',
+      columns: ['cocktail_id'],
+      orderBy: 'added_at DESC',
+    );
+    return result.map((row) => row['cocktail_id'] as String).toList();
+  }
+
+  /// Update favorite notes
+  Future<void> updateFavoriteNotes(String cocktailId, String? notes) async {
+    final db = await database;
+    await db.update(
+      'favorite_cocktails',
+      {'notes': notes},
+      where: 'cocktail_id = ?',
+      whereArgs: [cocktailId],
+    );
   }
 
   /// Close the database

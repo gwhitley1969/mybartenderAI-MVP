@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
+import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
@@ -20,6 +21,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
   String? _selectedCategory;
   String? _selectedAlcoholic;
   bool _showCanMakeOnly = false;
+  bool _showFavoritesOnly = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -43,9 +45,24 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
     );
 
     // Watch cocktails - use inventory-based provider if "Can Make" is enabled
-    final cocktailsAsync = _showCanMakeOnly
+    var cocktailsAsync = _showCanMakeOnly
         ? ref.watch(cocktailsWithInventoryProvider(filter))
         : ref.watch(cocktailsProvider(filter));
+
+    // Filter by favorites if enabled
+    if (_showFavoritesOnly) {
+      final favoriteCocktailIdsAsync = ref.watch(favoriteCocktailIdsProvider);
+
+      cocktailsAsync = cocktailsAsync.whenData((cocktails) {
+        return favoriteCocktailIdsAsync.maybeWhen(
+          data: (favoriteIds) {
+            final favoriteIdsSet = favoriteIds.toSet();
+            return cocktails.where((c) => favoriteIdsSet.contains(c.id)).toList();
+          },
+          orElse: () => cocktails,
+        );
+      });
+    }
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -283,6 +300,33 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
           ),
           SizedBox(width: AppSpacing.md),
 
+          // Favorites toggle
+          FilterChip(
+            label: Text(
+              'Favorites',
+              style: AppTypography.buttonSmall.copyWith(
+                color: _showFavoritesOnly
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
+            selected: _showFavoritesOnly,
+            onSelected: (selected) {
+              setState(() {
+                _showFavoritesOnly = selected;
+              });
+            },
+            backgroundColor: AppColors.cardBackground,
+            selectedColor: AppColors.accentRed,
+            checkmarkColor: AppColors.textPrimary,
+            side: BorderSide(
+              color: _showFavoritesOnly
+                  ? AppColors.accentRed
+                  : AppColors.cardBorder,
+            ),
+          ),
+          SizedBox(width: AppSpacing.md),
+
           // Category filter
           DropdownButton<String?>(
             value: _selectedCategory,
@@ -342,13 +386,14 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
           ),
 
           // Clear filters
-          if (_selectedCategory != null || _selectedAlcoholic != null || _showCanMakeOnly)
+          if (_selectedCategory != null || _selectedAlcoholic != null || _showCanMakeOnly || _showFavoritesOnly)
             TextButton.icon(
               onPressed: () {
                 setState(() {
                   _selectedCategory = null;
                   _selectedAlcoholic = null;
                   _showCanMakeOnly = false;
+                  _showFavoritesOnly = false;
                 });
               },
               icon: Icon(Icons.clear, size: 16, color: AppColors.primaryPurple),

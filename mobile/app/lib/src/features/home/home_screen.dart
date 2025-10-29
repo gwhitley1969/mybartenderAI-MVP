@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../ask_bartender/voice_chat_screen.dart';
+import '../favorites/favorites_screen.dart';
 import '../my_bar/my_bar_screen.dart';
 import '../recipe_vault/recipe_vault_screen.dart';
 
@@ -318,15 +319,15 @@ class HomeScreen extends ConsumerWidget {
               },
             ),
             FeatureCard(
-              icon: Icons.person,
-              title: 'Taste Profile',
-              subtitle: 'Personal preferences',
-              iconColor: AppColors.accentBlue,
+              icon: Icons.favorite,
+              title: 'Favorites',
+              subtitle: 'Saved cocktails',
+              iconColor: AppColors.accentRed,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Taste Profile coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FavoritesScreen(),
                   ),
                 );
               },

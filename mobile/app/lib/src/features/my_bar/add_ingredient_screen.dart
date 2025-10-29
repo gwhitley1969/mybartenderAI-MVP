@@ -38,7 +38,7 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
           icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Add Ingredient', style: AppTypography.h2),
+        title: Text('Add Ingredient', style: AppTypography.heading2),
       ),
       body: SafeArea(
         child: Column(
@@ -48,10 +48,10 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
               padding: EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
               child: TextField(
                 controller: _searchController,
-                style: AppTypography.body,
+                style: AppTypography.bodyMedium,
                 decoration: InputDecoration(
                   hintText: 'Search ingredients...',
-                  hintStyle: AppTypography.body.copyWith(
+                  hintStyle: AppTypography.bodyMedium.copyWith(
                     color: AppColors.textSecondary,
                   ),
                   prefixIcon: Icon(
@@ -133,7 +133,7 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
                       SizedBox(height: AppSpacing.md),
                       Text(
                         'Error loading ingredients',
-                        style: AppTypography.body,
+                        style: AppTypography.bodyMedium,
                       ),
                     ],
                   ),
@@ -161,13 +161,13 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
             SizedBox(height: AppSpacing.lg),
             Text(
               'No ingredients found',
-              style: AppTypography.h3,
+              style: AppTypography.heading3,
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
               'Try a different search term',
-              style: AppTypography.body.copyWith(
+              style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),
               textAlign: TextAlign.center,
@@ -283,7 +283,7 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
         backgroundColor: AppColors.cardBackground,
         title: Text(
           'Add to Bar?',
-          style: AppTypography.h3,
+          style: AppTypography.heading3,
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -291,16 +291,16 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
           children: [
             Text(
               'Add "$ingredient" to your bar?',
-              style: AppTypography.body,
+              style: AppTypography.bodyMedium,
             ),
             SizedBox(height: AppSpacing.md),
             TextField(
               controller: _notesController,
-              style: AppTypography.body,
+              style: AppTypography.bodyMedium,
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Add notes (optional)',
-                hintStyle: AppTypography.body.copyWith(
+                hintStyle: AppTypography.bodyMedium.copyWith(
                   color: AppColors.textSecondary,
                 ),
                 filled: true,

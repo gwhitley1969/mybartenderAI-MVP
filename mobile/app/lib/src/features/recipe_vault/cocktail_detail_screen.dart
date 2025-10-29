@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 
 class CocktailDetailScreen extends ConsumerWidget {
@@ -94,7 +95,7 @@ class CocktailDetailScreen extends ConsumerWidget {
                       // Ingredients section
                       _buildSectionHeader('Ingredients'),
                       SizedBox(height: AppSpacing.md),
-                      _buildIngredientsCard(cocktail.ingredients),
+                      _buildIngredientsCard(context, ref, cocktail.ingredients),
                       SizedBox(height: AppSpacing.xl),
 
                       // Instructions section
@@ -197,7 +198,11 @@ class CocktailDetailScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildIngredientsCard(List<DrinkIngredient> ingredients) {
+  Widget _buildIngredientsCard(
+    BuildContext context,
+    WidgetRef ref,
+    List<DrinkIngredient> ingredients,
+  ) {
     return Container(
       padding: EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -210,32 +215,138 @@ class CocktailDetailScreen extends ConsumerWidget {
       ),
       child: Column(
         children: ingredients.map((ingredient) {
-          return Padding(
-            padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
-            child: Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryPurple,
-                    shape: BoxShape.circle,
-                  ),
+          final isInInventoryAsync =
+              ref.watch(isInInventoryProvider(ingredient.ingredientName));
+
+          return isInInventoryAsync.when(
+            data: (isInInventory) {
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: isInInventory
+                            ? AppColors.iconCircleTeal
+                            : AppColors.primaryPurple,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Text(
+                        ingredient.ingredientName,
+                        style: AppTypography.bodyMedium,
+                      ),
+                    ),
+                    if (ingredient.measure != null) ...[
+                      Text(
+                        ingredient.measure!,
+                        style: AppTypography.bodyMedium
+                            .copyWith(color: AppColors.textSecondary),
+                      ),
+                      SizedBox(width: AppSpacing.sm),
+                    ],
+                    // Quick-add button
+                    if (isInInventory)
+                      Icon(
+                        Icons.check_circle,
+                        color: AppColors.iconCircleTeal,
+                        size: 20,
+                      )
+                    else
+                      IconButton(
+                        icon: Icon(
+                          Icons.add_circle_outline,
+                          color: AppColors.primaryPurple,
+                          size: 20,
+                        ),
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                        onPressed: () async {
+                          final notifier =
+                              ref.read(inventoryNotifierProvider.notifier);
+                          await notifier.addIngredient(
+                            ingredient.ingredientName,
+                          );
+
+                          // Refresh inventory providers
+                          ref.invalidate(inventoryProvider);
+                          ref.invalidate(isInInventoryProvider);
+
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Added ${ingredient.ingredientName} to your bar'),
+                                backgroundColor: AppColors.cardBackground,
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                  ],
                 ),
-                SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    ingredient.ingredientName,
-                    style: AppTypography.bodyMedium,
+              );
+            },
+            loading: () => Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple,
+                      shape: BoxShape.circle,
+                    ),
                   ),
-                ),
-                if (ingredient.measure != null)
-                  Text(
-                    ingredient.measure!,
-                    style:
-                        AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                  SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      ingredient.ingredientName,
+                      style: AppTypography.bodyMedium,
+                    ),
                   ),
-              ],
+                  if (ingredient.measure != null)
+                    Text(
+                      ingredient.measure!,
+                      style: AppTypography.bodyMedium
+                          .copyWith(color: AppColors.textSecondary),
+                    ),
+                ],
+              ),
+            ),
+            error: (_, __) => Padding(
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryPurple,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Text(
+                      ingredient.ingredientName,
+                      style: AppTypography.bodyMedium,
+                    ),
+                  ),
+                  if (ingredient.measure != null)
+                    Text(
+                      ingredient.measure!,
+                      style: AppTypography.bodyMedium
+                          .copyWith(color: AppColors.textSecondary),
+                    ),
+                ],
+              ),
             ),
           );
         }).toList(),

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../ask_bartender/voice_chat_screen.dart';
+import '../my_bar/my_bar_screen.dart';
+import '../recipe_vault/recipe_vault_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -293,24 +295,24 @@ class HomeScreen extends ConsumerWidget {
               subtitle: 'Curated cocktail collection',
               iconColor: AppColors.iconCircleOrange,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Recipe Vault coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const RecipeVaultScreen(),
                   ),
                 );
               },
             ),
             FeatureCard(
               icon: Icons.inventory_2,
-              title: 'Premium Bar',
+              title: 'My Bar',
               subtitle: 'Track your collection',
               iconColor: AppColors.iconCircleTeal,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Premium Bar coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyBarScreen(),
                   ),
                 );
               },

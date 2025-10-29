@@ -1,8 +1,8 @@
-# MyBartenderAI MVP
+# MyBartenderAI - Early Beta
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: October 27, 2025)
+## 🚀 Current Status (Updated: October 29, 2025)
 
 - **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
@@ -11,7 +11,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **AI**: ✅ GPT-4o-mini integrated for recommendations
 - **Authentication**: ✅ Entra External ID with age verification (Email, Google, Facebook)
 - **Voice**: 🚧 Azure Speech Services planned
-- **Mobile**: 📱 Flutter app - Design system & home screen complete, backend connected
+- **Mobile**: 📱 Flutter app - Recipe Vault, inventory management, offline-first SQLite, backend connected
 
 ## 📁 Project Structure
 
@@ -149,7 +149,7 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 
 ## 🔮 Roadmap
 
-### Phase 1: MVP (Current)
+### Phase 1: Early Beta (Current)
 
 - ✅ Core backend infrastructure
 - ✅ APIM configuration for tier management
@@ -161,7 +161,12 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 - ✅ Flutter design system matching UI mockups
 - ✅ Flutter home screen implementation
 - ✅ Flutter backend connection (snapshots endpoint)
-- 🚧 Mobile app full integration (Recipe Vault, Voice Chat, Premium Bar)
+- ✅ Recipe Vault screen with search, filters, and cocktail detail views
+- ✅ Offline-first SQLite database with Zstandard compression
+- ✅ Inventory management system (My Bar)
+- ✅ User ingredient tracking with quick-add functionality
+- ✅ "Can Make" filter for cocktails based on user inventory
+- 🚧 Voice Chat/Ask the Bartender screen integration
 - 🚧 AI recommendations with JWT authentication
 - 🚧 Voice assistant implementation
 

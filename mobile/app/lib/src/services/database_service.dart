@@ -130,6 +130,21 @@ class DatabaseService {
         updated_at TEXT NOT NULL
       )
     ''');
+
+    // User inventory table
+    await db.execute('''
+      CREATE TABLE user_inventory (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ingredient_name TEXT NOT NULL UNIQUE,
+        category TEXT,
+        notes TEXT,
+        added_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      )
+    ''');
+
+    // Create index for inventory search
+    await db.execute('CREATE INDEX idx_inventory_name ON user_inventory(ingredient_name)');
   }
 
   /// Handle database upgrades
@@ -377,6 +392,150 @@ class DatabaseService {
     final db = await database;
     await db.delete('drinks');
     await db.delete('drink_ingredients');
+  }
+
+  // ==========================================
+  // Inventory Operations
+  // ==========================================
+
+  /// Add ingredient to user inventory
+  Future<void> addToInventory(String ingredientName, {String? category, String? notes}) async {
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    await db.insert(
+      'user_inventory',
+      {
+        'ingredient_name': ingredientName,
+        'category': category,
+        'notes': notes,
+        'added_at': now,
+        'updated_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Remove ingredient from user inventory
+  Future<void> removeFromInventory(String ingredientName) async {
+    final db = await database;
+    await db.delete(
+      'user_inventory',
+      where: 'ingredient_name = ?',
+      whereArgs: [ingredientName],
+    );
+  }
+
+  /// Get all inventory items
+  Future<List<Map<String, dynamic>>> getInventory() async {
+    final db = await database;
+    return await db.query(
+      'user_inventory',
+      orderBy: 'ingredient_name ASC',
+    );
+  }
+
+  /// Check if ingredient is in inventory
+  Future<bool> isInInventory(String ingredientName) async {
+    final db = await database;
+    final result = await db.query(
+      'user_inventory',
+      where: 'ingredient_name = ?',
+      whereArgs: [ingredientName],
+    );
+    return result.isNotEmpty;
+  }
+
+  /// Get count of inventory items
+  Future<int> getInventoryCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM user_inventory');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Get all unique ingredients from cocktail database (for picker)
+  Future<List<String>> getAllIngredients() async {
+    final db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT DISTINCT ingredient_name
+      FROM drink_ingredients
+      WHERE ingredient_name IS NOT NULL
+      ORDER BY ingredient_name ASC
+    ''');
+
+    return result
+        .map((row) => row['ingredient_name'] as String)
+        .where((name) => name.isNotEmpty)
+        .toList();
+  }
+
+  /// Get cocktails that can be made with current inventory
+  Future<List<Cocktail>> getCocktailsWithInventory({
+    String? searchQuery,
+    String? category,
+    String? alcoholic,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final db = await database;
+
+    // Get user's ingredients
+    final inventoryResult = await db.query('user_inventory');
+    final userIngredients = inventoryResult
+        .map((row) => row['ingredient_name'] as String)
+        .toSet();
+
+    if (userIngredients.isEmpty) {
+      return [];
+    }
+
+    // Build where clause
+    String where = '';
+    List<dynamic> whereArgs = [];
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      where = 'name LIKE ? OR tags LIKE ?';
+      whereArgs = ['%$searchQuery%', '%$searchQuery%'];
+    }
+
+    if (category != null) {
+      if (where.isNotEmpty) where += ' AND ';
+      where += 'category = ?';
+      whereArgs.add(category);
+    }
+
+    if (alcoholic != null) {
+      if (where.isNotEmpty) where += ' AND ';
+      where += 'alcoholic = ?';
+      whereArgs.add(alcoholic);
+    }
+
+    final List<Map<String, dynamic>> result = await db.query(
+      'drinks',
+      where: where.isNotEmpty ? where : null,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: 'name ASC',
+      limit: limit,
+      offset: offset,
+    );
+
+    // Filter cocktails where all ingredients are in inventory
+    final cocktails = <Cocktail>[];
+    for (final row in result) {
+      final cocktail = Cocktail.fromDb(row);
+      final ingredients = await _getIngredientsForDrink(cocktail.id);
+
+      // Check if all ingredients are in inventory
+      final cocktailIngredients = ingredients
+          .map((i) => i.ingredientName)
+          .toSet();
+
+      if (cocktailIngredients.every((ing) => userIngredients.contains(ing))) {
+        cocktails.add(cocktail.copyWith(ingredients: ingredients));
+      }
+    }
+
+    return cocktails;
   }
 
   /// Close the database

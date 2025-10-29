@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
+import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import 'cocktail_detail_screen.dart';
@@ -18,6 +19,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
   String _searchQuery = '';
   String? _selectedCategory;
   String? _selectedAlcoholic;
+  bool _showCanMakeOnly = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -40,8 +42,10 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
       limit: 1000, // Load all for now
     );
 
-    // Watch cocktails
-    final cocktailsAsync = ref.watch(cocktailsProvider(filter));
+    // Watch cocktails - use inventory-based provider if "Can Make" is enabled
+    final cocktailsAsync = _showCanMakeOnly
+        ? ref.watch(cocktailsWithInventoryProvider(filter))
+        : ref.watch(cocktailsProvider(filter));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -252,6 +256,33 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
+          // Can Make toggle
+          FilterChip(
+            label: Text(
+              'Can Make',
+              style: AppTypography.buttonSmall.copyWith(
+                color: _showCanMakeOnly
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+              ),
+            ),
+            selected: _showCanMakeOnly,
+            onSelected: (selected) {
+              setState(() {
+                _showCanMakeOnly = selected;
+              });
+            },
+            backgroundColor: AppColors.cardBackground,
+            selectedColor: AppColors.iconCircleTeal,
+            checkmarkColor: AppColors.textPrimary,
+            side: BorderSide(
+              color: _showCanMakeOnly
+                  ? AppColors.iconCircleTeal
+                  : AppColors.cardBorder,
+            ),
+          ),
+          SizedBox(width: AppSpacing.md),
+
           // Category filter
           DropdownButton<String?>(
             value: _selectedCategory,
@@ -311,12 +342,13 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
           ),
 
           // Clear filters
-          if (_selectedCategory != null || _selectedAlcoholic != null)
+          if (_selectedCategory != null || _selectedAlcoholic != null || _showCanMakeOnly)
             TextButton.icon(
               onPressed: () {
                 setState(() {
                   _selectedCategory = null;
                   _selectedAlcoholic = null;
+                  _showCanMakeOnly = false;
                 });
               },
               icon: Icon(Icons.clear, size: 16, color: AppColors.primaryPurple),

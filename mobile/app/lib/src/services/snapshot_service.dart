@@ -8,11 +8,13 @@ import 'package:zstandard/zstandard.dart';
 
 import 'backend_service.dart';
 import 'database_service.dart';
+import 'image_cache_service.dart';
 
 /// Service for downloading and importing cocktail snapshots
 class SnapshotService {
   final BackendService _backendService;
   final DatabaseService _databaseService;
+  final ImageCacheService _imageCacheService;
   final Dio _dio;
 
   SnapshotService({
@@ -20,6 +22,7 @@ class SnapshotService {
     required DatabaseService databaseService,
   })  : _backendService = backendService,
         _databaseService = databaseService,
+        _imageCacheService = ImageCacheService(),
         _dio = Dio();
 
   /// Check if a snapshot update is needed
@@ -104,13 +107,61 @@ class SnapshotService {
       await dbFile.writeAsBytes(decompressedData, flush: true);
       print('Database file written successfully');
 
-      // Step 7: Update metadata with snapshot version
+      // Step 7: Re-initialize database to ensure user tables exist
+      // The snapshot only contains cocktail data, so we need to add user tables
+      print('Adding user-specific tables...');
+      await _databaseService.ensureUserTablesExist();
+
+      // Step 8: Update metadata with snapshot version
       await _databaseService.setCurrentSnapshotVersion(metadata.snapshotVersion);
 
       print('Snapshot sync complete!');
+
+      // Step 9: Download all cocktail images for offline use
+      print('Starting cocktail image downloads...');
+      await _downloadCocktailImages(onProgress);
+
+      print('All sync operations complete!');
     } catch (e) {
       print('Error syncing snapshot: $e');
       rethrow;
+    }
+  }
+
+  /// Download all cocktail images to local storage
+  Future<void> _downloadCocktailImages(Function(int current, int total)? onProgress) async {
+    try {
+      // Get all cocktails with image URLs from database
+      final cocktails = await _databaseService.getCocktails(limit: 10000);
+
+      final cocktailsWithImages = cocktails
+          .where((c) => c.imageUrl != null && c.imageUrl!.isNotEmpty)
+          .map((c) => {'id': c.id, 'imageUrl': c.imageUrl!})
+          .toList();
+
+      print('Found ${cocktailsWithImages.length} cocktails with images');
+
+      if (cocktailsWithImages.isEmpty) {
+        return;
+      }
+
+      // Download images in batches of 5
+      await _imageCacheService.downloadImages(
+        cocktailsWithImages,
+        batchSize: 5,
+        onProgress: (completed, total) {
+          print('Downloaded $completed/$total images');
+          // Report overall progress (combine DB + image progress)
+          if (onProgress != null) {
+            onProgress(completed, total);
+          }
+        },
+      );
+
+      print('Image download complete!');
+    } catch (e) {
+      print('Error downloading images: $e');
+      // Don't rethrow - images are optional, database sync is more important
     }
   }
 

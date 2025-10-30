@@ -3,6 +3,7 @@ import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
 import '../theme/app_spacing.dart';
 import 'app_badge.dart';
+import 'cached_cocktail_image.dart';
 
 /// Recipe Card Widget
 /// Card displaying cocktail recipe with match score and details
@@ -183,7 +184,7 @@ class CompactRecipeCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: 160,
+        width: 200,
         margin: const EdgeInsets.only(right: AppSpacing.md),
         decoration: BoxDecoration(
           color: AppColors.cardBackground,
@@ -198,7 +199,7 @@ class CompactRecipeCard extends StatelessWidget {
           children: [
             // Image or placeholder
             Container(
-              height: 120,
+              height: 160,
               decoration: BoxDecoration(
                 color: AppColors.buttonSecondary,
                 borderRadius: const BorderRadius.only(
@@ -208,36 +209,16 @@ class CompactRecipeCard extends StatelessWidget {
               ),
               child: Stack(
                 children: [
-                  if (imageUrl != null)
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(AppSpacing.cardBorderRadius),
-                        topRight: Radius.circular(AppSpacing.cardBorderRadius),
-                      ),
-                      child: Image.network(
-                        imageUrl!,
-                        width: double.infinity,
-                        height: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
-                            child: Icon(
-                              Icons.local_bar,
-                              size: 48,
-                              color: AppColors.textTertiary,
-                            ),
-                          );
-                        },
-                      ),
-                    )
-                  else
-                    const Center(
-                      child: Icon(
-                        Icons.local_bar,
-                        size: 48,
-                        color: AppColors.textTertiary,
-                      ),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(AppSpacing.cardBorderRadius),
+                      topRight: Radius.circular(AppSpacing.cardBorderRadius),
                     ),
+                    child: CachedCocktailImage(
+                      imageUrl: imageUrl,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
                   // Match badge overlay
                   Positioned(
                     top: AppSpacing.sm,

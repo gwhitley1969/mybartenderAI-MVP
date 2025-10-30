@@ -6,6 +6,7 @@ import '../../providers/cocktail_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
+import '../../widgets/cached_cocktail_image.dart';
 
 class CocktailDetailScreen extends ConsumerWidget {
   final String cocktailId;
@@ -97,29 +98,10 @@ class CocktailDetailScreen extends ConsumerWidget {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: cocktail.imageUrl != null
-                      ? Image.network(
-                          cocktail.imageUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return Container(
-                              color: AppColors.cardBackground,
-                              child: Icon(
-                                Icons.local_bar,
-                                size: 100,
-                                color: AppColors.iconCircleBlue,
-                              ),
-                            );
-                          },
-                        )
-                      : Container(
-                          color: AppColors.cardBackground,
-                          child: Icon(
-                            Icons.local_bar,
-                            size: 100,
-                            color: AppColors.iconCircleBlue,
-                          ),
-                        ),
+                  background: CachedCocktailImage(
+                    imageUrl: cocktail.imageUrl,
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
 

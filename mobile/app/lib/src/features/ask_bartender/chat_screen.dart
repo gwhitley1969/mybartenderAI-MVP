@@ -58,40 +58,57 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
     try {
       final api = ref.read(askBartenderApiProvider);
 
-      // Get user's inventory for context
-      final userInventoryAsync = ref.read(inventoryProvider);
+      // Get user's inventory for context by awaiting the future directly
       BartenderInventory? inventory;
+      try {
+        final userInventory = await ref.read(inventoryProvider.future);
+        print('Raw inventory count: ${userInventory.length}');
 
-      // Handle AsyncValue from FutureProvider
-      userInventoryAsync.whenData((userInventory) {
         if (userInventory.isNotEmpty) {
-          // Categorize ingredients
+          // Categorize ingredients based on name and category
           final spirits = <String>[];
           final mixers = <String>[];
 
+          // Common spirit keywords
+          final spiritKeywords = [
+            'vodka', 'whiskey', 'whisky', 'bourbon', 'scotch', 'rum', 'gin', 'tequila',
+            'brandy', 'cognac', 'liqueur', 'schnapps', 'mezcal', 'absinthe', 'ouzo',
+            'sake', 'soju', 'amaretto', 'baileys', 'kahlua', 'cointreau', 'triple sec',
+            'vermouth', 'campari', 'aperol', 'pernod', 'everclear', 'moonshine',
+          ];
+
           for (final item in userInventory) {
+            print('Processing item: ${item.ingredientName} (${item.category})');
+
+            final name = item.ingredientName.toLowerCase();
             final cat = item.category?.toLowerCase() ?? '';
-            // Simple categorization - you can enhance this
-            if (cat.contains('spirit') ||
-                cat.contains('liqueur') ||
-                cat.contains('whiskey') ||
-                cat.contains('vodka') ||
-                cat.contains('rum') ||
-                cat.contains('gin') ||
-                cat.contains('tequila') ||
-                cat.contains('brandy')) {
+
+            // Check if it's a spirit by name or category
+            bool isSpirit = spiritKeywords.any((keyword) => name.contains(keyword)) ||
+                           cat.contains('spirit') ||
+                           cat.contains('liqueur');
+
+            if (isSpirit) {
               spirits.add(item.ingredientName);
             } else {
               mixers.add(item.ingredientName);
             }
           }
 
+          print('Loaded inventory: ${spirits.length} spirits, ${mixers.length} mixers');
+          print('Spirits: $spirits');
+          print('Mixers: $mixers');
+
           inventory = BartenderInventory(
             spirits: spirits,
             mixers: mixers,
           );
+        } else {
+          print('Inventory is empty');
         }
-      });
+      } catch (e) {
+        print('Error loading inventory: $e');
+      }
 
       final response = await api.ask(
         message: message,

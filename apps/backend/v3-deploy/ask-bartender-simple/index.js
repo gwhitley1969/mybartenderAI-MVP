@@ -41,9 +41,15 @@ module.exports = async function (context, req) {
         const body = req.body || {};
         const message = body.message || 'Hello';
         const existingConversationId = body.context?.conversationId;
+        const inventory = body.context?.inventory;
 
         context.log('Message received:', message);
         context.log('Conversation ID:', existingConversationId || 'new conversation');
+        context.log('Inventory received:', inventory ? 'Yes' : 'No');
+        if (inventory) {
+            context.log('Spirits:', inventory.spirits);
+            context.log('Mixers:', inventory.mixers);
+        }
         
         // Create OpenAI client configured for Azure
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
@@ -62,13 +68,35 @@ module.exports = async function (context, req) {
             hasKey: !!apiKey
         });
 
+        // Build system prompt with inventory context if available
+        let systemPrompt = 'You are a sophisticated AI bartender for MyBartenderAI. Be helpful, friendly, and knowledgeable about cocktails.';
+
+        if (inventory) {
+            const spirits = inventory.spirits || [];
+            const mixers = inventory.mixers || [];
+            const allIngredients = [...spirits, ...mixers];
+
+            if (allIngredients.length > 0) {
+                systemPrompt += '\n\nThe user has the following ingredients available in their bar:';
+                if (spirits.length > 0) {
+                    systemPrompt += '\nSpirits: ' + spirits.join(', ');
+                }
+                if (mixers.length > 0) {
+                    systemPrompt += '\nMixers/Other: ' + mixers.join(', ');
+                }
+                systemPrompt += '\n\nWhen suggesting cocktails, prioritize recipes that use these available ingredients. Be creative and suggest what they can make with what they have!';
+            }
+        }
+
+        context.log('System prompt length:', systemPrompt.length);
+
         // Call OpenAI
         const completion = await openai.chat.completions.create({
             model: deployment,
             messages: [
                 {
                     role: 'system',
-                    content: 'You are a sophisticated AI bartender for MyBartenderAI. Be helpful, friendly, and knowledgeable about cocktails.'
+                    content: systemPrompt
                 },
                 {
                     role: 'user',

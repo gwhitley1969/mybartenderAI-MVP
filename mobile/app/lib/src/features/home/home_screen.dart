@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
@@ -171,14 +172,7 @@ class HomeScreen extends ConsumerWidget {
                   title: 'Ask the Bartender',
                   subtitle: 'Get expert advice',
                   color: AppColors.iconCircleBlue,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const AskBartenderScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => context.go('/ask-bartender'),
                 ),
               ),
               SizedBox(width: AppSpacing.md),

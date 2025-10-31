@@ -40,8 +40,10 @@ module.exports = async function (context, req) {
         // Parse request body
         const body = req.body || {};
         const message = body.message || 'Hello';
-        
+        const existingConversationId = body.context?.conversationId;
+
         context.log('Message received:', message);
+        context.log('Conversation ID:', existingConversationId || 'new conversation');
         
         // Create OpenAI client configured for Azure
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
@@ -78,15 +80,20 @@ module.exports = async function (context, req) {
         });
         
         const responseText = completion.choices[0]?.message?.content || 'I apologize, but I could not process your request.';
-        
+
+        // Generate or use existing conversation ID
+        const conversationId = existingConversationId || `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
         context.log('Response generated successfully');
-        
+        context.log('Using conversation ID:', conversationId);
+
         // Return success response
         context.res = {
             status: 200,
             headers: headers,
             body: {
                 response: responseText,
+                conversationId: conversationId,
                 usage: {
                     promptTokens: completion.usage?.prompt_tokens || 0,
                     completionTokens: completion.usage?.completion_tokens || 0,

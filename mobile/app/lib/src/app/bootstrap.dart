@@ -22,13 +22,15 @@ final envConfigProvider = Provider<EnvConfig>((ref) => const EnvConfig());
 
 class FunctionKeyInterceptor extends Interceptor {
   FunctionKeyInterceptor(this.functionKey);
-  
+
   final String? functionKey;
-  
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    // Always add the function key to all requests if available
     if (functionKey != null && functionKey!.isNotEmpty) {
       options.headers['x-functions-key'] = functionKey;
+      print('Added function key to request: ${options.uri}');
     }
     handler.next(options);
   }
@@ -36,12 +38,13 @@ class FunctionKeyInterceptor extends Interceptor {
 
 final dioInterceptorsProvider = Provider<List<Interceptor>>((ref) {
   final config = ref.watch(envConfigProvider);
+  print('Creating interceptors - functionKey: ${config.functionKey}');
   return <Interceptor>[
     if (config.functionKey != null) FunctionKeyInterceptor(config.functionKey),
     LogInterceptor(
       requestBody: true,
       responseBody: true,
-      requestHeader: false,
+      requestHeader: true,  // Enable header logging to see if function key is added
       responseHeader: false,
     ),
   ];
@@ -64,6 +67,14 @@ Dio createBaseDio({
     baseOptions.baseUrl = baseUrl;
   }
 
+  // Add function key to default headers if provided
+  if (config.functionKey != null && config.functionKey!.isNotEmpty) {
+    baseOptions.headers = {
+      'x-functions-key': config.functionKey,
+    };
+    print('Added x-functions-key to default headers');
+  }
+
   final dio = Dio(baseOptions);
   dio.interceptors.addAll(interceptors);
   return dio;
@@ -72,6 +83,8 @@ Dio createBaseDio({
 final dioProvider = Provider<Dio>((ref) {
   final config = ref.watch(envConfigProvider);
   final interceptors = ref.watch(dioInterceptorsProvider);
+  print('Creating Dio with config: apiBaseUrl=${config.apiBaseUrl}, functionKey=${config.functionKey != null ? "***" : "null"}');
+  print('Number of interceptors: ${interceptors.length}');
   return createBaseDio(config: config, interceptors: interceptors);
 });
 

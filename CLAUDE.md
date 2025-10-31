@@ -211,7 +211,8 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 - ✅ PostgreSQL as authoritative source
 - ✅ Key Vault integration with Managed Identity + RBAC
 - ✅ Azure OpenAI service deployment (mybartenderai-scus)
-- ✅ AI Bartender chat feature (ask-bartender-simple endpoint)
+- ✅ AI Bartender chat backend (ask-bartender-simple endpoint)
+- ✅ AI Bartender chat UI with conversation tracking
 - ✅ Mobile app Recipe Vault with snapshot sync
 - ✅ Mobile app Inventory Management (My Bar)
 - ✅ Mobile app Favorites/Bookmarks
@@ -220,7 +221,6 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 
 ### In Progress
 
-- 🔄 Mobile app AI Bartender chat UI integration
 - 🔄 Entra External ID authentication (Google/Facebook/Email)
 - 🔄 Mobile app Taste Profile feature
 

@@ -130,9 +130,18 @@ class AskBartenderApi {
           : null,
     );
 
+    // TODO: Function key should be configured via environment or secure storage
+    // For now, the key is configured in main.dart via EnvConfig
+    // This direct header approach works but should be moved to interceptor
     final response = await _dio.post<Map<String, dynamic>>(
-      '/v1/ask-bartender-simple',  // Using simple endpoint temporarily
+      '/v1/ask-bartender-simple',
       data: request.toJson(),
+      options: Options(
+        headers: {
+          // Function key is added via FunctionKeyInterceptor in bootstrap.dart
+          // or passed through EnvConfig - see main.dart
+        },
+      ),
     );
 
     final data = response.data;

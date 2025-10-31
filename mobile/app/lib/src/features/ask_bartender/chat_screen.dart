@@ -196,8 +196,59 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
               },
             ),
           ),
+          _buildQuickActions(),
           _buildInputBar(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildQuickActions() {
+    // Only show quick actions if there are few messages (at the beginning)
+    if (_messages.length > 2) {
+      return const SizedBox.shrink();
+    }
+
+    final quickActions = [
+      'Suggest a cocktail for tonight',
+      'What can I make with what I have?',
+      'Teach me a classic cocktail',
+      'What\'s a good beginner cocktail?',
+    ];
+
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: quickActions.length,
+        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final action = quickActions[index];
+          return Material(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                if (!_isLoading) {
+                  _messageController.text = action;
+                  _sendMessage();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Text(
+                  action,
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.primaryPurple,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -365,8 +416,50 @@ class _ChatBubble extends StatelessWidget {
   }
 }
 
-class _TypingIndicator extends StatelessWidget {
+class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
+
+  @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late List<Animation<double>> _animations;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1400),
+      vsync: this,
+    )..repeat();
+
+    _animations = List.generate(3, (index) {
+      final start = index * 0.15;
+      final end = start + 0.4;
+      return Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(
+        CurvedAnimation(
+          parent: _controller,
+          curve: Interval(
+            start,
+            end > 1.0 ? 1.0 : end,
+            curve: Curves.easeInOut,
+          ),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -393,38 +486,28 @@ class _TypingIndicator extends StatelessWidget {
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDot(0),
-                const SizedBox(width: 4),
-                _buildDot(1),
-                const SizedBox(width: 4),
-                _buildDot(2),
-              ],
+              children: List.generate(3, (index) {
+                return AnimatedBuilder(
+                  animation: _animations[index],
+                  builder: (context, child) {
+                    return Container(
+                      margin: EdgeInsets.only(right: index < 2 ? 4 : 0),
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryPurple.withOpacity(
+                          0.3 + (0.5 * _animations[index].value),
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                    );
+                  },
+                );
+              }),
             ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
-      duration: Duration(milliseconds: 600 + (index * 200)),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(
-            color: AppColors.primaryPurple.withOpacity(0.3 + (0.5 * value)),
-            shape: BoxShape.circle,
-          ),
-        );
-      },
-      onEnd: () {
-        // Loop animation
-      },
     );
   }
 }

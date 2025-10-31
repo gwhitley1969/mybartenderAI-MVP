@@ -45,7 +45,17 @@ Response rules:
 export class OpenAIRecommendationService {
   constructor(
     private readonly client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+      // For Azure OpenAI: set apiKey to a dummy value, use defaultHeaders instead
+      apiKey: process.env.AZURE_OPENAI_ENDPOINT ? 'azure' : process.env.OPENAI_API_KEY,
+      baseURL: process.env.AZURE_OPENAI_ENDPOINT
+        ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini'}`
+        : undefined,
+      defaultQuery: process.env.AZURE_OPENAI_ENDPOINT
+        ? { 'api-version': '2024-10-21' }
+        : undefined,
+      defaultHeaders: process.env.AZURE_OPENAI_ENDPOINT
+        ? { 'api-key': process.env.OPENAI_API_KEY }
+        : undefined,
     }),
   ) {}
 

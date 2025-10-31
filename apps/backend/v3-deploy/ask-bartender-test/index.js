@@ -1,6 +1,6 @@
 const { z } = require('zod');
 const { trackEvent, trackException, getOrCreateTraceId } = require('../shared/telemetry');
-const { OpenAIRecommendationService } = require('../services/openAIRecommendationService');
+const OpenAI = require('openai');
 
 // Request validation schema
 const requestSchema = z.object({
@@ -19,13 +19,18 @@ const requestSchema = z.object({
     }).optional(),
 }).strict();
 
-// Lazy initialization for OpenAI service
-let openAiService = null;
-const getOpenAiService = () => {
-    if (!openAiService) {
-        openAiService = new OpenAIRecommendationService();
-    }
-    return openAiService;
+// Create Azure OpenAI client
+const getOpenAiClient = () => {
+    const apiKey = process.env.OPENAI_API_KEY;
+    const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+
+    return new OpenAI({
+        apiKey: apiKey,
+        baseURL: `${azureEndpoint}/openai/deployments/${deployment}`,
+        defaultQuery: { 'api-version': '2024-10-21' },
+        defaultHeaders: { 'api-key': apiKey }
+    });
 };
 
 const buildErrorResponse = (status, code, message, traceId, details) => {
@@ -102,21 +107,36 @@ module.exports = async function (context, req) {
     and elevate their home bartending experience. When suggesting cocktails, consider the user's preferences 
     and available ingredients if mentioned.`;
     
-    // Call OpenAI service
+    // Call Azure OpenAI
     try {
-        const result = await getOpenAiService().askBartender({
-            message: payload.message,
-            context: contextInfo,
-            systemPrompt,
-            traceId,
+        const openai = getOpenAiClient();
+        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+
+        const completion = await openai.chat.completions.create({
+            model: deployment,
+            messages: [
+                {
+                    role: 'system',
+                    content: systemPrompt + contextInfo,
+                },
+                {
+                    role: 'user',
+                    content: payload.message,
+                },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
         });
-        
+
+        const responseText = completion.choices[0]?.message?.content ||
+            'I apologize, but I couldn\'t process your request. Please try again.';
+
         trackEvent(context, traceId, 'ask-bartender-test.response.success', {
-            promptTokens: result.usage.promptTokens,
-            completionTokens: result.usage.completionTokens,
-            totalTokens: result.usage.totalTokens,
+            promptTokens: completion.usage?.prompt_tokens || 0,
+            completionTokens: completion.usage?.completion_tokens || 0,
+            totalTokens: completion.usage?.total_tokens || 0,
         });
-        
+
         context.res = {
             status: 200,
             headers: {
@@ -124,8 +144,12 @@ module.exports = async function (context, req) {
                 'X-Trace-Id': traceId,
             },
             body: {
-                response: result.response,
-                usage: result.usage,
+                response: responseText,
+                usage: {
+                    promptTokens: completion.usage?.prompt_tokens || 0,
+                    completionTokens: completion.usage?.completion_tokens || 0,
+                    totalTokens: completion.usage?.total_tokens || 0,
+                },
                 conversationId: payload.context?.conversationId || traceId,
             },
         };

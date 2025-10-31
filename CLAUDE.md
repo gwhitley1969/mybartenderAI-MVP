@@ -53,6 +53,7 @@ Always use context7 when I need code generation, setup or configuration steps, o
 - **Storage Account**: `mbacocktaildb3`
 - **Database**: `pg-mybartenderdb` (PostgreSQL - authoritative data source)
 - **Key Vault**: `kv-mybartenderai-prod` (in `rg-mba-dev` resource group)
+- **Azure OpenAI**: `mybartenderai-scus` (South Central US, gpt-4o-mini deployment)
 - **Speech Services**: TBD (for voice features)
 
 ### Azure Key Vault Secrets
@@ -60,9 +61,11 @@ Always use context7 when I need code generation, setup or configuration steps, o
 Located in `kv-mybartenderai-prod`:
 
 1. **COCKTAILDB-API-KEY**: API key for thecocktaildb.com
-2. **OpenAI**: API key for OpenAI/Azure OpenAI services (GPT-4o-mini)
-3. **POSTGRES-CONNECTION-STRING**: Connection string for `pg-mybartenderdb`
-4. **Storage SAS tokens**: For MVP blob access (temporary)
+2. **AZURE-OPENAI-API-KEY**: API key for Azure OpenAI service (mybartenderai-scus)
+3. **AZURE-OPENAI-ENDPOINT**: Azure OpenAI endpoint URL (https://mybartenderai-scus.openai.azure.com)
+4. **OpenAI**: Legacy API key (deprecated, use AZURE-OPENAI-API-KEY)
+5. **POSTGRES-CONNECTION-STRING**: Connection string for `pg-mybartenderdb`
+6. **Storage SAS tokens**: For MVP blob access (temporary)
 
 ## Architecture Highlights
 
@@ -102,17 +105,22 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 
 ### Security & Authentication
 
-- **Current (Early Beta)**: Using SAS tokens due to Windows Consumption Plan limitations
-  - Managed Identity support is limited on Windows Consumption Plans
-  - SAS tokens provide reliable storage access for MVP phase
-- **Future State**: Migrate to Managed Identity when moving to Premium or Linux plans
-- **RBAC**: Storage Blob Data Contributor role configuration (prepared for future MI migration)
+- **Current (Early Beta)**: Mixed approach based on service capabilities
+  - **Storage Access**: Using SAS tokens due to Windows Consumption Plan limitations
+    - Managed Identity for storage is limited on Windows Consumption Plans
+    - SAS tokens provide reliable storage access for MVP phase
+  - **Key Vault Access**: ✅ Managed Identity with RBAC
+    - Function App uses System-Assigned Managed Identity
+    - Granted "Key Vault Secrets User" role on `kv-mybartenderai-prod`
+    - Key Vault uses RBAC authorization (not access policies)
+    - Secrets accessed via `@Microsoft.KeyVault()` references in Function App settings
+- **Future State**: Migrate storage to Managed Identity when moving to Premium or Linux plans
 - **PII Policy**: Minimal collection, clearly defined retention
 - **Key Vault**: `kv-mybartenderai-prod` stores sensitive configuration
-  - API keys (TheCocktailDB, OpenAI)
+  - API keys (TheCocktailDB, Azure OpenAI)
   - Database connection strings
-  - SAS tokens (temporary, for MVP phase)
-  - Access via connection strings during MVP, Managed Identity planned for production
+  - Azure OpenAI endpoint and deployment configuration
+  - SAS tokens (temporary, for blob storage access)
 
 ### Azure Resource Organization
 
@@ -194,29 +202,36 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 
 ## Current Status & Known Issues
 
-### Completed
+### Completed (2025-10-31)
 
 - ✅ Core architecture design
-- ✅ Azure infrastructure setup
-- ✅ SAS token implementation (pragmatic MVP choice)
+- ✅ Azure infrastructure setup (all resources in South Central US)
+- ✅ SAS token implementation for blob storage
 - ✅ Cost optimization strategy
 - ✅ PostgreSQL as authoritative source
-- ✅ Key Vault integration
+- ✅ Key Vault integration with Managed Identity + RBAC
+- ✅ Azure OpenAI service deployment (mybartenderai-scus)
+- ✅ AI Bartender chat feature (ask-bartender-simple endpoint)
+- ✅ Mobile app Recipe Vault with snapshot sync
+- ✅ Mobile app Inventory Management (My Bar)
+- ✅ Mobile app Favorites/Bookmarks
+- ✅ TheCocktailDB API integration (nightly sync)
+- ✅ Offline-first SQLite database with Zstandard compression
 
 ### In Progress
 
-- 🔄 Azure Function blob storage access (using SAS tokens)
-- 🔄 TheCocktailDB API integration
-- 🔄 Mobile app frontend development
+- 🔄 Mobile app AI Bartender chat UI integration
+- 🔄 Entra External ID authentication (Google/Facebook/Email)
+- 🔄 Mobile app Taste Profile feature
 
 ### Upcoming
 
-- 📋 Camera-based inventory feature
-- 📋 AI voice interaction
-- 📋 Cocktail recommendation engine
-- 📋 Free/Premium/Pro tier implementation
+- 📋 Camera-based inventory feature (Smart Scanner)
+- 📋 AI voice interaction with Azure Speech Services
+- 📋 Advanced AI cocktail recommendations (recommend endpoint with JWT)
+- 📋 Free/Premium/Pro tier implementation via APIM
+- 📋 Create Studio cocktail creation feature
 - 📋 Android Play Store deployment
-- 📋 Managed Identity migration (post-MVP, when upgrading from Consumption Plan)
 
 ## Developer Background
 

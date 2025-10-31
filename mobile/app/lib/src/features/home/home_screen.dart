@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
-import '../ask_bartender/voice_chat_screen.dart';
+import '../ask_bartender/chat_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../my_bar/my_bar_screen.dart';
 import '../recipe_vault/recipe_vault_screen.dart';
@@ -167,15 +167,15 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _buildActionButton(
                   context: context,
-                  icon: Icons.mic,
+                  icon: Icons.chat_bubble_outline,
                   title: 'Ask the Bartender',
-                  subtitle: 'Speak naturally',
+                  subtitle: 'Get expert advice',
                   color: AppColors.iconCircleBlue,
                   onTap: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const VoiceChatScreen(),
+                        builder: (context) => const AskBartenderScreen(),
                       ),
                     );
                   },

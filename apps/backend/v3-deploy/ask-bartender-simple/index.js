@@ -43,14 +43,26 @@ module.exports = async function (context, req) {
         
         context.log('Message received:', message);
         
-        // Create OpenAI client
+        // Create OpenAI client configured for Azure
+        const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
+        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+
         const openai = new OpenAI({
-            apiKey: apiKey
+            apiKey: apiKey,
+            baseURL: `${azureEndpoint}/openai/deployments/${deployment}`,
+            defaultQuery: { 'api-version': '2024-10-21' },
+            defaultHeaders: { 'api-key': apiKey }
         });
-        
+
+        context.log('Azure OpenAI config:', {
+            endpoint: azureEndpoint,
+            deployment: deployment,
+            hasKey: !!apiKey
+        });
+
         // Call OpenAI
         const completion = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: deployment,
             messages: [
                 {
                     role: 'system',

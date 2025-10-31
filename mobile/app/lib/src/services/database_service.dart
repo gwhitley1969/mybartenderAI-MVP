@@ -31,7 +31,7 @@ class DatabaseService {
       print('Attempting to open database...');
       final db = await openDatabase(
         path,
-        version: 2,
+        version: 3,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -54,7 +54,7 @@ class DatabaseService {
       print('Attempting to open database again after deletion...');
       final db = await openDatabase(
         path,
-        version: 2,
+        version: 3,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -177,6 +177,70 @@ class DatabaseService {
       await db.execute('CREATE INDEX idx_favorites_cocktail_id ON favorite_cocktails(cocktail_id)');
       await db.execute('CREATE INDEX idx_favorites_added_at ON favorite_cocktails(added_at DESC)');
     }
+
+    // Version 2 to 3: Add user_inventory table
+    if (oldVersion < 3) {
+      await db.execute('''
+        CREATE TABLE user_inventory (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient_name TEXT NOT NULL UNIQUE,
+          category TEXT,
+          notes TEXT,
+          added_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+
+      await db.execute('CREATE INDEX idx_inventory_name ON user_inventory(ingredient_name)');
+    }
+  }
+
+  /// Ensure user-specific tables exist after snapshot import
+  /// The backend snapshot only contains cocktail data, so we need to add user tables
+  Future<void> ensureUserTablesExist() async {
+    final db = await database;
+
+    // Check if user_inventory table exists
+    final inventoryTableExists = await _tableExists(db, 'user_inventory');
+    if (!inventoryTableExists) {
+      print('Creating user_inventory table...');
+      await db.execute('''
+        CREATE TABLE user_inventory (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient_name TEXT NOT NULL UNIQUE,
+          category TEXT,
+          notes TEXT,
+          added_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('CREATE INDEX idx_inventory_name ON user_inventory(ingredient_name)');
+    }
+
+    // Check if favorite_cocktails table exists
+    final favoritesTableExists = await _tableExists(db, 'favorite_cocktails');
+    if (!favoritesTableExists) {
+      print('Creating favorite_cocktails table...');
+      await db.execute('''
+        CREATE TABLE favorite_cocktails (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          cocktail_id TEXT NOT NULL UNIQUE,
+          added_at INTEGER NOT NULL,
+          notes TEXT
+        )
+      ''');
+      await db.execute('CREATE INDEX idx_favorites_cocktail_id ON favorite_cocktails(cocktail_id)');
+      await db.execute('CREATE INDEX idx_favorites_added_at ON favorite_cocktails(added_at DESC)');
+    }
+  }
+
+  /// Helper method to check if a table exists
+  Future<bool> _tableExists(Database db, String tableName) async {
+    final result = await db.rawQuery(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+      [tableName],
+    );
+    return result.isNotEmpty;
   }
 
   // ==========================================
@@ -304,37 +368,71 @@ class DatabaseService {
     List<dynamic> whereArgs = [];
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
-      where = 'name LIKE ? OR tags LIKE ?';
+      where = 'd.name LIKE ? OR d.tags LIKE ?';
       whereArgs = ['%$searchQuery%', '%$searchQuery%'];
     }
 
     if (category != null) {
       if (where.isNotEmpty) where += ' AND ';
-      where += 'category = ?';
+      where += 'd.category = ?';
       whereArgs.add(category);
     }
 
     if (alcoholic != null) {
       if (where.isNotEmpty) where += ' AND ';
-      where += 'alcoholic = ?';
+      where += 'd.alcoholic = ?';
       whereArgs.add(alcoholic);
     }
 
-    final List<Map<String, dynamic>> result = await db.query(
-      'drinks',
-      where: where.isNotEmpty ? where : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'name ASC',
-      limit: limit,
-      offset: offset,
+    // Use a single query with JOIN to fetch drinks and ingredients together
+    // This eliminates the N+1 query problem (was 1 + N queries, now just 1 query)
+    final String sql = '''
+      SELECT
+        d.*,
+        di.drink_id as ing_drink_id,
+        di.ingredient_name,
+        di.measure,
+        di.ingredient_order
+      FROM drinks d
+      LEFT JOIN drink_ingredients di ON d.id = di.drink_id
+      ${where.isNotEmpty ? 'WHERE $where' : ''}
+      ORDER BY d.name ASC, di.ingredient_order ASC
+      ${limit > 0 ? 'LIMIT $limit OFFSET $offset' : ''}
+    ''';
+
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      sql,
+      whereArgs.isNotEmpty ? whereArgs : null,
     );
 
-    // Load ingredients for each cocktail
-    final cocktails = <Cocktail>[];
+    // Group results by cocktail ID
+    final Map<String, Cocktail> cocktailsMap = {};
+    final Map<String, List<DrinkIngredient>> ingredientsMap = {};
+
     for (final row in result) {
-      final cocktail = Cocktail.fromDb(row);
-      final ingredients = await _getIngredientsForDrink(cocktail.id);
-      cocktails.add(cocktail.copyWith(ingredients: ingredients));
+      final cocktailId = row['id'] as String;
+
+      // Create cocktail entry if not exists
+      if (!cocktailsMap.containsKey(cocktailId)) {
+        cocktailsMap[cocktailId] = Cocktail.fromDb(row);
+        ingredientsMap[cocktailId] = [];
+      }
+
+      // Add ingredient if exists (LEFT JOIN may have null ingredients)
+      if (row['ing_drink_id'] != null) {
+        ingredientsMap[cocktailId]!.add(DrinkIngredient.fromDb({
+          'drink_id': row['ing_drink_id'],
+          'ingredient_name': row['ingredient_name'],
+          'measure': row['measure'],
+          'ingredient_order': row['ingredient_order'],
+        }));
+      }
+    }
+
+    // Combine cocktails with their ingredients
+    final cocktails = <Cocktail>[];
+    for (final entry in cocktailsMap.entries) {
+      cocktails.add(entry.value.copyWith(ingredients: ingredientsMap[entry.key]!));
     }
 
     return cocktails;
@@ -516,50 +614,84 @@ class DatabaseService {
       return [];
     }
 
-    // Build where clause
-    String where = '';
+    // Build where clause for drink filters
+    String drinkWhere = '';
     List<dynamic> whereArgs = [];
 
     if (searchQuery != null && searchQuery.isNotEmpty) {
-      where = 'name LIKE ? OR tags LIKE ?';
+      drinkWhere = 'd.name LIKE ? OR d.tags LIKE ?';
       whereArgs = ['%$searchQuery%', '%$searchQuery%'];
     }
 
     if (category != null) {
-      if (where.isNotEmpty) where += ' AND ';
-      where += 'category = ?';
+      if (drinkWhere.isNotEmpty) drinkWhere += ' AND ';
+      drinkWhere += 'd.category = ?';
       whereArgs.add(category);
     }
 
     if (alcoholic != null) {
-      if (where.isNotEmpty) where += ' AND ';
-      where += 'alcoholic = ?';
+      if (drinkWhere.isNotEmpty) drinkWhere += ' AND ';
+      drinkWhere += 'd.alcoholic = ?';
       whereArgs.add(alcoholic);
     }
 
-    final List<Map<String, dynamic>> result = await db.query(
-      'drinks',
-      where: where.isNotEmpty ? where : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'name ASC',
-      limit: limit,
-      offset: offset,
-    );
+    // Use optimized SQL query that:
+    // 1. JOINs drinks with ingredients in one query (eliminates N+1)
+    // 2. Filters at database level using GROUP BY and HAVING (more efficient)
+    final String sql = '''
+      SELECT
+        d.*,
+        di.drink_id as ing_drink_id,
+        di.ingredient_name,
+        di.measure,
+        di.ingredient_order
+      FROM drinks d
+      INNER JOIN drink_ingredients di ON d.id = di.drink_id
+      ${drinkWhere.isNotEmpty ? 'WHERE $drinkWhere' : ''}
+      AND d.id IN (
+        SELECT drink_id
+        FROM drink_ingredients
+        GROUP BY drink_id
+        HAVING COUNT(DISTINCT CASE
+          WHEN ingredient_name IN (${userIngredients.map((_) => '?').join(',')})
+          THEN ingredient_name
+        END) = COUNT(DISTINCT ingredient_name)
+      )
+      ORDER BY d.name ASC, di.ingredient_order ASC
+      ${limit > 0 ? 'LIMIT $limit' : ''}
+    ''';
 
-    // Filter cocktails where all ingredients are in inventory
-    final cocktails = <Cocktail>[];
+    // Add user ingredients to whereArgs for the IN clause
+    whereArgs.addAll(userIngredients);
+
+    final List<Map<String, dynamic>> result = await db.rawQuery(sql, whereArgs);
+
+    // Group results by cocktail ID
+    final Map<String, Cocktail> cocktailsMap = {};
+    final Map<String, List<DrinkIngredient>> ingredientsMap = {};
+
     for (final row in result) {
-      final cocktail = Cocktail.fromDb(row);
-      final ingredients = await _getIngredientsForDrink(cocktail.id);
+      final cocktailId = row['id'] as String;
 
-      // Check if all ingredients are in inventory
-      final cocktailIngredients = ingredients
-          .map((i) => i.ingredientName)
-          .toSet();
-
-      if (cocktailIngredients.every((ing) => userIngredients.contains(ing))) {
-        cocktails.add(cocktail.copyWith(ingredients: ingredients));
+      // Create cocktail entry if not exists
+      if (!cocktailsMap.containsKey(cocktailId)) {
+        cocktailsMap[cocktailId] = Cocktail.fromDb(row);
+        ingredientsMap[cocktailId] = [];
       }
+
+      // Add ingredient
+      ingredientsMap[cocktailId]!.add(DrinkIngredient.fromDb({
+        'drink_id': row['ing_drink_id'],
+        'ingredient_name': row['ingredient_name'],
+        'measure': row['measure'],
+        'ingredient_order': row['ingredient_order'],
+      }));
+    }
+
+    // Combine cocktails with their ingredients
+    final cocktails = <Cocktail>[];
+    for (final entry in cocktailsMap.entries) {
+      cocktails.add(entry.value.copyWith(ingredients: ingredientsMap[entry.key]!));
     }
 
     return cocktails;

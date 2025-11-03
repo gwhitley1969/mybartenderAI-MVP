@@ -7,14 +7,17 @@ import 'src/features/ask_bartender/chat_screen.dart';
 import 'src/features/ask_bartender/voice_chat_screen.dart';
 import 'src/features/demo/voice_demo_screen.dart';
 import 'src/features/home/home_screen.dart';
+import 'src/features/smart_scanner/smart_scanner_screen.dart';
 
 Future<void> main() async {
   await bootstrap(
     () => const MyBartenderApp(),
     config: const EnvConfig(
       apiBaseUrl: 'https://func-mba-fresh.azurewebsites.net/api',
-      // TODO: Configure function key from environment or secure storage
-      // functionKey: 'your-function-key-here',
+      // NOTE: Function key required for backend endpoints
+      // TODO: Replace with actual key from secure storage/environment variables
+      // For development: Copy function key from Azure Portal -> Function App -> Functions -> Keys
+      functionKey: 'YOUR_FUNCTION_KEY_HERE',
     ),
   );
 }
@@ -69,6 +72,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'voice-demo',
             builder: (BuildContext context, GoRouterState state) {
               return const VoiceDemoScreen();
+            },
+          ),
+          GoRoute(
+            path: 'smart-scanner',
+            builder: (BuildContext context, GoRouterState state) {
+              return const SmartScannerScreen();
             },
           ),
         ],

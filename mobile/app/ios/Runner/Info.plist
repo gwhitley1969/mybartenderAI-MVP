@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>MyBartenderAI needs camera access to scan your bar inventory</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MyBartenderAI needs photo library access to select photos of your bar</string>
 </dict>
 </plist>

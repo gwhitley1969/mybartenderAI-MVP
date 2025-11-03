@@ -276,12 +276,7 @@ class HomeScreen extends ConsumerWidget {
               subtitle: 'Identify premium ingredients',
               iconColor: AppColors.iconCirclePurple,
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Smart Scanner coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
-                  ),
-                );
+                context.go('/smart-scanner');
               },
             ),
             FeatureCard(

@@ -75,7 +75,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
      - ✅ Response times: ~1-2 seconds for typical queries
 
 7. ✅ **POST /api/validate-age**
-   
+
    - Custom Authentication Extension for Entra External ID
    - Server-side age verification (21+) during signup
    - Event Type: OnAttributeCollectionSubmit
@@ -103,6 +103,24 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
      - ✅ Google sign-in working with age verification
      - ✅ Facebook sign-in working with age verification
      - ✅ Execution time: ~376ms
+
+8. ✅ **POST /api/v1/vision/analyze**
+
+   - Azure Computer Vision integration for bottle identification
+   - Analyzes images to detect alcohol brands and types
+   - Matches detected items against ingredient database
+   - Returns confidence scores and structured detection results
+   - Requires: Function key
+   - Status: ✅ Deployed and operational
+   - Azure Computer Vision Service: `cv-mba-prod` (F0 free tier, South Central US)
+   - Features:
+     - Base64 and URL image input support
+     - Tags, Description, Objects, and Brands detection
+     - Automatic brand name matching (23 common spirits/liqueurs)
+     - Confidence scoring for each detection
+     - Integration with Azure Key Vault for credentials
+   - Test Status: Ready for physical device testing
+   - Deployed: 2025-11-03
 
 ### Flutter Mobile App Integration
 
@@ -175,7 +193,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Files: `mobile/app/lib/src/services/database_service.dart`, `mobile/app/lib/src/providers/cocktail_provider.dart`
 
 8. ✅ **AI Bartender Chat UI (2025-10-31)**
-   
+
    - Complete chat interface with message history
    - Typing indicator during AI responses
    - Quick action buttons for common questions
@@ -190,9 +208,35 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
      - `mobile/app/lib/src/api/ask_bartender_api.dart`
      - `apps/backend/v3-deploy/ask-bartender-simple/index.js`
 
-#### Pending Work
+9. ✅ **Smart Scanner - Camera Inventory (2025-11-03)**
 
-- 🔄 **Smart Scanner (Camera Inventory)** - Implementation plan ready (see SMART_SCANNER_IMPLEMENTATION_PLAN.md)
+   - Azure Computer Vision integration for bottle recognition
+   - Camera and gallery image selection
+   - Real-time image analysis with confidence scores
+   - Automatic ingredient matching against database
+   - Manual selection/deselection of detected items
+   - Integration with My Bar inventory system
+   - Backend vision-analyze endpoint
+   - Complete UI with image preview and results display
+   - Error handling and user feedback
+   - Azure Resources:
+     - Azure Computer Vision: `cv-mba-prod` (F0 free tier, South Central US)
+     - Key Vault secrets: AZURE-CV-KEY, AZURE-CV-ENDPOINT
+   - Files:
+     - Backend: `apps/backend/v3-deploy/vision-analyze/index.js`
+     - Mobile API: `mobile/app/lib/src/api/vision_api.dart`
+     - Mobile UI: `mobile/app/lib/src/features/smart_scanner/smart_scanner_screen.dart`
+     - Mobile Provider: `mobile/app/lib/src/providers/vision_provider.dart`
+   - Dependencies Added:
+     - `image_picker: ^1.0.8` - Camera and gallery access
+     - `image: ^4.2.0` - Image handling and processing
+     - `axios` - Backend HTTP client for Computer Vision API
+   - Permissions Added:
+     - Android: CAMERA, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+     - iOS: NSCameraUsageDescription, NSPhotoLibraryUsageDescription
+   - Status: ✅ Fully implemented and deployed (requires physical device for full camera testing)
+
+#### Pending Work
 - 🔄 Create Studio cocktail creation screen
 - 🔄 Entra External ID authentication integration (Google/Facebook/Email)
 - 🔄 AI-powered cocktail recommendations with JWT authentication

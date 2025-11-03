@@ -60,7 +60,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Get authentication status
       final isAuthenticated = authState is AuthStateAuthenticated;
       final isAuthenticating = authState is AuthStateLoading;
-      final isLoginRoute = state.location == '/login';
+      final isLoginRoute = state.matchedLocation == '/login';
 
       // Don't redirect while checking authentication status
       if (isAuthenticating) {

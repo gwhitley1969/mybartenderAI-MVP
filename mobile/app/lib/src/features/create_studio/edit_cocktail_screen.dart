@@ -530,7 +530,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
     });
 
     try {
-      final db = ref.read(databaseProvider);
+      final db = ref.read(databaseServiceProvider);
       final isEditMode = widget.cocktail != null;
 
       final cocktailId = isEditMode ? widget.cocktail!.id : 'custom-${const Uuid().v4()}';
@@ -545,6 +545,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         instructions: _instructionsController.text.trim(),
         imageUrl: widget.cocktail?.imageUrl,
         ingredients: validIngredients
+            .toList()
             .asMap()
             .entries
             .map((entry) => DrinkIngredient(

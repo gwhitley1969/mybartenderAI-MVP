@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/ask_bartender_api.dart';
-import '../../providers/ask_bartender_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/voice_provider.dart';
 import '../../services/speech_service.dart';
@@ -132,13 +131,23 @@ class _VoiceBartenderScreenState extends ConsumerState<VoiceBartenderScreen>
       // Get user's inventory for context
       final inventoryAsync = ref.read(inventoryProvider);
       final inventory = inventoryAsync.valueOrNull ?? [];
-      final inventoryList = inventory.map((item) => item.ingredientName).toList();
+      final spirits = inventory
+          .where((item) => item.category == 'Spirit')
+          .map((item) => item.ingredientName)
+          .toList();
+      final mixers = inventory
+          .where((item) => item.category == 'Mixer')
+          .map((item) => item.ingredientName)
+          .toList();
 
       // Call backend API
       final apiService = ref.read(askBartenderApiProvider);
-      final response = await apiService.askBartender(
-        query: userText,
-        inventory: inventoryList,
+      final response = await apiService.ask(
+        message: userText,
+        inventory: BartenderInventory(
+          spirits: spirits.isNotEmpty ? spirits : null,
+          mixers: mixers.isNotEmpty ? mixers : null,
+        ),
         conversationId: _conversationId,
       );
 

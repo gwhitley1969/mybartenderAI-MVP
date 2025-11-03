@@ -120,14 +120,7 @@ class AuthService {
       }
 
       developer.log('Token refresh successful', name: 'AuthService');
-      return await _handleAuthResult(AuthorizationTokenResponse(
-        result.accessToken,
-        result.refreshToken,
-        result.accessTokenExpirationDateTime,
-        result.idToken,
-        result.tokenType,
-        result.tokenAdditionalParameters,
-      ));
+      return await _handleTokenResponse(result);
     } catch (e, stackTrace) {
       developer.log(
         'Token refresh error',
@@ -192,6 +185,52 @@ class AuthService {
   // Private helper methods
 
   Future<User?> _handleAuthResult(AuthorizationTokenResponse result) async {
+    if (result.accessToken == null) {
+      developer.log('No access token in response', name: 'AuthService');
+      return null;
+    }
+
+    // Save tokens
+    await _tokenStorage.saveAccessToken(result.accessToken!);
+
+    if (result.refreshToken != null) {
+      await _tokenStorage.saveRefreshToken(result.refreshToken!);
+    }
+
+    if (result.idToken != null) {
+      await _tokenStorage.saveIdToken(result.idToken!);
+    }
+
+    // Save expiration time
+    if (result.accessTokenExpirationDateTime != null) {
+      await _tokenStorage.saveExpiresAt(result.accessTokenExpirationDateTime!);
+    }
+
+    // Decode ID token to get user info
+    User? user;
+    if (result.idToken != null) {
+      try {
+        final Map<String, dynamic> decodedToken =
+            JwtDecoder.decode(result.idToken!);
+        developer.log(
+          'Decoded ID token claims: ${decodedToken.keys.toList()}',
+          name: 'AuthService',
+        );
+        user = User.fromTokenClaims(decodedToken);
+        await _tokenStorage.saveUserProfile(user);
+      } catch (e) {
+        developer.log(
+          'Error decoding ID token',
+          name: 'AuthService',
+          error: e,
+        );
+      }
+    }
+
+    return user;
+  }
+
+  Future<User?> _handleTokenResponse(TokenResponse result) async {
     if (result.accessToken == null) {
       developer.log('No access token in response', name: 'AuthService');
       return null;

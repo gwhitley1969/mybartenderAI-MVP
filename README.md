@@ -2,16 +2,30 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: October 29, 2025)
+## 🚀 Current Status (Updated: November 3, 2025)
 
 - **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
 - **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
 - **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
-- **AI**: ✅ GPT-4o-mini integrated for recommendations
-- **Authentication**: ✅ Entra External ID with age verification (Email, Google, Facebook)
-- **Voice**: 🚧 Azure Speech Services planned
-- **Mobile**: 📱 Flutter app - Recipe Vault, inventory management, offline-first SQLite, backend connected
+- **AI**: ✅ GPT-4o-mini integrated for chat & recommendations
+- **Authentication**: ✅ Entra External ID fully integrated (Email, Google, Facebook) with JWT token management
+- **Voice**: ✅ Azure Speech Services integrated (client-side STT/TTS)
+- **Vision**: ✅ Azure Computer Vision for bottle identification
+- **Mobile**: 📱 Flutter app - All features complete, authentication integrated, **APK ready for testing**
+
+### Mobile App Features (All Complete)
+- ✅ Recipe Vault with 621+ cocktails, search, filters, offline-first
+- ✅ My Bar inventory management with "Can Make" filter
+- ✅ AI Bartender Chat with inventory integration
+- ✅ Voice Bartender with Azure Speech Services
+- ✅ Smart Scanner for bottle identification (Azure Computer Vision)
+- ✅ Create Studio for custom cocktails with AI refinement
+- ✅ Favorites/Bookmarks
+- ✅ User authentication with Entra External ID (age verification)
+- ✅ User profile with account management
+- ✅ JWT token management with automatic refresh
+- ✅ **Release APK built (51.5MB) - ready for sideloading**
 
 ## 📁 Project Structure
 

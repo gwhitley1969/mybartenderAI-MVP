@@ -1,11 +1,67 @@
 # Flutter Mobile App Integration Plan
 
 **Created**: October 22, 2025
-**Last Updated**: October 29, 2025
+**Last Updated**: November 3, 2025
 **Backend Status**: ✅ Fully operational at `https://func-mba-fresh.azurewebsites.net/api`
-**Project Status**: ✅ Early Beta
+**Project Status**: ✅ Early Beta - APK Ready for Testing
 
-## ✅ Completed Work (October 29, 2025)
+## ✅ Completed Work
+
+### Latest Updates (November 3, 2025)
+
+#### Authentication Integration - COMPLETE
+
+Successfully integrated Entra External ID authentication throughout the entire mobile app:
+
+**Key Accomplishments:**
+- ✅ GoRouter with authentication guards (automatic login/home redirects)
+- ✅ JWT token management with automatic refresh
+- ✅ Secure token storage with flutter_secure_storage (encrypted)
+- ✅ Token injection in all API calls via Dio interceptors
+- ✅ User profile screen with account management
+- ✅ Sign-out with confirmation dialog
+- ✅ Age verification status display
+- ✅ Profile navigation from home screen header
+- ✅ Support for Email, Google, and Facebook authentication
+
+**Files Modified/Created:**
+- Router: `mobile/app/lib/main.dart` (authentication guards)
+- Backend Service: `mobile/app/lib/src/services/backend_service.dart` (JWT injection)
+- Providers: `mobile/app/lib/src/providers/backend_provider.dart` (token callback)
+- Profile UI: `mobile/app/lib/src/features/profile/profile_screen.dart` (complete UI)
+- Home Screen: `mobile/app/lib/src/features/home/home_screen.dart` (profile button)
+- Barrel Export: `mobile/app/lib/src/providers/providers.dart` (created)
+
+**Build Configuration:**
+- Android OAuth redirect: `mobile/app/android/app/build.gradle.kts` (manifest placeholder)
+- OAuth scheme: `com.mybartenderai.app`
+
+#### Release APK Build - SUCCESS
+
+Successfully built release APK ready for sideloading and testing:
+
+**Build Details:**
+- File: `mobile/app/build/app/outputs/flutter-apk/app-release.apk`
+- Size: 51.5MB
+- Configuration: Debug-signed (suitable for testing)
+- Status: ✅ Ready for Android device sideloading
+
+**Build Fixes Applied:**
+- Created missing `providers.dart` barrel export file
+- Fixed `databaseProvider` → `databaseServiceProvider` references in multiple files
+- Fixed `askBartender()` → `ask()` API method signature
+- Fixed `state.location` → `state.matchedLocation` in GoRouter (API update)
+- Fixed `CachedCocktailImage` widget parameter usage
+- Fixed `Iterable.asMap()` → `List.asMap()` conversion
+- Added OAuth redirect scheme manifest placeholder to build configuration
+
+**Installation Instructions:**
+1. Transfer APK to Android device via USB, cloud storage, or email
+2. Enable "Install from Unknown Sources" in Android settings
+3. Tap APK file to install
+4. Grant necessary permissions (camera, microphone, storage)
+
+### Previous Updates (October 29 - November 3, 2025)
 
 ### Design System Implementation
 

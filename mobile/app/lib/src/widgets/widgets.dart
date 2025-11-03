@@ -19,3 +19,4 @@ export 'section_header.dart';
 export 'recipe_card.dart';
 export 'audio_visualizer.dart';
 export 'backend_status.dart';
+export 'cached_cocktail_image.dart';

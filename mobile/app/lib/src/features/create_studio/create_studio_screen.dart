@@ -245,8 +245,6 @@ class CreateStudioScreen extends ConsumerWidget {
                     child: cocktail.imageUrl != null
                         ? CachedCocktailImage(
                             imageUrl: cocktail.imageUrl!,
-                            width: double.infinity,
-                            height: double.infinity,
                             fit: BoxFit.cover,
                           )
                         : Container(
@@ -454,7 +452,7 @@ class CreateStudioScreen extends ConsumerWidget {
   Future<void> _deleteCocktail(
       BuildContext context, WidgetRef ref, Cocktail cocktail) async {
     try {
-      final db = ref.read(databaseProvider);
+      final db = ref.read(databaseServiceProvider);
       await db.deleteCustomCocktail(cocktail.id);
 
       // Refresh providers

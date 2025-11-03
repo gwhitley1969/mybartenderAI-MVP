@@ -26,7 +26,7 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // App Header
-              _buildAppHeader(),
+              _buildAppHeader(context),
               SizedBox(height: AppSpacing.xxl),
 
               // AI Cocktail Concierge Section
@@ -51,7 +51,7 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppHeader() {
+  Widget _buildAppHeader(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

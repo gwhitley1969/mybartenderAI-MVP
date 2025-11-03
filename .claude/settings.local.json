@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(az apim show:*)",
+      "Bash(az functionapp show:*)",
+      "Bash(az postgres flexible-server show:*)",
+      "Bash(az apim backend:*)",
+      "Bash(az apim product subscription create:*)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 30; Get-Date\")",
+      "Bash(az functionapp config appsettings list:*)",
+      "Bash(az resource list:*)",
+      "Bash(az monitor app-insights query:*)",
+      "Bash(powershell -ExecutionPolicy Bypass -File \"C:\\backup dev02\\mybartenderAI-MVP\\test-snapshot-endpoint.ps1\")",
+      "Bash(func azure functionapp publish:*)",
+      "Bash(npm install:*)",
+      "Bash(powershell -Command \"Invoke-RestMethod -Uri ''https://func-mba-fresh.azurewebsites.net/api/v1/snapshots/latest'' -Method Get | ConvertTo-Json -Depth 10\")",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 15; Get-Date\")",
+      "Bash(az functionapp restart:*)",
+      "Bash(powershell -Command \"Write-Host ''Waiting for Function App to restart...''; Start-Sleep -Seconds 30; Write-Host ''Done waiting.''\")",
+      "Bash(cat:*)",
+      "Bash(az keyvault secret show:*)",
+      "Bash(az keyvault secret set:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(az functionapp config appsettings set:*)",
+      "Bash(git fetch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nchore: Add utility scripts for backend testing and troubleshooting\n\nAdded PowerShell scripts created during troubleshooting session:\n- check-db.ps1: Query PostgreSQL snapshot_metadata table\n- test-snapshot-endpoint.ps1: Test snapshots-latest endpoint with error details\n- trigger-sync.ps1: Manually trigger sync-cocktaildb timer function\n\nThese scripts are useful for verifying backend functionality and debugging issues.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(timeout 10 flutter run:*)",
+      "Bash(flutter clean:*)",
+      "Bash(flutter run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -776,6 +776,140 @@ class DatabaseService {
     );
   }
 
+  // ==========================================
+  // Custom Cocktail Operations
+  // ==========================================
+
+  /// Get all custom cocktails
+  Future<List<Cocktail>> getCustomCocktails({
+    String? searchQuery,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final db = await database;
+
+    // Build where clause
+    String where = 'is_custom = 1';
+    List<dynamic> whereArgs = [];
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      where += ' AND (name LIKE ? OR tags LIKE ?)';
+      whereArgs = ['%$searchQuery%', '%$searchQuery%'];
+    }
+
+    final List<Map<String, dynamic>> result = await db.query(
+      'drinks',
+      where: where,
+      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
+      orderBy: 'name ASC',
+      limit: limit,
+      offset: offset,
+    );
+
+    final cocktails = <Cocktail>[];
+    for (final row in result) {
+      final cocktail = Cocktail.fromDb(row);
+      final ingredients = await _getIngredientsForDrink(cocktail.id);
+      cocktails.add(cocktail.copyWith(ingredients: ingredients));
+    }
+
+    return cocktails;
+  }
+
+  /// Get count of custom cocktails
+  Future<int> getCustomCocktailCount() async {
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM drinks WHERE is_custom = 1');
+    return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Update an existing custom cocktail
+  Future<void> updateCustomCocktail(Cocktail cocktail) async {
+    if (cocktail.isCustom != true) {
+      throw ArgumentError('Can only update custom cocktails');
+    }
+
+    final db = await database;
+    final now = DateTime.now().toIso8601String();
+
+    // Update the drink record
+    await db.update(
+      'drinks',
+      {
+        'name': cocktail.name,
+        'category': cocktail.category,
+        'alcoholic': cocktail.alcoholic,
+        'glass': cocktail.glass,
+        'instructions': cocktail.instructions,
+        'image_url': cocktail.imageUrl,
+        'tags': cocktail.tags,
+        'updated_at': now,
+      },
+      where: 'id = ? AND is_custom = 1',
+      whereArgs: [cocktail.id],
+    );
+
+    // Delete existing ingredients
+    await db.delete(
+      'drink_ingredients',
+      where: 'drink_id = ?',
+      whereArgs: [cocktail.id],
+    );
+
+    // Insert updated ingredients
+    if (cocktail.ingredients != null && cocktail.ingredients!.isNotEmpty) {
+      for (int i = 0; i < cocktail.ingredients!.length; i++) {
+        final ingredient = cocktail.ingredients![i];
+        await db.insert(
+          'drink_ingredients',
+          {
+            'drink_id': cocktail.id,
+            'ingredient_name': ingredient.ingredientName,
+            'measure': ingredient.measure,
+            'ingredient_order': i + 1,
+          },
+        );
+      }
+    }
+  }
+
+  /// Delete a custom cocktail
+  Future<void> deleteCustomCocktail(String cocktailId) async {
+    final db = await database;
+
+    // Verify it's a custom cocktail before deleting
+    final result = await db.query(
+      'drinks',
+      where: 'id = ? AND is_custom = 1',
+      whereArgs: [cocktailId],
+    );
+
+    if (result.isEmpty) {
+      throw ArgumentError('Cocktail not found or is not a custom cocktail');
+    }
+
+    // Delete ingredients first (foreign key relationship)
+    await db.delete(
+      'drink_ingredients',
+      where: 'drink_id = ?',
+      whereArgs: [cocktailId],
+    );
+
+    // Delete the cocktail
+    await db.delete(
+      'drinks',
+      where: 'id = ? AND is_custom = 1',
+      whereArgs: [cocktailId],
+    );
+
+    // Remove from favorites if it was favorited
+    await db.delete(
+      'favorite_cocktails',
+      where: 'cocktail_id = ?',
+      whereArgs: [cocktailId],
+    );
+  }
+
   /// Close the database
   Future<void> close() async {
     final db = await database;

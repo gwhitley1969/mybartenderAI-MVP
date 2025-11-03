@@ -443,6 +443,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
           imageUrl: cocktail.imageUrl,
           matchCount: cocktail.ingredients.length,
           totalIngredients: cocktail.ingredients.length,
+          isCustom: cocktail.isCustom ?? false,
           onTap: () {
             Navigator.push(
               context,

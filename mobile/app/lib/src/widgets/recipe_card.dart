@@ -168,6 +168,7 @@ class CompactRecipeCard extends StatelessWidget {
   final String? imageUrl;
   final int matchCount;
   final int totalIngredients;
+  final bool isCustom;
   final VoidCallback onTap;
 
   const CompactRecipeCard({
@@ -176,6 +177,7 @@ class CompactRecipeCard extends StatelessWidget {
     this.imageUrl,
     required this.matchCount,
     required this.totalIngredients,
+    this.isCustom = false,
     required this.onTap,
   });
 
@@ -219,7 +221,38 @@ class CompactRecipeCard extends StatelessWidget {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  // Match badge overlay
+                  // Custom badge overlay (top-left)
+                  if (isCustom)
+                    Positioned(
+                      top: AppSpacing.sm,
+                      left: AppSpacing.sm,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: AppSpacing.xs,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryPurple,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_fix_high,
+                                size: 12, color: AppColors.textPrimary),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Custom',
+                              style: AppTypography.caption.copyWith(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  // Match badge overlay (top-right)
                   Positioned(
                     top: AppSpacing.sm,
                     right: AppSpacing.sm,

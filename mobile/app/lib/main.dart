@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
+import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
 import 'src/features/voice_bartender/voice_bartender_screen.dart';
@@ -71,6 +72,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'smart-scanner',
             builder: (BuildContext context, GoRouterState state) {
               return const SmartScannerScreen();
+            },
+          ),
+          GoRoute(
+            path: 'create-studio',
+            builder: (BuildContext context, GoRouterState state) {
+              return const CreateStudioScreen();
             },
           ),
         ],

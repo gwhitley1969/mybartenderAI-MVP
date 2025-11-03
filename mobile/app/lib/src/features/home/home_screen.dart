@@ -194,15 +194,7 @@ class HomeScreen extends ConsumerWidget {
                   title: 'Create',
                   subtitle: 'Signature drinks',
                   color: AppColors.iconCirclePurple,
-                  onTap: () {
-                    // TODO: Navigate to create screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Create Studio coming soon!'),
-                        backgroundColor: AppColors.cardBackground,
-                      ),
-                    );
-                  },
+                  onTap: () => context.go('/create-studio'),
                 ),
               ),
             ],

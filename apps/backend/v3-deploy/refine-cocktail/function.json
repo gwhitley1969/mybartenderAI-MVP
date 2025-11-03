@@ -1,12 +1,12 @@
 {
     "bindings": [
         {
-            "authLevel": "anonymous",
+            "authLevel": "function",
             "type": "httpTrigger",
             "direction": "in",
             "name": "req",
-            "methods": ["post"],
-            "route": "v1/ask-bartender-test"
+            "methods": ["post", "options"],
+            "route": "v1/create-studio/refine"
         },
         {
             "type": "http",

@@ -29,3 +29,4 @@ apps/backend/fix-sync/
 node_modules/
 infrastructure/database/*.exe
 *.png
+nul

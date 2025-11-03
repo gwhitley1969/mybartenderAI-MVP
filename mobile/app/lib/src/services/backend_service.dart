@@ -7,10 +7,12 @@ class BackendService {
   late final Dio _dio;
   final String baseUrl;
   final String? functionKey;
+  final Future<String?> Function()? getAccessToken;
 
   BackendService({
     required this.baseUrl,
     this.functionKey,
+    this.getAccessToken,
   }) {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
@@ -18,7 +20,22 @@ class BackendService {
       receiveTimeout: const Duration(seconds: 30),
     ));
 
-    // Add function key if provided
+    // Add JWT authorization header if token provider is available
+    if (getAccessToken != null) {
+      _dio.interceptors.add(
+        InterceptorsWrapper(
+          onRequest: (options, handler) async {
+            final token = await getAccessToken!();
+            if (token != null && token.isNotEmpty) {
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+            handler.next(options);
+          },
+        ),
+      );
+    }
+
+    // Add function key if provided (for endpoints that still use it)
     if (functionKey != null && functionKey!.isNotEmpty) {
       _dio.interceptors.add(
         InterceptorsWrapper(

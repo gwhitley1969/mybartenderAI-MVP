@@ -4,10 +4,14 @@ import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
+import 'src/features/auth/login_screen.dart';
 import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
+import 'src/features/profile/profile_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
 import 'src/features/voice_bartender/voice_bartender_screen.dart';
+import 'src/models/auth_state.dart';
+import 'src/providers/auth_provider.dart';
 
 Future<void> main() async {
   await bootstrap(
@@ -46,10 +50,45 @@ class MyBartenderApp extends ConsumerWidget {
   }
 }
 
-/// The router configuration.
+/// The router configuration with authentication guards.
 final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authNotifierProvider);
+
   return GoRouter(
+    initialLocation: '/',
+    redirect: (BuildContext context, GoRouterState state) {
+      // Get authentication status
+      final isAuthenticated = authState is AuthStateAuthenticated;
+      final isAuthenticating = authState is AuthStateLoading;
+      final isLoginRoute = state.location == '/login';
+
+      // Don't redirect while checking authentication status
+      if (isAuthenticating) {
+        return null;
+      }
+
+      // Redirect to login if not authenticated and trying to access protected routes
+      if (!isAuthenticated && !isLoginRoute) {
+        return '/login';
+      }
+
+      // Redirect to home if authenticated and on login page
+      if (isAuthenticated && isLoginRoute) {
+        return '/';
+      }
+
+      // No redirect needed
+      return null;
+    },
     routes: <RouteBase>[
+      // Login route (public)
+      GoRoute(
+        path: '/login',
+        builder: (BuildContext context, GoRouterState state) {
+          return const LoginScreen();
+        },
+      ),
+      // Home route (protected)
       GoRoute(
         path: '/',
         builder: (BuildContext context, GoRouterState state) {
@@ -78,6 +117,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'create-studio',
             builder: (BuildContext context, GoRouterState state) {
               return const CreateStudioScreen();
+            },
+          ),
+          GoRoute(
+            path: 'profile',
+            builder: (BuildContext context, GoRouterState state) {
+              return const ProfileScreen();
             },
           ),
         ],

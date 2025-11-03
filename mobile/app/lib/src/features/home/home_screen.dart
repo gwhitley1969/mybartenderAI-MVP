@@ -93,6 +93,15 @@ class HomeScreen extends ConsumerWidget {
                 ],
               ),
             ),
+            // Profile Button
+            IconButton(
+              onPressed: () => context.go('/profile'),
+              icon: Icon(
+                Icons.person_outline,
+                color: AppColors.textSecondary,
+                size: 28,
+              ),
+            ),
           ],
         ),
         SizedBox(height: AppSpacing.lg),

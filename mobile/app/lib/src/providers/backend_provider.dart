@@ -1,12 +1,18 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../services/backend_service.dart';
+import 'auth_provider.dart';
 
-/// Provider for the BackendService singleton
+/// Provider for the BackendService singleton with JWT authentication
 final backendServiceProvider = Provider<BackendService>((ref) {
   return BackendService(
     baseUrl: AppConfig.backendBaseUrl,
     functionKey: AppConfig.functionKey,
+    getAccessToken: () async {
+      // Get valid access token (auto-refreshes if expired)
+      final authService = ref.read(authServiceProvider);
+      return await authService.getValidAccessToken();
+    },
   );
 });
 

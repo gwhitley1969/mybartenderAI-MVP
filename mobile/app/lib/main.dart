@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
-import 'src/features/ask_bartender/voice_chat_screen.dart';
-import 'src/features/demo/voice_demo_screen.dart';
 import 'src/features/home/home_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
+import 'src/features/voice_bartender/voice_bartender_screen.dart';
 
 Future<void> main() async {
   await bootstrap(
@@ -63,15 +62,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
-            path: 'voice-chat',
+            path: 'voice-bartender',
             builder: (BuildContext context, GoRouterState state) {
-              return const VoiceChatScreen();
-            },
-          ),
-          GoRoute(
-            path: 'voice-demo',
-            builder: (BuildContext context, GoRouterState state) {
-              return const VoiceDemoScreen();
+              return const VoiceBartenderScreen();
             },
           ),
           GoRoute(

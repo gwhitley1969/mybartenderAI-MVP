@@ -6,7 +6,15 @@
 
 After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. All functions are now deployed and operational.
 
-**Latest Update (2025-10-31):**
+**Latest Update (2025-11-03):**
+
+- ✅ **Voice Bartender complete** - Azure Speech Services integration with client-side STT/TTS
+- ✅ Speech Services F0 tier deployed (5 hours/month free)
+- ✅ Voice UI with real-time transcription and AI responses
+- ✅ OpenAI Realtime API code removed (cost optimization)
+- ✅ 93% cost savings vs OpenAI Realtime API
+
+**Previous Update (2025-10-31):**
 
 - ✅ Azure OpenAI migrated from East US to South Central US
 - ✅ AI Bartender chat backend fixed and operational
@@ -122,6 +130,22 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Test Status: Ready for physical device testing
    - Deployed: 2025-11-03
 
+9. ✅ **GET /api/v1/speech/token**
+
+   - Azure Speech Services token endpoint for voice features
+   - Returns ephemeral tokens (10 minutes) for client-side speech processing
+   - Requires: Function key
+   - Status: ✅ Deployed and operational
+   - Azure Speech Services: `speech-mba-prod` (F0 free tier, South Central US)
+   - Features:
+     - Token exchange (API key → ephemeral token)
+     - No API key exposed to mobile clients
+     - Client-side Speech-to-Text and Text-to-Speech
+     - 93% cost savings vs OpenAI Realtime API
+     - Integration with Azure Key Vault for credentials
+   - Deployed: 2025-11-03
+   - Cost: FREE (5 hours/month on F0 tier)
+
 ### Flutter Mobile App Integration
 
 **Status:** ✅ Successfully Connected to Azure Backend
@@ -236,11 +260,38 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
      - iOS: NSCameraUsageDescription, NSPhotoLibraryUsageDescription
    - Status: ✅ Fully implemented and deployed (requires physical device for full camera testing)
 
+10. ✅ **Voice Bartender - Azure Speech Services (2025-11-03)**
+
+   - Azure Speech Services integration for voice interaction
+   - Client-side Speech-to-Text and Text-to-Speech processing
+   - Real-time transcription during voice input
+   - AI response with natural voice playback
+   - Conversation history with visual chat bubbles
+   - Integration with existing ask-bartender backend
+   - Inventory-aware voice responses
+   - Backend speech-token endpoint for secure token exchange
+   - Azure Resources:
+     - Azure Speech Services: `speech-mba-prod` (F0 free tier, South Central US)
+     - Key Vault secrets: AZURE-SPEECH-KEY, AZURE-SPEECH-REGION
+   - Files:
+     - Backend: `apps/backend/v3-deploy/speech-token/index.js`
+     - Mobile Services: `mobile/app/lib/src/services/speech_service.dart`, `mobile/app/lib/src/services/tts_service.dart`
+     - Mobile UI: `mobile/app/lib/src/features/voice_bartender/voice_bartender_screen.dart`
+     - Mobile Provider: `mobile/app/lib/src/providers/voice_provider.dart`
+   - Dependencies Added:
+     - `speech_to_text: ^7.0.0` - Device speech recognition
+     - `flutter_tts: ^4.2.0` - Device text-to-speech
+   - Dependencies Removed (cost optimization):
+     - `flutter_webrtc`, `record`, `audioplayers`, `web_socket_channel` (OpenAI Realtime API)
+   - Permissions: Microphone access (already configured)
+   - Architecture: Client-side speech processing → Text API → Client-side TTS
+   - Cost Savings: 93% vs OpenAI Realtime API (~$0.10 vs ~$1.50 per 5-min session)
+   - Status: ✅ Fully implemented and deployed (UI ready, requires microphone permission for testing)
+
 #### Pending Work
 - 🔄 Create Studio cocktail creation screen
 - 🔄 Entra External ID authentication integration (Google/Facebook/Email)
 - 🔄 AI-powered cocktail recommendations with JWT authentication
-- 🔄 Voice realtime integration with Azure Speech Services
 - 🔄 Taste profile preferences
 
 ### Deployment Journey

@@ -162,15 +162,15 @@ class HomeScreen extends ConsumerWidget {
             ],
           ),
           SizedBox(height: AppSpacing.lg),
-          // Action Buttons
+          // Action Buttons - Row 1
           Row(
             children: [
               Expanded(
                 child: _buildActionButton(
                   context: context,
                   icon: Icons.chat_bubble_outline,
-                  title: 'Ask the Bartender',
-                  subtitle: 'Get expert advice',
+                  title: 'Chat',
+                  subtitle: 'Text conversation',
                   color: AppColors.iconCircleBlue,
                   onTap: () => context.go('/ask-bartender'),
                 ),
@@ -179,10 +179,21 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _buildActionButton(
                   context: context,
+                  icon: Icons.mic,
+                  title: 'Voice',
+                  subtitle: 'Speak naturally',
+                  color: AppColors.primaryPurple,
+                  onTap: () => context.go('/voice-bartender'),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
                   icon: Icons.auto_fix_high,
                   title: 'Create',
-                  subtitle: 'Signature cocktails',
-                  color: AppColors.primaryPurple,
+                  subtitle: 'Signature drinks',
+                  color: AppColors.iconCirclePurple,
                   onTap: () {
                     // TODO: Navigate to create screen
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -30,7 +30,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
 1. ✅ **GET /api/health**
    
    - Health check endpoint
-   - Status: Working (actually health check not available on the SKU we're using)
+   - Status: Working (**actually health check not available on the SKU we're using presently**)
 
 2. ✅ **GET /api/v1/snapshots/latest**
    
@@ -51,13 +51,13 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Status: Deployed (needs testing)
 
 5. ✅ **Timer: sync-cocktaildb**
-
+   
    - Runs daily at 3:30 AM UTC
    - Syncs cocktail data and creates snapshots
    - Status: Deployed (needs manual trigger for initial sync)
 
 6. ✅ **POST /api/v1/ask-bartender-simple**
-
+   
    - AI-powered bartender chat using Azure OpenAI (gpt-4o-mini)
    - Natural language cocktail questions and recommendations
    - **Inventory Integration**: AI receives user's bar ingredients and provides personalized suggestions
@@ -166,7 +166,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Files: `mobile/app/lib/src/features/my_bar/*`, `mobile/app/lib/src/providers/inventory_provider.dart`
 
 7. ✅ **Offline-First Database (2025-10-29)**
-
+   
    - SQLite database with sqflite
    - Zstandard compression/decompression for snapshots
    - PRAGMA user_version for database versioning
@@ -175,7 +175,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - Files: `mobile/app/lib/src/services/database_service.dart`, `mobile/app/lib/src/providers/cocktail_provider.dart`
 
 8. ✅ **AI Bartender Chat UI (2025-10-31)**
-
+   
    - Complete chat interface with message history
    - Typing indicator during AI responses
    - Quick action buttons for common questions
@@ -192,6 +192,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
 
 #### Pending Work
 
+- 🔄 **Smart Scanner (Camera Inventory)** - Implementation plan ready (see SMART_SCANNER_IMPLEMENTATION_PLAN.md)
 - 🔄 Create Studio cocktail creation screen
 - 🔄 Entra External ID authentication integration (Google/Facebook/Email)
 - 🔄 AI-powered cocktail recommendations with JWT authentication
@@ -284,7 +285,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
 Function App: `func-mba-fresh`
 
 - **Plan**: Windows Consumption
-- **Runtime**: Node.js 20 LTS
+- **Runtime**: Node.js 20 LTS (will be retired by Microsoft 04/2026, must move to 22 LTS)
 - **Functions Runtime**: ~4
 - **Location**: South Central US
 

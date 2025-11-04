@@ -29,8 +29,8 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // OAuth redirect scheme for Entra External ID authentication
-        manifestPlaceholders["appAuthRedirectScheme"] = "mybartenderai"
+        // OAuth redirect scheme for Entra External ID authentication (MSAL format)
+        manifestPlaceholders["appAuthRedirectScheme"] = "msalf9f7f159-b847-4211-98c9-18e5b8193045"
     }
 
     buildTypes {

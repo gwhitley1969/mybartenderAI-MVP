@@ -2,19 +2,19 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: November 3, 2025)
+## 🚀 Current Status (Updated: November 4, 2025)
 
 - **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
 - **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
 - **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
 - **AI**: ✅ GPT-4o-mini integrated for chat & recommendations
-- **Authentication**: ✅ Entra External ID fully integrated (Email, Google, Facebook) with JWT token management
+- **Authentication**: ❌ **BLOCKED** - Entra External ID redirect issue (see [AUTHENTICATION_CURRENT_STATE.md](AUTHENTICATION_CURRENT_STATE.md))
 - **Voice**: ✅ Azure Speech Services integrated (client-side STT/TTS)
 - **Vision**: ✅ Azure Computer Vision for bottle identification
-- **Mobile**: 📱 Flutter app - All features complete, authentication integrated, **APK ready for testing**
+- **Mobile**: 📱 Flutter app - Features complete, **authentication not working**
 
-### Mobile App Features (All Complete)
+### Mobile App Features
 - ✅ Recipe Vault with 621+ cocktails, search, filters, offline-first
 - ✅ My Bar inventory management with "Can Make" filter
 - ✅ AI Bartender Chat with inventory integration
@@ -22,10 +22,10 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ Smart Scanner for bottle identification (Azure Computer Vision)
 - ✅ Create Studio for custom cocktails with AI refinement
 - ✅ Favorites/Bookmarks
-- ✅ User authentication with Entra External ID (age verification)
-- ✅ User profile with account management
-- ✅ JWT token management with automatic refresh
-- ✅ **Release APK built (51.5MB) - ready for sideloading**
+- ❌ **User authentication BLOCKED** - Azure redirect issue (see troubleshooting docs)
+- ⏸️ User profile with account management (blocked by auth)
+- ⏸️ JWT token management (blocked by auth)
+- ⚠️ **APK built but auth not working** - See [AUTHENTICATION_DIAGNOSTICS.md](AUTHENTICATION_DIAGNOSTICS.md)
 
 ## 📁 Project Structure
 

@@ -29,7 +29,16 @@ class AuthService {
       developer.log('Scopes: ${AuthConfig.scopes}', name: 'AuthService');
       developer.log('Additional Parameters: ${AuthConfig.additionalParameters}', name: 'AuthService');
 
-      // Build the request to see what we're actually sending
+      // Build the request with dynamic nonce and proper parameters
+      final nonce = DateTime.now().millisecondsSinceEpoch.toString();
+      final additionalParams = {
+        ...AuthConfig.additionalParameters,
+        'nonce': nonce,
+      };
+
+      developer.log('Using nonce: $nonce', name: 'AuthService');
+      developer.log('Final additional parameters: $additionalParams', name: 'AuthService');
+
       final request = AuthorizationTokenRequest(
         AuthConfig.clientId,
         AuthConfig.redirectUrl,
@@ -40,13 +49,13 @@ class AuthService {
         ),
         scopes: AuthConfig.scopes,
         promptValues: ['select_account'],
-        additionalParameters: AuthConfig.additionalParameters,
-        // Force use of Custom Tabs instead of WebView for better compatibility
-        preferEphemeralSession: false,
+        additionalParameters: additionalParams,
+        // Use system browser for better deep link handling on Samsung devices
+        preferEphemeralSession: true,
       );
 
       developer.log('Request created - about to call authorize', name: 'AuthService');
-      developer.log('Full authorization URL will be: ${AuthConfig.authorizationEndpoint}?client_id=${AuthConfig.clientId}&response_type=code&redirect_uri=${Uri.encodeComponent(AuthConfig.redirectUrl)}&scope=${AuthConfig.scopes.join('+')}&prompt=select_account', name: 'AuthService');
+      developer.log('Full authorization URL will be: ${AuthConfig.authorizationEndpoint}?client_id=${AuthConfig.clientId}&response_type=code&redirect_uri=${Uri.encodeComponent(AuthConfig.redirectUrl)}&response_mode=query&scope=${AuthConfig.scopes.join('+')}&prompt=select_account&nonce=$nonce', name: 'AuthService');
 
       final AuthorizationTokenResponse? result =
           await _appAuth.authorizeAndExchangeCode(request);

@@ -27,8 +27,9 @@ class AuthConfig {
       'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/logout';
 
   // Redirect URIs (must match Azure AD app registration)
-  static const String redirectUrl = 'mybartenderai://auth';
-  static const String redirectUrlScheme = 'mybartenderai';
+  // Using MSAL format as configured in Azure
+  static const String redirectUrl = 'msalf9f7f159-b847-4211-98c9-18e5b8193045://auth';
+  static const String redirectUrlScheme = 'msalf9f7f159-b847-4211-98c9-18e5b8193045';
 
   // Scopes
   static const List<String> scopes = [
@@ -43,6 +44,7 @@ class AuthConfig {
   static const Map<String, String> additionalParameters = {
     // 'prompt': 'select_account', // Now handled via promptValues
     // Entra External ID doesn't use 'p' parameter like Azure AD B2C
+    'response_mode': 'query', // Explicitly set response mode for mobile deep links
   };
 
   // Token storage keys

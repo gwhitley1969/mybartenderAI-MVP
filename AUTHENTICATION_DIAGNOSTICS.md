@@ -1,242 +1,235 @@
-# Authentication Diagnostics and Solution - RESOLVED
+# Authentication Diagnostics - UNRESOLVED
 
-## Issues Identified and Fixed
+**Last Updated**: November 4, 2025 (Opus Session)
+**Status**: Authentication still failing across ALL methods (Email, Google, Facebook)
 
-### 1. OAuth Flow Configuration Issues
-**Problem**: Wrong OAuth endpoints initially, incorrect client ID, wrong redirect URI format
-**Solution**:
-- Corrected OAuth endpoints to use Entra External ID (ciamlogin.com)
-- Updated client ID to: `f9f7f159-b847-4211-98c9-18e5b8193045`
-- Fixed redirect URI to: `mybartenderai://auth`
+## Summary of the Problem
 
-### 2. flutter_appauth v7.x Compatibility
-**Problem**: `prompt` parameter must use `promptValues` array instead of `additionalParameters`
-**Solution**: Updated auth_service.dart to use `promptValues: ['select_account']`
+The MyBartenderAI mobile app cannot complete authentication with Microsoft Entra External ID. ALL authentication methods fail at the redirect stage - the browser successfully authenticates but cannot redirect back to the app.
 
-### 3. Missing Android Permissions
-**Problem**: Missing INTERNET and ACCESS_NETWORK_STATE permissions
-**Solution**: Added to AndroidManifest.xml
+## Current Symptoms
 
-### 4. Missing Browser Query Intents
-**Problem**: Android 11+ requires explicit query declarations for Custom Tabs
-**Solution**: Added browser and custom scheme query intents to AndroidManifest.xml
+1. User initiates sign-in (any method: Email/Google/Facebook)
+2. Browser opens and navigates to Microsoft Entra External ID
+3. User successfully authenticates
+4. Consent screen appears: "Are you trying to sign in to MyBartenderAI Mobile?"
+5. User clicks "Continue"
+6. **FAILURE**: Browser hangs and never redirects back to app
+7. If user closes browser, app shows "User cancelled flow" error
 
-### 5. SSL Certificate Trust (Emulator)
-**Problem**: Emulator doesn't trust SSL certificates for Microsoft domains
-**Solution**: Added network_security_config.xml with trust anchors for Microsoft domains
+## Configuration Details
 
-### 6. Wrong APK Architecture
-**Problem**: APK built for x86_64 (emulator) instead of ARM64 (physical devices)
-**Solution**: Rebuilt APK targeting the physical device specifically with `-d <device-id>`
+### Azure Entra External ID Configuration
+- **Tenant Name**: mybartenderai
+- **Tenant ID**: a82813af-1054-4e2d-a8ec-c6b9c2908c91
+- **Client ID**: f9f7f159-b847-4211-98c9-18e5b8193045
+- **User Flow**: mba-signin-signup (tested and working in Azure Portal)
+- **Identity Providers**: Google, Facebook, Microsoft (all configured)
 
-### 7. Google OAuth Redirect URI Mismatch
-**Problem**: Redirect URI not registered in Azure app registration for Google identity provider
-**Solution**: Add `mybartenderai://auth` to Mobile and desktop applications redirect URIs in Azure portal
+### OAuth Endpoints
+- **Authorization**: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/authorize`
+- **Token**: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/token`
+- **Logout**: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/logout`
 
-## Complete Solution
+## All Attempted Solutions (November 4, 2025)
 
-### 1. Authentication Service Updates
+### Session 1 (Sonnet) - Initial Fixes
 
-**File**: `lib/src/services/auth_service.dart`
+1. **Fixed Client ID**
+   - Changed from: `0a9decfb-ba92-400d-8d8d-8d86f0f86a0b`
+   - Changed to: `f9f7f159-b847-4211-98c9-18e5b8193045`
+   - Result: ✅ Resolved initial authorization errors
 
-Key changes:
-- Added `preferEphemeralSession: false` to force Custom Tabs instead of WebView
-- Added comprehensive logging for debugging
-- Added specific error handling for network issues
+2. **Fixed OAuth Endpoints**
+   - Corrected to use Entra External ID endpoints (ciamlogin.com)
+   - Not Azure AD B2C endpoints (b2clogin.com)
+   - Result: ✅ Proper authentication flow initiated
 
-### 2. Android Manifest Updates
+3. **Updated flutter_appauth v7.x Compatibility**
+   - Changed from `additionalParameters: {'prompt': 'select_account'}`
+   - To `promptValues: ['select_account']`
+   - Result: ✅ Resolved prompt parameter errors
 
-**File**: `android/app/src/main/AndroidManifest.xml`
+4. **Added Android Permissions**
+   - Added INTERNET and ACCESS_NETWORK_STATE permissions
+   - Result: ✅ Network connectivity established
 
-Added:
-```xml
-<!-- Network permissions for API and OAuth -->
-<uses-permission android:name="android.permission.INTERNET" />
-<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+5. **Added Browser Query Intents**
+   - Added query intents for Android 11+ Custom Tabs support
+   - Result: ✅ Browser launches correctly
 
-<!-- Query intents for browser handling -->
-<queries>
-    <intent>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="https"/>
-    </intent>
-    <intent>
-        <action android:name="android.intent.action.VIEW"/>
-        <category android:name="android.intent.category.BROWSABLE"/>
-        <data android:scheme="mybartenderai"/>
-    </intent>
-</queries>
+6. **Fixed APK Architecture**
+   - Built specifically for ARM64 (Samsung Flip 6)
+   - Result: ✅ App launches without crashes
+
+7. **Changed Custom Tabs to System Browser**
+   - Set `preferEphemeralSession: true`
+   - Result: ❌ Still hangs after consent
+
+### Session 2 (Opus) - Deep Dive Analysis
+
+8. **Added response_mode Parameter**
+   - Added `response_mode: 'query'` to force query parameters
+   - Added dynamic `nonce` for security
+   - Result: ❌ Still hangs after consent
+
+9. **Changed to MSAL Redirect URI Format**
+   - Changed from: `mybartenderai://auth`
+   - Changed to: `msalf9f7f159-b847-4211-98c9-18e5b8193045://auth`
+   - Updated all Android configurations to match
+   - Result: ✅ Progress - reached permissions consent screen
+   - But: ❌ Stuck at "Permissions requested" screen
+
+10. **Granted Admin Consent**
+    - Granted admin consent for User.Read permission in Azure Portal
+    - Result: ❌ Still stuck at permissions screen
+
+11. **Tested Deep Links Directly**
+    - Command: `adb shell am start -d "msalf9f7f159-b847-4211-98c9-18e5b8193045://auth?code=test"`
+    - Result: ✅ App receives deep links correctly
+    - Conclusion: App CAN receive redirects, but Azure isn't sending them
+
+## Azure Portal Configuration Verified
+
+### ✅ Redirect URIs Registered
+- `msalf9f7f159-b847-4211-98c9-18e5b8193045://auth` (MSAL only) - CHECKED
+- `https://mybartenderai.b2clogin.com/oauth2/nativeclient` - CHECKED
+- `mybartenderai://auth` - LISTED
+
+### ✅ API Permissions
+- Microsoft Graph: User.Read
+- Admin consent: Granted
+- Status: Still fails
+
+### ✅ Identity Providers
+- Google: Configured with correct redirect URIs in Google Cloud Console
+- Facebook: Configured
+- Microsoft: Configured
+
+### ✅ User Flow
+- mba-signin-signup: Tested and working in Azure Portal test feature
+
+## Current Code State
+
+### auth_config.dart
+```dart
+static const String redirectUrl = 'msalf9f7f159-b847-4211-98c9-18e5b8193045://auth';
+static const String redirectUrlScheme = 'msalf9f7f159-b847-4211-98c9-18e5b8193045';
+static const Map<String, String> additionalParameters = {
+  'response_mode': 'query',
+};
 ```
 
-### 3. Configuration Verification
-
-**Correct OAuth URLs**:
-- Authorization: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/authorize`
-- Token: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/token`
-- Logout: `https://mybartenderai.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/oauth2/v2.0/logout`
-
-**Correct App Configuration**:
-- Client ID: `f9f7f159-b847-4211-98c9-18e5b8193045`
-- Redirect URI: `mybartenderai://auth`
-- Redirect Scheme: `mybartenderai`
-
-## Troubleshooting Steps
-
-### For Emulator Issues
-
-1. **Check emulator network**:
-   ```bash
-   adb shell ping google.com
-   ```
-
-2. **Configure emulator DNS** (if needed):
-   ```bash
-   adb shell setprop net.dns1 8.8.8.8
-   adb shell setprop net.dns2 8.8.4.4
-   ```
-
-3. **Use physical device for testing** if emulator continues to have issues
-
-### For Physical Device Issues
-
-1. **Ensure device has internet connection**
-2. **Check if Chrome/browser is installed and updated**
-3. **Clear browser cache and cookies**
-4. **Try disabling any VPN or proxy**
-
-## Alternative Solutions
-
-### Option 1: Use System Browser Instead of Custom Tabs
-
-Modify `auth_service.dart`:
+### auth_service.dart
 ```dart
+final nonce = DateTime.now().millisecondsSinceEpoch.toString();
+final additionalParams = {
+  ...AuthConfig.additionalParameters,
+  'nonce': nonce,
+};
+
 final request = AuthorizationTokenRequest(
-  // ... existing config
-  preferEphemeralSession: true, // Forces system browser
+  AuthConfig.clientId,
+  AuthConfig.redirectUrl,
+  serviceConfiguration: AuthorizationServiceConfiguration(
+    authorizationEndpoint: AuthConfig.authorizationEndpoint,
+    tokenEndpoint: AuthConfig.tokenEndpoint,
+    endSessionEndpoint: AuthConfig.endSessionEndpoint,
+  ),
+  scopes: AuthConfig.scopes,
+  promptValues: ['select_account'],
+  additionalParameters: additionalParams,
+  preferEphemeralSession: true, // Using system browser
 );
 ```
 
-### Option 2: Implement Fallback for Network Issues
-
-Add network check before authentication:
-```dart
-Future<bool> checkNetworkConnectivity() async {
-  try {
-    final result = await http.get(Uri.parse('https://www.google.com'));
-    return result.statusCode == 200;
-  } catch (e) {
-    return false;
-  }
-}
+### AndroidManifest.xml
+```xml
+<activity
+    android:name="net.openid.appauth.RedirectUriReceiverActivity"
+    android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="msalf9f7f159-b847-4211-98c9-18e5b8193045" />
+    </intent-filter>
+</activity>
 ```
 
-## Testing Authentication
+## What Works vs What Doesn't
 
-### Debug Logging
+### ✅ What Works:
+- OAuth flow initiates correctly
+- Browser opens and navigates to Microsoft Entra External ID
+- User can authenticate with Google/Email/Facebook
+- Deep links work when tested directly with adb
+- App is properly configured to receive redirects
 
-When testing, check logs using:
-```bash
-adb logcat | grep -E "AuthService|AuthNotifier"
-```
+### ❌ What Doesn't Work:
+- After consent screen, browser doesn't redirect to app
+- Stuck at "Permissions requested" screen
+- All authentication methods fail at the same point
+- Azure is not completing the redirect after consent
 
-### Expected Flow
+## Possible Root Causes
 
-1. User taps "Sign In / Sign Up"
-2. Browser/Custom Tab opens with Microsoft login page
-3. User authenticates (Email/Google/Facebook)
-4. Browser redirects to `mybartenderai://auth`
-5. App receives tokens and saves them
-6. User is redirected to home screen
+1. **Azure Entra External ID Redirect Issue**
+   - Azure may require additional configuration for mobile redirects
+   - Post-consent redirect might need different handling
 
-## Known Issues and Workarounds
+2. **Unverified App Status**
+   - App shows as "unverified" in consent screen
+   - May be blocking the redirect flow
 
-### Issue: "gstatic.com connection failed"
-**Cause**: Emulator network configuration
-**Workaround**: Use physical device or fix emulator DNS
+3. **Missing Configuration**
+   - May need additional redirect URIs
+   - May need specific Azure configuration for mobile apps
 
-### Issue: "authorize_and_exchange_code_failed"
-**Cause**: Incorrect client ID or redirect URI
-**Solution**: Verify Azure app registration matches code configuration
+4. **Library Incompatibility**
+   - flutter_appauth may not fully support Entra External ID
+   - May need to use Microsoft's MSAL library instead
 
-### Issue: Browser doesn't open
-**Cause**: Missing browser or query permissions
-**Solution**: Ensure Chrome is installed and manifest has query intents
+## Next Steps for Resolution
 
-## Next Steps
+1. **Try MSAL Flutter Library**
+   - Replace flutter_appauth with Microsoft's official MSAL library
+   - Package: `msal_flutter`
 
-1. Test on physical device to confirm emulator-specific issue
-2. Consider implementing offline development mode for testing
-3. Add retry mechanism for transient network failures
-4. Implement token refresh logic for expired sessions
+2. **Verify with Microsoft Support**
+   - Open support ticket with Azure
+   - Specifically ask about mobile app redirects in Entra External ID
 
-## Building for Physical Devices
+3. **Test with Different OAuth Flow**
+   - Try implicit flow instead of authorization code flow
+   - Try hybrid flow
 
-### Important: Target Device Architecture
+4. **Check Entra External ID Logs**
+   - Review sign-in logs in Azure Portal
+   - Look for redirect errors or blocks
 
-When building for physical Android devices, you MUST build targeting the specific device to ensure correct architecture (ARM64 vs x86_64):
+5. **Alternative Architecture**
+   - Consider web-based authentication with webview
+   - Consider using a backend service to handle OAuth
 
-```bash
-# List connected devices
-flutter devices
+## Files Modified During Troubleshooting
 
-# Build targeting specific device ID
-flutter build apk --release -d <DEVICE_ID>
+- `/mobile/app/lib/src/config/auth_config.dart`
+- `/mobile/app/lib/src/services/auth_service.dart`
+- `/mobile/app/android/app/src/main/AndroidManifest.xml`
+- `/mobile/app/android/app/build.gradle.kts`
+- `/mobile/app/android/app/src/main/res/xml/network_security_config.xml`
 
-# Example for Samsung Flip 6
-flutter build apk --release -d R5CX736BQWF
+## Test Devices
 
-# Install on device
-adb -s <DEVICE_ID> install -r build/app/outputs/flutter-apk/app-release.apk
-```
+- **Samsung Flip 6**: Device ID `R5CX736BQWF` (ARM64)
+- **Android Emulator**: Device ID `emulator-5554` (x86_64)
 
-**Why This Matters**:
-- Emulators typically use x86_64 architecture
-- Physical devices (especially Samsung, Google Pixel) use ARM64 (arm64-v8a)
-- Installing wrong architecture APK will cause immediate crash: "Could not find 'libflutter.so'"
-- Using `-d <DEVICE_ID>` ensures Flutter builds for the correct target architecture
+## Relevant Azure Documentation
 
-### Building for Emulator
-
-```bash
-flutter build apk --release -d emulator-5554
-```
-
-## Current Status (2025-11-04)
-
-### ✅ Working
-- OAuth flow correctly navigates to Microsoft Entra External ID login
-- App launches successfully on Samsung Flip 6 (ARM64)
-- Browser/Custom Tabs integration working
-- SSL certificate trust configured
-- Android permissions and query intents properly set
-- flutter_appauth v7.x compatibility implemented
-
-### ⏳ Pending User Action
-- **Google OAuth Redirect URI**: Add `mybartenderai://auth` to Azure app registration
-  - Navigate to: Azure Portal → App Registrations → MyBartenderAI → Authentication
-  - Under "Mobile and desktop applications", click "Add URI"
-  - Enter: `mybartenderai://auth`
-  - Click "Save" at top of page
-  - Test authentication again
-
-### 📝 Lessons Learned
-1. **Entra External ID vs Azure AD B2C**: Use `ciamlogin.com` endpoints, not `b2clogin.com`
-2. **flutter_appauth v7.x**: Breaking changes - use `promptValues` array instead of `prompt` in `additionalParameters`
-3. **Android Query Intents**: Required for Android 11+ to enable Custom Tabs
-4. **Device Architecture**: Always build targeting specific device ID for physical devices
-5. **Emulator Limitations**: SSL trust and network issues - prefer physical device testing
-6. **OAuth Redirect URIs**: Must be exactly registered in Azure portal for each identity provider
-
-## Contact Support
-
-If issues persist after following these steps:
-1. Check Azure portal for app registration status
-2. Verify Entra External ID tenant is active
-3. Review redirect URI configuration in Azure
-4. Check for any service outages at https://status.azure.com/
+- [Entra External ID Mobile App Integration](https://learn.microsoft.com/en-us/azure/active-directory/external-identities/)
+- [OAuth 2.0 Authorization Code Flow](https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow)
 
 ---
 
-**Last Updated**: November 4, 2025
-**Status**: Authentication flow working, pending final Azure redirect URI configuration
+**For Next Developer**: The core issue is that Azure Entra External ID successfully authenticates the user but fails to redirect back to the mobile app after the consent screen. The app is configured to receive the redirect (verified with adb tests), but Azure isn't sending it. Consider using Microsoft's MSAL library or opening a support ticket with Microsoft.

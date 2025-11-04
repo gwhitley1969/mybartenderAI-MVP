@@ -28,7 +28,12 @@ class AuthService {
         AuthorizationTokenRequest(
           AuthConfig.clientId,
           AuthConfig.redirectUrl,
-          discoveryUrl: AuthConfig.discoveryUrl,
+          // Use explicit endpoints instead of discovery to avoid path issues
+          serviceConfiguration: AuthorizationServiceConfiguration(
+            authorizationEndpoint: AuthConfig.authorizationEndpoint,
+            tokenEndpoint: AuthConfig.tokenEndpoint,
+            endSessionEndpoint: AuthConfig.endSessionEndpoint,
+          ),
           scopes: AuthConfig.scopes,
           additionalParameters: AuthConfig.additionalParameters,
         ),
@@ -72,7 +77,11 @@ class AuthService {
           EndSessionRequest(
             idTokenHint: idToken,
             postLogoutRedirectUrl: AuthConfig.redirectUrl,
-            discoveryUrl: AuthConfig.discoveryUrl,
+            serviceConfiguration: AuthorizationServiceConfiguration(
+              authorizationEndpoint: AuthConfig.authorizationEndpoint,
+              tokenEndpoint: AuthConfig.tokenEndpoint,
+              endSessionEndpoint: AuthConfig.endSessionEndpoint,
+            ),
           ),
         );
       }
@@ -108,7 +117,11 @@ class AuthService {
         TokenRequest(
           AuthConfig.clientId,
           AuthConfig.redirectUrl,
-          discoveryUrl: AuthConfig.discoveryUrl,
+          serviceConfiguration: AuthorizationServiceConfiguration(
+            authorizationEndpoint: AuthConfig.authorizationEndpoint,
+            tokenEndpoint: AuthConfig.tokenEndpoint,
+            endSessionEndpoint: AuthConfig.endSessionEndpoint,
+          ),
           scopes: AuthConfig.scopes,
           refreshToken: refreshToken,
         ),

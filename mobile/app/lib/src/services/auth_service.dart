@@ -35,7 +35,8 @@ class AuthService {
             endSessionEndpoint: AuthConfig.endSessionEndpoint,
           ),
           scopes: AuthConfig.scopes,
-          additionalParameters: AuthConfig.additionalParameters,
+          // In flutter_appauth 7.x, prompt is a direct parameter
+          promptValues: ['select_account'],
         ),
       );
 

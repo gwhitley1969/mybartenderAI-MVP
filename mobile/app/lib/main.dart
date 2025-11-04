@@ -59,7 +59,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       // Get authentication status
       final isAuthenticated = authState is AuthStateAuthenticated;
-      final isAuthenticating = authState is AuthStateLoading;
+      final isAuthenticating = authState is AuthStateLoading || authState is AuthStateInitial;
       final isLoginRoute = state.matchedLocation == '/login';
 
       // Don't redirect while checking authentication status

@@ -30,6 +30,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   /// Check if user is already authenticated on app start
   Future<void> _checkAuthStatus() async {
     try {
+      developer.log('Checking auth status...', name: 'AuthNotifier');
       state = const AuthState.loading();
 
       final user = await _authService.getCurrentUser();
@@ -38,11 +39,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         developer.log('User authenticated: ${user.email}', name: 'AuthNotifier');
         state = AuthState.authenticated(user);
       } else {
-        developer.log('User not authenticated', name: 'AuthNotifier');
+        developer.log('User not authenticated - redirecting to login', name: 'AuthNotifier');
         state = const AuthState.unauthenticated();
       }
     } catch (e) {
-      developer.log('Auth check error', name: 'AuthNotifier', error: e);
+      developer.log('Auth check error - setting unauthenticated', name: 'AuthNotifier', error: e);
       state = const AuthState.unauthenticated();
     }
   }

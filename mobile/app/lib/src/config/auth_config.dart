@@ -39,8 +39,9 @@ class AuthConfig {
   ];
 
   // Additional parameters for Entra External ID
+  // Note: In flutter_appauth 7.x, prompt is passed via promptValues parameter
   static const Map<String, String> additionalParameters = {
-    'prompt': 'select_account', // Always show account picker
+    // 'prompt': 'select_account', // Now handled via promptValues
   };
 
   // Token storage keys

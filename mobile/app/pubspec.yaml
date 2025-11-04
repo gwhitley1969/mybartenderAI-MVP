@@ -58,7 +58,7 @@ dependencies:
   image: ^4.2.0
 
   # Authentication
-  flutter_appauth: ^6.0.2
+  flutter_appauth: ^7.0.0
   flutter_secure_storage: ^9.2.2
   jwt_decoder: ^2.0.1
 

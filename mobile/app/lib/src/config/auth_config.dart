@@ -12,19 +12,19 @@ class AuthConfig {
 
   // Authority URLs
   static String get authority =>
-      'https://$tenantName.ciamlogin.com/$tenantId/$userFlowName';
+      'https://login.microsoftonline.com/$tenantId';
 
   static String get discoveryUrl =>
-      'https://$tenantName.ciamlogin.com/$tenantId/$userFlowName/v2.0/.well-known/openid-configuration';
+      'https://login.microsoftonline.com/$tenantId/v2.0/.well-known/openid-configuration';
 
   static String get authorizationEndpoint =>
-      'https://$tenantName.ciamlogin.com/$tenantId/$userFlowName/oauth2/v2.0/authorize';
+      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/authorize';
 
   static String get tokenEndpoint =>
-      'https://$tenantName.ciamlogin.com/$tenantId/$userFlowName/oauth2/v2.0/token';
+      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token';
 
   static String get endSessionEndpoint =>
-      'https://$tenantName.ciamlogin.com/$tenantId/$userFlowName/oauth2/v2.0/logout';
+      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/logout';
 
   // Redirect URIs (must match Azure AD app registration)
   static const String redirectUrl = 'com.mybartenderai.app://callback';

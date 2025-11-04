@@ -22,23 +22,34 @@ class AuthService {
   Future<User?> signIn() async {
     try {
       developer.log('Starting sign in flow', name: 'AuthService');
+      developer.log('Client ID: ${AuthConfig.clientId}', name: 'AuthService');
+      developer.log('Redirect URL: ${AuthConfig.redirectUrl}', name: 'AuthService');
+      developer.log('Authorization Endpoint: ${AuthConfig.authorizationEndpoint}', name: 'AuthService');
+      developer.log('Token Endpoint: ${AuthConfig.tokenEndpoint}', name: 'AuthService');
+      developer.log('Scopes: ${AuthConfig.scopes}', name: 'AuthService');
+      developer.log('Additional Parameters: ${AuthConfig.additionalParameters}', name: 'AuthService');
+
+      // Build the request to see what we're actually sending
+      final request = AuthorizationTokenRequest(
+        AuthConfig.clientId,
+        AuthConfig.redirectUrl,
+        serviceConfiguration: AuthorizationServiceConfiguration(
+          authorizationEndpoint: AuthConfig.authorizationEndpoint,
+          tokenEndpoint: AuthConfig.tokenEndpoint,
+          endSessionEndpoint: AuthConfig.endSessionEndpoint,
+        ),
+        scopes: AuthConfig.scopes,
+        promptValues: ['select_account'],
+        additionalParameters: AuthConfig.additionalParameters,
+        // Force use of Custom Tabs instead of WebView for better compatibility
+        preferEphemeralSession: false,
+      );
+
+      developer.log('Request created - about to call authorize', name: 'AuthService');
+      developer.log('Full authorization URL will be: ${AuthConfig.authorizationEndpoint}?client_id=${AuthConfig.clientId}&response_type=code&redirect_uri=${Uri.encodeComponent(AuthConfig.redirectUrl)}&scope=${AuthConfig.scopes.join('+')}&prompt=select_account', name: 'AuthService');
 
       final AuthorizationTokenResponse? result =
-          await _appAuth.authorizeAndExchangeCode(
-        AuthorizationTokenRequest(
-          AuthConfig.clientId,
-          AuthConfig.redirectUrl,
-          // Use explicit endpoints instead of discovery to avoid path issues
-          serviceConfiguration: AuthorizationServiceConfiguration(
-            authorizationEndpoint: AuthConfig.authorizationEndpoint,
-            tokenEndpoint: AuthConfig.tokenEndpoint,
-            endSessionEndpoint: AuthConfig.endSessionEndpoint,
-          ),
-          scopes: AuthConfig.scopes,
-          // In flutter_appauth 7.x, prompt is a direct parameter
-          promptValues: ['select_account'],
-        ),
-      );
+          await _appAuth.authorizeAndExchangeCode(request);
 
       if (result == null) {
         developer.log('Sign in cancelled by user', name: 'AuthService');
@@ -46,14 +57,32 @@ class AuthService {
       }
 
       developer.log('Sign in successful, saving tokens', name: 'AuthService');
+      developer.log('Access token received: ${result.accessToken != null}', name: 'AuthService');
+      developer.log('ID token received: ${result.idToken != null}', name: 'AuthService');
+      developer.log('Refresh token received: ${result.refreshToken != null}', name: 'AuthService');
+
       return await _handleAuthResult(result);
     } catch (e, stackTrace) {
       developer.log(
-        'Sign in error',
+        'Sign in error: ${e.toString()}',
         name: 'AuthService',
         error: e,
         stackTrace: stackTrace,
       );
+
+      // Provide more specific error information
+      if (e.toString().contains('gstatic')) {
+        developer.log(
+          'Network error: Cannot load Google resources. This is often an emulator network issue.',
+          name: 'AuthService',
+        );
+      } else if (e.toString().contains('authorize_and_exchange_code_failed')) {
+        developer.log(
+          'OAuth error: Failed to authorize. Check client ID and redirect URI configuration.',
+          name: 'AuthService',
+        );
+      }
+
       rethrow;
     }
   }

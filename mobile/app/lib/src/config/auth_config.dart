@@ -42,6 +42,7 @@ class AuthConfig {
   // Note: In flutter_appauth 7.x, prompt is passed via promptValues parameter
   static const Map<String, String> additionalParameters = {
     // 'prompt': 'select_account', // Now handled via promptValues
+    // Entra External ID doesn't use 'p' parameter like Azure AD B2C
   };
 
   // Token storage keys

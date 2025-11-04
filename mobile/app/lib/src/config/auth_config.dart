@@ -4,31 +4,31 @@ class AuthConfig {
   static const String tenantName = 'mybartenderai';
   static const String tenantId = 'a82813af-1054-4e2d-a8ec-c6b9c2908c91';
 
-  // Mobile app registration
-  static const String clientId = '0a9decfb-ba92-400d-8d8d-8d86f0f86a0b';
+  // Mobile app registration (from Entra External ID tenant)
+  static const String clientId = 'f9f7f159-b847-4211-98c9-18e5b8193045';
 
   // User flow (for sign-in/sign-up)
   static const String userFlowName = 'mba-signin-signup';
 
-  // Authority URLs
+  // Authority URLs (Entra External ID / CIAM)
   static String get authority =>
-      'https://login.microsoftonline.com/$tenantId';
+      'https://$tenantName.ciamlogin.com/$tenantId';
 
   static String get discoveryUrl =>
-      'https://login.microsoftonline.com/$tenantId/v2.0/.well-known/openid-configuration';
+      'https://$tenantName.ciamlogin.com/$tenantId/v2.0/.well-known/openid-configuration';
 
   static String get authorizationEndpoint =>
-      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/authorize';
+      'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/authorize';
 
   static String get tokenEndpoint =>
-      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token';
+      'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/token';
 
   static String get endSessionEndpoint =>
-      'https://login.microsoftonline.com/$tenantId/oauth2/v2.0/logout';
+      'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/logout';
 
   // Redirect URIs (must match Azure AD app registration)
-  static const String redirectUrl = 'com.mybartenderai.app://callback';
-  static const String redirectUrlScheme = 'com.mybartenderai.app';
+  static const String redirectUrl = 'mybartenderai://auth';
+  static const String redirectUrlScheme = 'mybartenderai';
 
   // Scopes
   static const List<String> scopes = [

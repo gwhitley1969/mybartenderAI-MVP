@@ -9,7 +9,7 @@ class AppTypography {
 
   // App Title / Brand
   static const TextStyle appTitle = TextStyle(
-    fontSize: 32,
+    fontSize: 22,  // Reduced from 32 to fit on one line
     fontWeight: FontWeight.bold,
     color: AppColors.textPrimary,
     letterSpacing: -0.5,

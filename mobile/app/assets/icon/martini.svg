@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- Martini glass icon -->
+  <!-- Glass bowl -->
+  <path d="M 96 48 L 256 208 L 416 48 Z"
+        fill="none"
+        stroke="#64BCEC"
+        stroke-width="16"
+        stroke-linejoin="round"/>
+
+  <!-- Fill/liquid -->
+  <path d="M 128 80 L 256 208 L 384 80 Z"
+        fill="#64BCEC"
+        opacity="0.3"/>
+
+  <!-- Stem -->
+  <line x1="256" y1="208"
+        x2="256" y2="400"
+        stroke="#64BCEC"
+        stroke-width="16"
+        stroke-linecap="round"/>
+
+  <!-- Base -->
+  <line x1="176" y1="400"
+        x2="336" y2="400"
+        stroke="#64BCEC"
+        stroke-width="16"
+        stroke-linecap="round"/>
+
+  <!-- Olive (optional decorative element) -->
+  <circle cx="200" cy="100"
+          r="20"
+          fill="#8FD14F"/>
+  <circle cx="200" cy="100"
+          r="8"
+          fill="#D2302C"/>
+</svg>

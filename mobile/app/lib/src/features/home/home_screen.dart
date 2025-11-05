@@ -105,15 +105,9 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         SizedBox(height: AppSpacing.lg),
-        // User Level Badges
-        Row(
-          children: [
-            AppBadge.intermediate(),
-            SizedBox(width: AppSpacing.sm),
-            AppBadge.spiritCount(count: 8),
-            SizedBox(width: AppSpacing.sm),
-            BackendStatus(),
-          ],
+        // Backend Connectivity Status
+        Center(
+          child: BackendStatus(),
         ),
       ],
     );
@@ -202,7 +196,7 @@ class HomeScreen extends ConsumerWidget {
                   icon: Icons.auto_fix_high,
                   title: 'Create',
                   subtitle: 'Signature drinks',
-                  color: AppColors.iconCirclePurple,
+                  color: AppColors.iconCirclePink,
                   onTap: () => context.go('/create-studio'),
                 ),
               ),

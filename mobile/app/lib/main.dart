@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
+import 'src/features/age_verification/age_verification_screen.dart';
 import 'src/features/auth/login_screen.dart';
 import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
@@ -19,9 +20,9 @@ Future<void> main() async {
     config: const EnvConfig(
       apiBaseUrl: 'https://func-mba-fresh.azurewebsites.net/api',
       // NOTE: Function key required for backend endpoints
-      // TODO: Replace with actual key from secure storage/environment variables
-      // For development: Copy function key from Azure Portal -> Function App -> Functions -> Keys
-      functionKey: 'YOUR_FUNCTION_KEY_HERE',
+      // TODO: Move to secure storage/environment variables for production
+      // For development: Set AZURE_FUNCTION_KEY environment variable or use secure storage
+      functionKey: String.fromEnvironment('AZURE_FUNCTION_KEY', defaultValue: 'YOUR_FUNCTION_KEY_HERE'),
     ),
   );
 }
@@ -53,6 +54,7 @@ class MyBartenderApp extends ConsumerWidget {
 /// The router configuration with authentication guards.
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
+  final isAgeVerified = ref.watch(ageVerificationProvider);
 
   return GoRouter(
     initialLocation: '/',
@@ -61,9 +63,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticated = authState is AuthStateAuthenticated;
       final isAuthenticating = authState is AuthStateLoading || authState is AuthStateInitial;
       final isLoginRoute = state.matchedLocation == '/login';
+      final isAgeRoute = state.matchedLocation == '/age-verification';
 
       // Don't redirect while checking authentication status
       if (isAuthenticating) {
+        return null;
+      }
+
+      // Check age verification first (unless already on age verification page)
+      if (!isAgeVerified && !isAgeRoute) {
+        return '/age-verification';
+      }
+
+      // Skip these checks if on age verification page
+      if (isAgeRoute) {
         return null;
       }
 
@@ -81,6 +94,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: <RouteBase>[
+      // Age verification route (first screen)
+      GoRoute(
+        path: '/age-verification',
+        builder: (BuildContext context, GoRouterState state) {
+          return const AgeVerificationScreen();
+        },
+      ),
       // Login route (public)
       GoRoute(
         path: '/login',

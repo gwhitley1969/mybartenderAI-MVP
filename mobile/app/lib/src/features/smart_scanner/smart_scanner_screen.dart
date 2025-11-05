@@ -174,11 +174,15 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isProcessing ? null : () => _pickImage(ImageSource.camera),
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Take Photo'),
+                    icon: const Icon(Icons.camera_alt, color: Colors.white),
+                    label: const Text('Take Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryPurple,
+                      backgroundColor: AppColors.iconCircleBlue,  // Changed to blue for better visibility
+                      foregroundColor: Colors.white,
                       padding: EdgeInsets.all(AppSpacing.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -186,11 +190,15 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: _isProcessing ? null : () => _pickImage(ImageSource.gallery),
-                    icon: const Icon(Icons.photo_library),
-                    label: const Text('Choose Photo'),
+                    icon: const Icon(Icons.photo_library, color: Colors.white),
+                    label: const Text('Choose Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.backgroundSecondary,
+                      backgroundColor: AppColors.iconCircleTeal,  // Changed to teal for contrast
+                      foregroundColor: Colors.white,
                       padding: EdgeInsets.all(AppSpacing.md),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
                 ),
@@ -307,11 +315,18 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
                   onPressed: _selectedIngredients.isEmpty
                       ? null
                       : _addToInventory,
-                  child: Text('Add ${_selectedIngredients.length} Items to My Bar'),
+                  child: Text(
+                    'Add ${_selectedIngredients.length} Items to My Bar',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.success,
+                    foregroundColor: Colors.white,
                     padding: EdgeInsets.all(AppSpacing.md),
                     minimumSize: const Size(double.infinity, 48),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ] else ...[

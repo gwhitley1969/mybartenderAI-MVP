@@ -42,7 +42,9 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="msalf9f7f159-b847-4211-98c9-18e5b8193045" />
+                <data android:scheme="com.mybartenderai.app"
+                      android:host="oauth"
+                      android:pathPrefix="/redirect" />
             </intent-filter>
         </activity>
 
@@ -72,7 +74,7 @@
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <category android:name="android.intent.category.BROWSABLE"/>
-            <data android:scheme="msalf9f7f159-b847-4211-98c9-18e5b8193045"/>
+            <data android:scheme="com.mybartenderai.app"/>
         </intent>
     </queries>
 </manifest>

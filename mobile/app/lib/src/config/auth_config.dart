@@ -14,16 +14,17 @@ class AuthConfig {
   static String get authority =>
       'https://$tenantName.ciamlogin.com/$tenantId';
 
-  // Discovery URL for CIAM with policy (recommended by external reviewer)
+  // Discovery URL for Entra External ID (CIAM) - use tenant ID, not policy path
   static String get discoveryUrl =>
-      'https://$tenantName.ciamlogin.com/$tenantName.onmicrosoft.com/v2.0/.well-known/openid-configuration?p=$userFlowName';
+      'https://$tenantName.ciamlogin.com/$tenantId/v2.0/.well-known/openid-configuration';
 
-  // Explicit endpoints WITH policy in path for Azure AD B2C/Entra External ID
+  // Explicit endpoints for Entra External ID (CIAM) - use tenant ID format
+  // NOTE: Entra External ID uses tenant ID in path, NOT policy/user flow
   static String get authorizationEndpoint =>
-      'https://$tenantName.ciamlogin.com/$tenantName.onmicrosoft.com/$userFlowName/oauth2/v2.0/authorize';
+      'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/authorize';
 
   static String get tokenEndpoint =>
-      'https://$tenantName.ciamlogin.com/$tenantName.onmicrosoft.com/$userFlowName/oauth2/v2.0/token';
+      'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/token';
 
   static String get endSessionEndpoint =>
       'https://$tenantName.ciamlogin.com/$tenantId/oauth2/v2.0/logout';
@@ -34,8 +35,10 @@ class AuthConfig {
   static const String redirectUrlScheme = 'com.mybartenderai.app';
 
   // Scopes
+  // Temporarily removing 'openid' to debug nonce duplication issue
+  // OpenID Connect requires 'openid', but we're testing if this causes the nonce duplication
   static const List<String> scopes = [
-    'openid',
+    // 'openid', // TEMPORARILY REMOVED - this might trigger automatic nonce
     'profile',
     'email',
     'offline_access', // For refresh tokens

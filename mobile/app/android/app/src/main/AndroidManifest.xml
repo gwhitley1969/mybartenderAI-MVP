@@ -34,17 +34,17 @@
             </intent-filter>
         </activity>
 
-        <!-- OAuth redirect activity for Entra External ID authentication -->
+        <!-- MSAL BrowserTabActivity for Microsoft authentication -->
         <activity
-            android:name="net.openid.appauth.RedirectUriReceiverActivity"
+            android:name="com.microsoft.identity.client.BrowserTabActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="com.mybartenderai.app"
-                      android:host="oauth"
-                      android:pathPrefix="/redirect" />
+                <data android:scheme="msauth"
+                      android:host="ai.mybartender.mybartenderai"
+                      android:path="/callback" />
             </intent-filter>
         </activity>
 
@@ -70,11 +70,11 @@
             <category android:name="android.intent.category.BROWSABLE"/>
             <data android:scheme="https"/>
         </intent>
-        <!-- Query for custom scheme handling -->
+        <!-- Query for MSAL authentication -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
             <category android:name="android.intent.category.BROWSABLE"/>
-            <data android:scheme="com.mybartenderai.app"/>
+            <data android:scheme="msauth"/>
         </intent>
     </queries>
 </manifest>

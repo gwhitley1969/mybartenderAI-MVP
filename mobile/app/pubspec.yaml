@@ -58,7 +58,8 @@ dependencies:
   image: ^4.2.0
 
   # Authentication
-  flutter_appauth: ^7.0.0
+  # flutter_appauth: ^7.0.0  # Replaced with msal_auth for better Microsoft Entra ID support
+  msal_auth: ^3.3.0  # Microsoft Authentication Library for Flutter
   flutter_secure_storage: ^9.2.2
   jwt_decoder: ^2.0.1
 
@@ -91,9 +92,8 @@ flutter:
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/msal_config.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

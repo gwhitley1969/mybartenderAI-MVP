@@ -1,0 +1,19 @@
+{
+  "client_id": "f9f7f159-b847-4211-98c9-18e5b8193045",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msauth://ai.mybartender.mybartenderai/callback",
+  "account_mode": "SINGLE",
+  "broker_redirect_uri_registered": false,
+  "authorities": [
+    {
+      "type": "CIAM",
+      "authority_url": "https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/",
+      "default": true
+    }
+  ],
+  "logging": {
+    "pii_enabled": false,
+    "log_level": "INFO",
+    "logcat_enabled": true
+  }
+}

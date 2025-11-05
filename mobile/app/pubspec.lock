@@ -278,22 +278,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_appauth:
-    dependency: "direct main"
-    description:
-      name: flutter_appauth
-      sha256: "84e8753fe20864da241892823ff7dbd252baa34f1649d6feb48118e8ae829ed1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.0.1"
-  flutter_appauth_platform_interface:
-    dependency: transitive
-    description:
-      name: flutter_appauth_platform_interface
-      sha256: "0959824b401f3ee209c869734252bd5d4d4aab804b019c03815c56e3b9a4bc34"
-      url: "https://pub.dev"
-    source: hosted
-    version: "7.0.1"
   flutter_lints:
     dependency: "direct dev"
     description:
@@ -640,6 +624,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.0"
+  msal_auth:
+    dependency: "direct main"
+    description:
+      name: msal_auth
+      sha256: "3e563ef107e9d87a9645b7e21e23b8af50786786762d9f37324057c36c44f5c0"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.3.0"
   package_config:
     dependency: transitive
     description:

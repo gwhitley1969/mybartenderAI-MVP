@@ -14,6 +14,7 @@
     "@azure/functions": "^4.8.0",
     "@azure/storage-blob": "^12.18.0",
     "jose": "^5.3.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
     "openai": "^4.48.0",
     "pg": "^8.12.0",
     "tmp": "^0.2.3",

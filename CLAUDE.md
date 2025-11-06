@@ -18,8 +18,8 @@ Always use context7 when I need code generation, setup or configuration steps, o
 ### Business Model
 
 - **Free Tier**: Limited AI interactions, access to local cocktail database
-- **Premium Tier**: Full AI features, advanced cocktail recommendations
-- **Pro Tier**: Extended AI capabilities, premium content
+- **Premium Tier** (~$9.99/month): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations
+- **Pro Tier** ($49.99/month): Everything in Premium plus Voice Concierge with OpenAI Realtime API
 
 ## Tech Stack
 

@@ -10,7 +10,6 @@ import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
 import 'src/features/profile/profile_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
-import 'src/features/voice_bartender/voice_bartender_screen.dart';
 import 'src/models/auth_state.dart';
 import 'src/providers/auth_provider.dart';
 
@@ -119,12 +118,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'ask-bartender',
             builder: (BuildContext context, GoRouterState state) {
               return const AskBartenderScreen();
-            },
-          ),
-          GoRoute(
-            path: 'voice-bartender',
-            builder: (BuildContext context, GoRouterState state) {
-              return const VoiceBartenderScreen();
             },
           ),
           GoRoute(

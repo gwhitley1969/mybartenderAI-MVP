@@ -30,7 +30,8 @@
       "Bash(timeout 10 flutter run:*)",
       "Bash(flutter clean:*)",
       "Bash(flutter run:*)",
-      "Bash(flutter build:*)"
+      "Bash(flutter build:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

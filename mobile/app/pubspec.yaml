@@ -48,11 +48,6 @@ dependencies:
   # Compression
   zstandard: ^1.3.26
 
-  # Voice and audio (Azure Speech Services)
-  speech_to_text: ^7.0.0
-  flutter_tts: ^4.2.0
-  permission_handler: ^11.3.0
-
   # Camera and image handling
   image_picker: ^1.0.8
   image: ^4.2.0

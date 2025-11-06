@@ -9,6 +9,9 @@ class BackendService {
   final String? functionKey;
   final Future<String?> Function()? getAccessToken;
 
+  /// Expose Dio instance for services that need direct access
+  Dio get dio => _dio;
+
   BackendService({
     required this.baseUrl,
     this.functionKey,

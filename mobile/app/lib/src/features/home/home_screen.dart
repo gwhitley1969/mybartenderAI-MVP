@@ -182,22 +182,22 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _buildActionButton(
                   context: context,
-                  icon: Icons.mic,
-                  title: 'Voice',
-                  subtitle: 'Speak naturally',
-                  color: AppColors.primaryPurple,
-                  onTap: () => context.go('/voice-bartender'),
+                  icon: Icons.camera_alt,
+                  title: 'Scanner',
+                  subtitle: 'Identify bottles',
+                  color: AppColors.iconCirclePink,
+                  onTap: () => context.go('/smart-scanner'),
                 ),
               ),
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: _buildActionButton(
                   context: context,
-                  icon: Icons.camera_alt,
-                  title: 'Scanner',
-                  subtitle: 'Identify bottles',
-                  color: AppColors.iconCirclePink,
-                  onTap: () => context.go('/smart-scanner'),
+                  icon: Icons.auto_fix_high,
+                  title: 'Create',
+                  subtitle: 'Design cocktails',
+                  color: AppColors.iconCirclePurple,
+                  onTap: () => context.go('/create-studio'),
                 ),
               ),
             ],
@@ -268,6 +268,68 @@ class HomeScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(title: 'Lounge Essentials'),
+        // Recipe Vault - Full Width Card
+        GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const RecipeVaultScreen(),
+              ),
+            );
+          },
+          child: Container(
+            padding: EdgeInsets.all(AppSpacing.lg),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(AppSpacing.cardLargeBorderRadius),
+              border: Border.all(
+                color: AppColors.cardBorder,
+                width: AppSpacing.borderWidthThin,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: AppSpacing.iconCircleMedium,
+                  height: AppSpacing.iconCircleMedium,
+                  decoration: BoxDecoration(
+                    color: AppColors.iconCircleOrange,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.menu_book,
+                    color: AppColors.textPrimary,
+                    size: AppSpacing.iconSizeMedium,
+                  ),
+                ),
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Recipe Vault',
+                        style: AppTypography.cardTitle.copyWith(
+                          fontSize: 18,
+                        ),
+                      ),
+                      SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Curated cocktail collection',
+                        style: AppTypography.cardSubtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        SizedBox(height: AppSpacing.gridSpacing),
+        // My Bar and Favorites - 2 Column Grid
         GridView.count(
           shrinkWrap: true,
           physics: NeverScrollableScrollPhysics(),
@@ -276,29 +338,6 @@ class HomeScreen extends ConsumerWidget {
           mainAxisSpacing: AppSpacing.gridSpacing,
           childAspectRatio: 0.9,
           children: [
-            FeatureCard(
-              icon: Icons.auto_fix_high,
-              title: 'Create Studio',
-              subtitle: 'Design signature cocktails',
-              iconColor: AppColors.iconCirclePurple,
-              onTap: () {
-                context.go('/create-studio');
-              },
-            ),
-            FeatureCard(
-              icon: Icons.menu_book,
-              title: 'Recipe Vault',
-              subtitle: 'Curated cocktail collection',
-              iconColor: AppColors.iconCircleOrange,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const RecipeVaultScreen(),
-                  ),
-                );
-              },
-            ),
             FeatureCard(
               icon: Icons.inventory_2,
               title: 'My Bar',

@@ -82,7 +82,7 @@ class HomeScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'MyBartenderAI',
+                    'My AI Bartender',
                     style: AppTypography.appTitle,
                   ),
                   SizedBox(height: AppSpacing.xs),
@@ -193,11 +193,11 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _buildActionButton(
                   context: context,
-                  icon: Icons.auto_fix_high,
-                  title: 'Create',
-                  subtitle: 'Signature drinks',
+                  icon: Icons.camera_alt,
+                  title: 'Scanner',
+                  subtitle: 'Identify bottles',
                   color: AppColors.iconCirclePink,
-                  onTap: () => context.go('/create-studio'),
+                  onTap: () => context.go('/smart-scanner'),
                 ),
               ),
             ],
@@ -277,12 +277,12 @@ class HomeScreen extends ConsumerWidget {
           childAspectRatio: 0.9,
           children: [
             FeatureCard(
-              icon: Icons.camera_alt,
-              title: 'Smart Scanner',
-              subtitle: 'Identify premium ingredients',
+              icon: Icons.auto_fix_high,
+              title: 'Create Studio',
+              subtitle: 'Design signature cocktails',
               iconColor: AppColors.iconCirclePurple,
               onTap: () {
-                context.go('/smart-scanner');
+                context.go('/create-studio');
               },
             ),
             FeatureCard(

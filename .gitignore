@@ -12,6 +12,7 @@ local.settings.json
 # Binaries & archives
 *.msi
 *.zip
+*.apk
 
 # Build/output (adjust as needed)
 dist/

@@ -13,12 +13,12 @@ $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 
-# Fill background with dark blue-gray color from the app theme
-$backgroundColor = [System.Drawing.Color]::FromArgb(255, 28, 28, 46)  # #1C1C2E
+# Fill background with magenta
+$backgroundColor = [System.Drawing.Color]::FromArgb(255, 236, 72, 153)  # #EC4899 - Magenta (pink-500)
 $graphics.Clear($backgroundColor)
 
-# Add a subtle circular background for the icon
-$circleColor = [System.Drawing.Color]::FromArgb(255, 40, 40, 58)  # Slightly lighter
+# Add a subtle circular background for the icon (slightly darker magenta)
+$circleColor = [System.Drawing.Color]::FromArgb(255, 219, 39, 119)  # #DB2777 - Darker magenta (pink-600)
 $circleBrush = New-Object System.Drawing.SolidBrush($circleColor)
 $graphics.FillEllipse($circleBrush, 56, 56, 400, 400)
 

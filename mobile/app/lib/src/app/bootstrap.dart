@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +31,9 @@ class FunctionKeyInterceptor extends Interceptor {
     // Always add the function key to all requests if available
     if (functionKey != null && functionKey!.isNotEmpty) {
       options.headers['x-functions-key'] = functionKey;
-      print('Added function key to request: ${options.uri}');
+      if (kDebugMode) {
+        print('Added function key to request: ${options.uri}');
+      }
     }
     handler.next(options);
   }
@@ -38,15 +41,18 @@ class FunctionKeyInterceptor extends Interceptor {
 
 final dioInterceptorsProvider = Provider<List<Interceptor>>((ref) {
   final config = ref.watch(envConfigProvider);
-  print('Creating interceptors - functionKey: ${config.functionKey}');
+  if (kDebugMode) {
+    print('Creating interceptors - functionKey: ${config.functionKey != null ? "***" : "null"}');
+  }
   return <Interceptor>[
     if (config.functionKey != null) FunctionKeyInterceptor(config.functionKey),
-    LogInterceptor(
-      requestBody: true,
-      responseBody: true,
-      requestHeader: true,  // Enable header logging to see if function key is added
-      responseHeader: false,
-    ),
+    if (kDebugMode)
+      LogInterceptor(
+        requestBody: true,
+        responseBody: true,
+        requestHeader: true,  // Enable header logging to see if function key is added
+        responseHeader: false,
+      ),
   ];
 });
 
@@ -72,7 +78,9 @@ Dio createBaseDio({
     baseOptions.headers = {
       'x-functions-key': config.functionKey,
     };
-    print('Added x-functions-key to default headers');
+    if (kDebugMode) {
+      print('Added x-functions-key to default headers');
+    }
   }
 
   final dio = Dio(baseOptions);
@@ -83,8 +91,10 @@ Dio createBaseDio({
 final dioProvider = Provider<Dio>((ref) {
   final config = ref.watch(envConfigProvider);
   final interceptors = ref.watch(dioInterceptorsProvider);
-  print('Creating Dio with config: apiBaseUrl=${config.apiBaseUrl}, functionKey=${config.functionKey != null ? "***" : "null"}');
-  print('Number of interceptors: ${interceptors.length}');
+  if (kDebugMode) {
+    print('Creating Dio with config: apiBaseUrl=${config.apiBaseUrl}, functionKey=${config.functionKey != null ? "***" : "null"}');
+    print('Number of interceptors: ${interceptors.length}');
+  }
   return createBaseDio(config: config, interceptors: interceptors);
 });
 
@@ -94,6 +104,15 @@ Future<void> bootstrap(
   List<Override> overrides = const [],
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Validate that function key is provided
+  if (config.functionKey == null || config.functionKey!.isEmpty) {
+    throw StateError(
+      'AZURE_FUNCTION_KEY must be set. Build with:\n'
+      'flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>\n'
+      'Or for testing: flutter run --dart-define=AZURE_FUNCTION_KEY=<your_key>',
+    );
+  }
 
   runApp(
     ProviderScope(

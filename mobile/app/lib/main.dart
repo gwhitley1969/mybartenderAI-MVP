@@ -20,9 +20,9 @@ Future<void> main() async {
     config: const EnvConfig(
       apiBaseUrl: 'https://func-mba-fresh.azurewebsites.net/api',
       // NOTE: Function key required for backend endpoints
-      // TODO: Move to secure storage/environment variables for production
-      // For development: Set AZURE_FUNCTION_KEY environment variable or use secure storage
-      functionKey: String.fromEnvironment('AZURE_FUNCTION_KEY', defaultValue: 'YOUR_FUNCTION_KEY_HERE'),
+      // IMPORTANT: Set AZURE_FUNCTION_KEY environment variable during build
+      // Build command: flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>
+      functionKey: String.fromEnvironment('AZURE_FUNCTION_KEY', defaultValue: ''),
     ),
   );
 }

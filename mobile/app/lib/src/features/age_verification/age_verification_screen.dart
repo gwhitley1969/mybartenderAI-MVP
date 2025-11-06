@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,21 +23,34 @@ class AgeVerificationNotifier extends StateNotifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       final verified = prefs.getBool(_ageVerifiedKey) ?? false;
       state = verified;
-    } catch (e) {
-      print('Error loading age verification status: $e');
+    } catch (e, stackTrace) {
+      developer.log(
+        'Error loading age verification status',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'AgeVerification',
+      );
+      // Default to false for safety
       state = false;
     }
   }
 
-  Future<void> verifyAge() async {
+  Future<bool> verifyAge() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_ageVerifiedKey, true);
       state = true;
-    } catch (e) {
-      print('Error saving age verification: $e');
-      // Still set state to true to allow continuing
-      state = true;
+      return true;
+    } catch (e, stackTrace) {
+      developer.log(
+        'Failed to persist age verification',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'AgeVerification',
+      );
+      // Don't set state to true - require successful storage for legal compliance
+      // Return false to indicate failure
+      return false;
     }
   }
 
@@ -44,8 +59,13 @@ class AgeVerificationNotifier extends StateNotifier<bool> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_ageVerifiedKey);
       state = false;
-    } catch (e) {
-      print('Error resetting age verification: $e');
+    } catch (e, stackTrace) {
+      developer.log(
+        'Error resetting age verification',
+        error: e,
+        stackTrace: stackTrace,
+        name: 'AgeVerification',
+      );
       state = false;
     }
   }
@@ -114,9 +134,19 @@ class AgeVerificationScreen extends ConsumerWidget {
                 height: 56,
                 child: ElevatedButton(
                   onPressed: () async {
-                    await ref.read(ageVerificationProvider.notifier).verifyAge();
+                    final success = await ref.read(ageVerificationProvider.notifier).verifyAge();
                     if (context.mounted) {
-                      context.go('/login');
+                      if (success) {
+                        context.go('/login');
+                      } else {
+                        // Show error if storage failed
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Unable to save verification. Please check app permissions and try again.'),
+                            backgroundColor: AppColors.error,
+                          ),
+                        );
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(

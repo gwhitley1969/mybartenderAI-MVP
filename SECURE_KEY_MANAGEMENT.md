@@ -1,46 +1,91 @@
 # Secure Key Management for MyBartenderAI
 
 **Last Updated**: November 6, 2025
-**Status**: Implemented
+**Status**: PRODUCTION-READY (Key Rotated & Secure Build Implemented)
+**Security Level**: Enhanced
 
 ## Overview
 
 This document describes the secure key management strategy for MyBartenderAI, specifically how to handle Azure Function keys without exposing them in the mobile app.
+
+## ⚠️ IMPORTANT: Key Rotation History
+
+### November 6, 2025 - Key Rotation Event
+- **Reason**: Previous key was exposed in background bash process logs
+- **Action**: Generated new Function key and updated Key Vault
+- **Old Key**: `wKFSvp***` (REDACTED - REVOKED)
+- **New Key**: `PjJ95C***` (REDACTED - Stored in Key Vault)
+- **Key Vault Version**: f73c6ce903954cb49483693045e2a4fe
+- **Status**: ✅ Active and secure
+- **Security Note**: Actual keys never stored in git - retrieve from Azure Key Vault
 
 ## Current Implementation
 
 ### Key Storage
 - **Location**: Azure Key Vault (`kv-mybartenderai-prod`)
 - **Secret Name**: `AZURE-FUNCTION-KEY`
-- **Value**: Stored securely (not displayed in documentation)
+- **Value**: Stored securely (not displayed in logs or git)
+- **Access**: RBAC with "Key Vault Secrets User" role
 
 ### Mobile App Configuration
-- **No hardcoded keys**: Default value is empty string
-- **Build-time injection**: Keys must be provided during build
-- **Validation**: App will fail to start without a valid key
+**File**: `mobile/app/lib/src/config/app_config.dart`
+
+```dart
+// Function key retrieved from Azure Key Vault at build time via --dart-define
+static const String? functionKey = String.fromEnvironment(
+  'AZURE_FUNCTION_KEY',
+  defaultValue: '', // Empty for development (uses JWT auth instead)
+);
+```
+
+- **No hardcoded keys**: Uses `String.fromEnvironment()` for compile-time constant
+- **Build-time injection**: Keys provided via --dart-define during Flutter build
+- **Fallback**: Empty string allows JWT-only authentication for development
+- **Security**: Key embedded as compile-time constant, not accessible via reflection
 
 ## Building the App Securely
 
+### 🔐 Method 1: Secure Build Script (RECOMMENDED)
+**File**: `mobile/app/build-secure.ps1`
+
+```powershell
+# Automated secure build - retrieves key from Key Vault automatically
+cd mobile/app
+.\build-secure.ps1
+```
+
+**Features**:
+- Validates Azure CLI authentication
+- Retrieves key directly from Key Vault (never writes to disk)
+- Passes key securely via --dart-define
+- Clears sensitive data from memory after build
+- No key exposure in logs or command history
+
 ### Development Builds
 ```bash
-# For local testing
+# For local testing (no key needed for JWT-only auth)
+flutter run
+
+# With function key for testing function-key-auth endpoints
 flutter run --dart-define=AZURE_FUNCTION_KEY=<your_key>
 
 # For debug APK
 flutter build apk --debug --dart-define=AZURE_FUNCTION_KEY=<your_key>
 ```
 
-### Production Builds
-```bash
-# Retrieve key from Key Vault
-$key = az keyvault secret show --vault-name kv-mybartenderai-prod --name AZURE-FUNCTION-KEY --query value -o tsv
-
-# Build release APK with key
-flutter build apk --release --dart-define=AZURE_FUNCTION_KEY=$key
-
-# For Windows PowerShell
+### Manual Production Builds (Advanced)
+```powershell
+# Windows PowerShell
 $key = az keyvault secret show --vault-name kv-mybartenderai-prod --name AZURE-FUNCTION-KEY --query value -o tsv
 flutter build apk --release --dart-define="AZURE_FUNCTION_KEY=$key"
+$key = $null  # Clear from memory
+```
+
+```bash
+# Linux/Mac
+KEY=$(az keyvault secret show --vault-name kv-mybartenderai-prod --name AZURE-FUNCTION-KEY --query value -o tsv)
+flutter build apk --release --dart-define=AZURE_FUNCTION_KEY=$KEY
+unset KEY  # Clear from memory
 ```
 
 ### CI/CD Pipeline (Recommended)

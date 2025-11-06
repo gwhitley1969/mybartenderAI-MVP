@@ -1,14 +1,22 @@
 /// MyBartenderAI App Configuration
 ///
 /// Central configuration for API endpoints, keys, and app settings
+///
+/// SECURITY NOTE:
+/// - Function keys are retrieved from Azure Key Vault at build time
+/// - Pass key via: --dart-define=AZURE_FUNCTION_KEY=<key>
+/// - See build-secure.ps1 for automated secure build process
 
 class AppConfig {
   // Backend API Configuration
   static const String backendBaseUrl = 'https://func-mba-fresh.azurewebsites.net/api';
 
-  // Function keys (in production, these should come from secure storage or environment variables)
-  // For now, we'll access public endpoints and add authentication later
-  static const String? functionKey = null; // Add if needed for protected endpoints
+  // Function key (retrieved from Azure Key Vault at build time via --dart-define)
+  // This provides authentication for Azure Function endpoints
+  static const String? functionKey = String.fromEnvironment(
+    'AZURE_FUNCTION_KEY',
+    defaultValue: '', // Empty string for development (uses JWT auth instead)
+  );
 
   // API Endpoints
   static const String healthEndpoint = '/health';

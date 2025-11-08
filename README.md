@@ -2,30 +2,31 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: November 4, 2025)
+## 🚀 Current Status (Updated: November 8, 2025)
 
 - **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
 - **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
 - **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
 - **AI**: ✅ GPT-4o-mini integrated for chat & recommendations
-- **Authentication**: ❌ **BLOCKED** - Entra External ID redirect issue (see [AUTHENTICATION_CURRENT_STATE.md](AUTHENTICATION_CURRENT_STATE.md))
-- **Voice**: ✅ Azure Speech Services integrated (client-side STT/TTS)
+- **Authentication**: ⏸️ Simplified - using Azure Function Keys directly
+- **Voice**: ❌ **REMOVED** - Too expensive for current business model
 - **Vision**: ✅ Azure Computer Vision for bottle identification
-- **Mobile**: 📱 Flutter app - Features complete, **authentication not working**
+- **Mobile**: 📱 Flutter app - Core features complete and working
 
 ### Mobile App Features
 - ✅ Recipe Vault with 621+ cocktails, search, filters, offline-first
 - ✅ My Bar inventory management with "Can Make" filter
 - ✅ AI Bartender Chat with inventory integration
-- ✅ Voice Bartender with Azure Speech Services
+- ❌ Voice Bartender **REMOVED** (cost optimization)
 - ✅ Smart Scanner for bottle identification (Azure Computer Vision)
-- ✅ Create Studio for custom cocktails with AI refinement
+- ✅ Create Studio with enhanced AI Refine feature
+  - AI suggestions for improving recipes
+  - "Save as New Recipe" option in edit mode
+  - Electric blue UI accents for better visibility
 - ✅ Favorites/Bookmarks
-- ❌ **User authentication BLOCKED** - Azure redirect issue (see troubleshooting docs)
-- ⏸️ User profile with account management (blocked by auth)
-- ⏸️ JWT token management (blocked by auth)
-- ⚠️ **APK built but auth not working** - See [AUTHENTICATION_DIAGNOSTICS.md](AUTHENTICATION_DIAGNOSTICS.md)
+- ✅ Backend connectivity via Azure Function Keys
+- ⚠️ **Premium migration pending** - EP1 quota increase submitted to Microsoft
 
 ## 📁 Project Structure
 

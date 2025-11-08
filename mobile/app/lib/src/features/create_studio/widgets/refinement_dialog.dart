@@ -7,12 +7,16 @@ Future<void> showRefinementDialog({
   required BuildContext context,
   required RefinementResponse refinement,
   required Function(RefinedRecipe) onApply,
+  Function(RefinedRecipe)? onSaveAsNew,
+  bool isEditMode = false,
 }) {
   return showDialog(
     context: context,
     builder: (context) => RefinementDialog(
       refinement: refinement,
       onApply: onApply,
+      onSaveAsNew: onSaveAsNew,
+      isEditMode: isEditMode,
     ),
   );
 }
@@ -22,10 +26,14 @@ class RefinementDialog extends StatefulWidget {
     super.key,
     required this.refinement,
     required this.onApply,
+    this.onSaveAsNew,
+    this.isEditMode = false,
   });
 
   final RefinementResponse refinement;
   final Function(RefinedRecipe) onApply;
+  final Function(RefinedRecipe)? onSaveAsNew;
+  final bool isEditMode;
 
   @override
   State<RefinementDialog> createState() => _RefinementDialogState();
@@ -63,7 +71,7 @@ class _RefinementDialogState extends State<RefinementDialog> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: AppColors.primaryPurple, size: 28),
+                  Icon(Icons.auto_awesome, color: AppColors.electricBlue, size: 28),
                   SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: Text(
@@ -200,53 +208,122 @@ class _RefinementDialogState extends State<RefinementDialog> {
                   bottomRight: Radius.circular(AppSpacing.cardLargeBorderRadius),
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        side: BorderSide(color: AppColors.textSecondary),
-                        padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
-                        ),
-                      ),
-                      child: Text(
-                        'Keep Original',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (hasRefinedRecipe) ...[
-                    SizedBox(width: AppSpacing.md),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          widget.onApply(widget.refinement.refinedRecipe!);
-                          Navigator.pop(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+              child: widget.isEditMode && hasRefinedRecipe
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Update This Recipe button
+                        ElevatedButton(
+                          onPressed: () {
+                            widget.onApply(widget.refinement.refinedRecipe!);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success,
+                            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                            ),
+                          ),
+                          child: Text(
+                            'Update This Recipe',
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
-                        child: Text(
-                          'Apply Refinements',
-                          style: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                            fontWeight: FontWeight.bold,
+                        if (widget.onSaveAsNew != null) ...[
+                          SizedBox(height: AppSpacing.sm),
+                          // Save as New Recipe button
+                          ElevatedButton(
+                            onPressed: () {
+                              widget.onSaveAsNew!(widget.refinement.refinedRecipe!);
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryPurple,
+                              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                              ),
+                            ),
+                            child: Text(
+                              'Save as New Recipe',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        SizedBox(height: AppSpacing.sm),
+                        // Keep Original button
+                        OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(color: AppColors.textSecondary),
+                            padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                            ),
+                          ),
+                          child: Text(
+                            'Keep Original',
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: AppColors.textSecondary),
+                              padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                              ),
+                            ),
+                            child: Text(
+                              'Keep Original',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (hasRefinedRecipe) ...[
+                          SizedBox(width: AppSpacing.md),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                widget.onApply(widget.refinement.refinedRecipe!);
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.success,
+                                padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                                ),
+                              ),
+                              child: Text(
+                                'Apply Refinements',
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
-              ),
             ),
           ],
         ),

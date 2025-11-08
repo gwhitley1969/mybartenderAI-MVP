@@ -124,28 +124,28 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
           style: AppTypography.appTitle,
         ),
         actions: [
-          if (!isEditMode)
-            TextButton.icon(
-              onPressed: _isRefining ? null : _handleAIRefinement,
-              icon: _isRefining
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation(AppColors.primaryPurple),
-                      ),
-                    )
-                  : Icon(Icons.auto_awesome, color: AppColors.primaryPurple),
-              label: Text(
-                'AI Refine',
-                style: AppTypography.bodyMedium.copyWith(
-                  color: _isRefining
-                      ? AppColors.textSecondary
-                      : AppColors.primaryPurple,
-                ),
+          // AI Refine button available in both create and edit modes
+          TextButton.icon(
+            onPressed: _isRefining ? null : _handleAIRefinement,
+            icon: _isRefining
+                ? SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(AppColors.electricBlue),
+                    ),
+                  )
+                : Icon(Icons.auto_awesome, color: AppColors.electricBlue),
+            label: Text(
+              'AI Refine',
+              style: AppTypography.bodyMedium.copyWith(
+                color: _isRefining
+                    ? AppColors.textSecondary
+                    : AppColors.electricBlue,
               ),
             ),
+          ),
         ],
       ),
       body: Form(
@@ -456,12 +456,19 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       final refinement = await apiService.refineCocktail(draft);
 
       if (mounted) {
+        final isEditMode = widget.cocktail != null;
         await showRefinementDialog(
           context: context,
           refinement: refinement,
+          isEditMode: isEditMode,
           onApply: (refinedRecipe) {
             _applyRefinement(refinedRecipe);
           },
+          onSaveAsNew: isEditMode
+              ? (refinedRecipe) {
+                  _saveRefinementAsNew(refinedRecipe);
+                }
+              : null,
         );
       }
     } catch (e) {
@@ -506,6 +513,60 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         backgroundColor: AppColors.success,
       ),
     );
+  }
+
+  Future<void> _saveRefinementAsNew(RefinedRecipe refinedRecipe) async {
+    try {
+      final db = ref.read(databaseServiceProvider);
+      final now = DateTime.now();
+      final cocktailId = 'custom-${const Uuid().v4()}';
+
+      final cocktail = Cocktail(
+        id: cocktailId,
+        name: refinedRecipe.name,
+        category: refinedRecipe.category,
+        glass: refinedRecipe.glass,
+        alcoholic: _selectedAlcoholic ?? 'Alcoholic',
+        instructions: refinedRecipe.instructions,
+        imageUrl: null, // New recipe has no image
+        ingredients: refinedRecipe.ingredients
+            .asMap()
+            .entries
+            .map((entry) => DrinkIngredient(
+                  drinkId: cocktailId,
+                  ingredientName: entry.value.name.trim(),
+                  measure: entry.value.measure?.trim().isEmpty ?? true
+                      ? null
+                      : entry.value.measure!.trim(),
+                  ingredientOrder: entry.key + 1,
+                ))
+            .toList(),
+        isCustom: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      await db.insertCocktail(cocktail);
+
+      if (mounted) {
+        Navigator.pop(context, true); // Return to previous screen
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Refined recipe saved as "${refinedRecipe.name}"!'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving new recipe: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _handleSave() async {

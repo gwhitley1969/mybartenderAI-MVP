@@ -105,12 +105,11 @@ Future<void> bootstrap(
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Validate that function key is provided
+  // Validate that function key is provided (warning only for now)
   if (config.functionKey == null || config.functionKey!.isEmpty) {
-    throw StateError(
-      'AZURE_FUNCTION_KEY must be set. Build with:\n'
-      'flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>\n'
-      'Or for testing: flutter run --dart-define=AZURE_FUNCTION_KEY=<your_key>',
+    debugPrint(
+      'WARNING: AZURE_FUNCTION_KEY not set. Some features may not work.\n'
+      'Build with: flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>',
     );
   }
 

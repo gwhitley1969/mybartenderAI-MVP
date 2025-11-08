@@ -24,6 +24,7 @@ class AppColors {
   static const Color accentTeal = Color(0xFF14B8A6); // Teal for Premium Bar
   static const Color accentBlue = Color(0xFF3B82F6); // Blue for icons
   static const Color accentRed = Color(0xFFEF4444); // Red for favorites
+  static const Color electricBlue = Color(0xFF00D9FF); // Electric blue for AI features
 
   // Status Colors
   static const Color success = Color(0xFF10B981); // Green for success states

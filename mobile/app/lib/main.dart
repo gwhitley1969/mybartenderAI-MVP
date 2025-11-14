@@ -17,11 +17,11 @@ Future<void> main() async {
   await bootstrap(
     () => const MyBartenderApp(),
     config: const EnvConfig(
-      apiBaseUrl: 'https://func-mba-fresh.azurewebsites.net/api',
-      // NOTE: Function key required for backend endpoints
-      // IMPORTANT: Set AZURE_FUNCTION_KEY environment variable during build
-      // Build command: flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>
-      functionKey: String.fromEnvironment('AZURE_FUNCTION_KEY', defaultValue: ''),
+      // APIM gateway for all API calls
+      apiBaseUrl: 'https://apim-mba-001.azure-api.net/api',
+      // Runtime token exchange replaces build-time key injection
+      // APIM keys are now obtained per-user via /v1/auth/exchange endpoint
+      functionKey: null, // No longer using build-time keys
     ),
   );
 }

@@ -8,15 +8,15 @@
 /// - See build-secure.ps1 for automated secure build process
 
 class AppConfig {
-  // Backend API Configuration
-  static const String backendBaseUrl = 'https://func-mba-fresh.azurewebsites.net/api';
+  // Backend API Configuration - APIM Gateway
+  static const String backendBaseUrl = 'https://apim-mba-001.azure-api.net/api';
 
-  // Function key (retrieved from Azure Key Vault at build time via --dart-define)
-  // This provides authentication for Azure Function endpoints
-  static const String? functionKey = String.fromEnvironment(
-    'AZURE_FUNCTION_KEY',
-    defaultValue: '', // Empty string for development (uses JWT auth instead)
-  );
+  // APIM Subscription Key is now obtained via runtime token exchange
+  // This provides better security through per-user, revocable keys
+  // Keys are exchanged on login and stored in secure storage
+  // Build-time injection has been replaced with runtime exchange
+  @Deprecated('Use ApimSubscriptionService.getSubscriptionKey() instead')
+  static const String? functionKey = null;
 
   // API Endpoints
   static const String healthEndpoint = '/health';

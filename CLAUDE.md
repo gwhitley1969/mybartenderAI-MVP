@@ -17,9 +17,9 @@ Always use context7 when I need code generation, setup or configuration steps, o
 
 ### Business Model
 
-- **Free Tier**: Limited AI interactions, access to local cocktail database
-- **Premium Tier** (~$9.99/month): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations
-- **Pro Tier** ($49.99/month): Everything in Premium plus Voice Concierge with OpenAI Realtime API
+- **Free Tier**: Limited AI interactions (10,000 tokens / 30 days) (2 scans / 30 days), unlimited access to local cocktail database
+- **Premium Tier** ($4.99/month or $49.99/year): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations (300,000 tokens / 30 days) (30 scans / 30 days)
+- **Pro** ($8.99/month or $89.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (100 scans / 30 days)
 
 ## Tech Stack
 
@@ -33,19 +33,20 @@ Always use context7 when I need code generation, setup or configuration steps, o
 
 ### Backend (Azure)
 
-- **Compute**: Azure Functions (Windows Consumption plan)
+- **Compute**: Azure Functions (`func-mba-fresh`) (Premium Consumption plan used to be called Elastic Premium) 
 - **Database**: Azure Database for PostgreSQL Flexible Server (`pg-mybartenderdb`)
 - **Storage**: Azure Blob Storage (`mbacocktaildb3`)
 - **API Gateway**: Azure API Management (`apim-mba-001`) - Developer tier
 - **AI Services**: 
   - Azure OpenAI Service (GPT-4o-mini for text-based recommendations)
-  - Azure Speech Services (Speech-to-Text + Neural Text-to-Speech for voice)
+    
+    
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
 - **Authentication**: PII-minimal approach with JWT
 
 ### Key Azure Resources
 
-- **Resource Group**: `rg-mba-prod` (South Central US)
+- **Resource Groups**: `rg-mba-prod` (South Central US) and `rg-mba-dev` (East US) (location of  `kv-mybartenderai-prod`) 
 - **Function App**: `func-mba-fresh` (URL: https://func-mba-fresh.azurewebsites.net)
 - **API Management**: `apim-mba-001` (Developer tier)
   - Gateway: https://apim-mba-001.azure-api.net
@@ -54,7 +55,8 @@ Always use context7 when I need code generation, setup or configuration steps, o
 - **Database**: `pg-mybartenderdb` (PostgreSQL - authoritative data source)
 - **Key Vault**: `kv-mybartenderai-prod` (in `rg-mba-dev` resource group)
 - **Azure OpenAI**: `mybartenderai-scus` (South Central US, gpt-4o-mini deployment)
-- **Speech Services**: TBD (for voice features)
+  
+  
 
 ### Azure Key Vault Secrets
 
@@ -65,28 +67,14 @@ Located in `kv-mybartenderai-prod`:
 3. **AZURE-OPENAI-ENDPOINT**: Azure OpenAI endpoint URL (https://mybartenderai-scus.openai.azure.com)
 4. **OpenAI**: Legacy API key (deprecated, use AZURE-OPENAI-API-KEY)
 5. **POSTGRES-CONNECTION-STRING**: Connection string for `pg-mybartenderdb`
-6. **Storage SAS tokens**: For MVP blob access (temporary)
+   
+   
 
 ## Architecture Highlights
 
-### Voice Interaction Architecture (Premium/Pro Feature)
-
-**Cost-Optimized Alternative to OpenAI Realtime API:**
-
-```
-User speaks → Azure Speech-to-Text → 
-Flutter App → APIM → Azure Function → GPT-4o-mini (text) → 
-Azure Function → Flutter App → Azure Text-to-Speech → User hears
-```
+### 
 
 **Why This Approach:**
-
-- **93% cost savings** vs OpenAI Realtime API (~$0.10 vs ~$1.50 per 5-min session)
-- Azure Speech-to-Text: ~$0.017/minute
-- GPT-4o-mini text API: ~$0.007 per conversation
-- Azure Neural Text-to-Speech: ~$0.00005 per response
-- Client-side speech processing for lower latency
-- Custom vocabulary for bartending terms
 
 **AI Model Strategy:**
 
@@ -94,10 +82,10 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
   - Cost: $0.15/1M input tokens, $0.60/1M output tokens
   - Perfect for structured cocktail knowledge and conversational guidance
   - Fast response times critical for voice interaction
-- **Azure Speech Services**: Custom models with bartending terminology
-
-### Data Flow
-
+  
+  
+  
+  ### Data Flow
 1. **TheCocktailDB API**: Nightly sync at 03:30 UTC with throttling
 2. **PostgreSQL**: Authoritative source of truth
 3. **JSON Snapshots**: Compressed (gzip) snapshots for mobile consumption
@@ -106,9 +94,10 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 ### Security & Authentication
 
 - **Current (Early Beta)**: Mixed approach based on service capabilities
-  - **Storage Access**: Using SAS tokens due to Windows Consumption Plan limitations
-    - Managed Identity for storage is limited on Windows Consumption Plans
-    - SAS tokens provide reliable storage access for MVP phase
+  - **Storage Access**: Using Managed Identity
+    - Managed Identity for storage (`func-cocktaildb2-uami`and `func-mba-fresh`)
+      
+      
   - **Key Vault Access**: ✅ Managed Identity with RBAC
     - Function App uses System-Assigned Managed Identity
     - Granted "Key Vault Secrets User" role on `kv-mybartenderai-prod`
@@ -127,8 +116,8 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 - **Primary Region**: South Central US
 - **Production Resources**: `rg-mba-prod` resource group
 - **Key Vault Location**: `rg-mba-dev` resource group (cross-RG access pattern)
-- **Function Access Pattern (Current)**: Connection String → Key Vault → SAS Tokens/Secrets
-- **Function Access Pattern (Future)**: Managed Identity → Key Vault → Secrets
+- **Function Access Pattern (Past)**: Connection String → Key Vault → SAS Tokens/Secrets
+- **Function Access Pattern (Current)**: Managed Identity → Key Vault → Secrets
 
 ### API Management (APIM) Strategy
 
@@ -141,24 +130,15 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
   - Security: Hides Function URLs, DDoS protection
   - Built-in analytics and monitoring
 - **Products Configuration**:
-  - **Free**: Limited API calls, local features only
-  - **Premium**: AI features with moderate limits
-  - **Pro**: Unlimited AI features, priority support
+  - **Free**: Local features only
+  - **Premium**: AI features with moderate limits (300,000 tokens / 30 days) (15 scans / 30 days)
+  - **Pro**: AI features with higher limits (1,000,000 tokens / 30 days) (50 scans / 30 days)
 
-### Cost Optimization
-
-- **Target**: $2-5/month operational cost
-- **Strategies**: 
-  - Windows Consumption Functions (pay-per-execution)
-  - Efficient JSON snapshots vs. continuous sync
-  - SAS tokens (Key Vault access, simpler than MI setup costs during MVP)
-  - Trade-off: Security best practices deferred until post-MVP for cost efficiency
-
-## Development Environment
+### ## Development Environment
 
 ### Required Tools
 
-- **IDE**: VS Code
+- **IDE**: VS Code or Cursor
 - **Languages**: Dart/Flutter, PowerShell, Azure Bicep
 - **Node.js**: Required for Azure Functions and tooling
 - **Azure CLI**: For infrastructure deployment
@@ -182,14 +162,13 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 
 - **Language**: JavaScript/Node.js (removed native dependencies like better-sqlite3)
 - **Authentication**: Connection strings with Key Vault for MVP phase
-- **Storage Access**: SAS tokens (temporary solution for Windows Consumption Plan limitations)
-- **Future Plan**: Migrate to DefaultAzureCredential/Managed Identity when upgrading hosting plan
+- **Storage Access**: Managed Identities
+- **Current**: Migrate to DefaultAzureCredential/Managed Identity when upgrading hosting plan
 
 **Deployed Functions:**
 
 - `ask-bartender`, `ask-bartender-simple`, `ask-bartender-test`: GPT-4o-mini cocktail recommendations
 - `recommend`: AI-powered cocktail suggestions
-- `realtime-token`, `realtime-token-simple`, `realtime-token-test`: Legacy (replaced by Azure Speech)
 - `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
 - `download-images`, `download-images-mi`: Image asset management
 - `sync-cocktaildb`: Timer-triggered nightly sync (03:30 UTC)
@@ -227,7 +206,6 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 ### Upcoming
 
 - 📋 Camera-based inventory feature (Smart Scanner)
-- 📋 AI voice interaction with Azure Speech Services
 - 📋 Advanced AI cocktail recommendations (recommend endpoint with JWT)
 - 📋 Free/Premium/Pro tier implementation via APIM
 - 📋 Create Studio cocktail creation feature
@@ -246,20 +224,21 @@ Azure Function → Flutter App → Azure Text-to-Speech → User hears
 
 ### When Helping with Code
 
-1. **Azure Best Practices**: Currently using SAS tokens for MVP due to Windows Consumption Plan limitations
+1. **Azure Best Practices**: 
 2. **Key Vault Access**: All secrets retrieved via connection strings from `kv-mybartenderai-prod`
-3. **Cost Consciousness**: Always consider Azure consumption costs (reason for Consumption Plan)
+3. **Cost Consciousness**: Always consider Azure consumption costs 
 4. **Security First**: PII-minimal, RBAC prepared for future, Key Vault integration
-5. **Pragmatic Approach**: MVP uses what works (SAS), production will use Managed Identity
+5. **Pragmatic Approach**: Production uses Managed Identity
 6. **Cross-Platform**: Remember Flutter targets both Android and iOS
 7. **Windows Expertise**: Developer has strong Windows/Azure background
 
 ### Current Authentication Limitations
 
-- **Windows Consumption Plan**: Limited Managed Identity support, especially for storage
-- **MVP Strategy**: Use SAS tokens stored in Key Vault for reliable access
+**
+
 - **Migration Path**: Document in MANAGED_IDENTITY_MIGRATION.md for future reference
-- **Future Plan**: Upgrade to Premium or Linux Consumption Plan for full MI support
+  
+  
 
 ### Preferred Patterns
 
@@ -335,5 +314,5 @@ flutter test
 ---
 
 **Last Updated**: October 2025  
-**Project Phase**: Early Development / MVP  
+**Project Phase**: Early Development / Beta  
 **Primary Focus**: Infrastructure stability and mobile app foundation

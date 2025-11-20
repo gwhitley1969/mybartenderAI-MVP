@@ -1,0 +1,28 @@
+{
+  "name": "mybartenderai-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions for MyBartenderAI backend services",
+  "main": "index.js",
+  "scripts": {
+    "start": "func start",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.0.1",
+    "@azure/arm-apimanagement": "^9.1.0",
+    "@azure/data-tables": "^13.2.2",
+    "@azure/openai": "^1.0.0-beta.12",
+    "axios": "^1.6.2",
+    "jsonwebtoken": "^9.0.2",
+    "jwks-rsa": "^3.1.0",
+    "openai": "^4.77.3",
+    "pg": "^8.11.3"
+  },
+  "devDependencies": {
+    "@azure/functions": "^4.0.0",
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

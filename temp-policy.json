@@ -1,0 +1,6 @@
+{
+    "properties":  {
+                       "value":  "\u003cpolicies\u003e\u003cinbound\u003e\u003cbase /\u003e\u003crewrite-uri template=\"/vision-analyze\" copy-unmatched-params=\"true\" /\u003e\u003c/inbound\u003e\u003cbackend\u003e\u003cbase /\u003e\u003c/backend\u003e\u003coutbound\u003e\u003cbase /\u003e\u003c/outbound\u003e\u003con-error\u003e\u003cbase /\u003e\u003c/on-error\u003e\u003c/policies\u003e",
+                       "format":  "rawxml"
+                   }
+}

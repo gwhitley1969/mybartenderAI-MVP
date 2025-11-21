@@ -17,8 +17,8 @@ Future<void> main() async {
   await bootstrap(
     () => const MyBartenderApp(),
     config: const EnvConfig(
-      // APIM gateway for all API calls
-      apiBaseUrl: 'https://apim-mba-001.azure-api.net/api',
+      // Azure Front Door → APIM → Functions
+      apiBaseUrl: 'https://share.mybartenderai.com/api',
       // Runtime token exchange replaces build-time key injection
       // APIM keys are now obtained per-user via /v1/auth/exchange endpoint
       functionKey: null, // No longer using build-time keys

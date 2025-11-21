@@ -29,6 +29,7 @@ class AskBartenderService {
   Future<String> askBartender({
     required String message,
     String? context,
+    int _retryCount = 0,  // Internal retry counter (max 1 retry)
   }) async {
     try {
       print('=== AI Bartender Request Debug ===');
@@ -101,57 +102,37 @@ class AskBartenderService {
       print('DioException Response Data: ${e.response?.data}');
       print('=== End DioException Details ===');
 
-      // Handle 401/403 with token re-exchange
-      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        print('Authentication error detected, attempting re-exchange...');
+      // Handle 401/403 with token re-exchange (only retry once)
+      if ((e.response?.statusCode == 401 || e.response?.statusCode == 403) && _retryCount == 0) {
+        print('Authentication error detected, attempting re-exchange (retry $_retryCount)...');
 
         // Try to re-exchange tokens
         final success = await _apimService.handleAuthError();
 
         if (success) {
-          print('Re-exchange successful, retrying request...');
+          print('Re-exchange successful, retrying request once...');
 
-          // Retry the request with new credentials
-          try {
-            final retryHeaders = await _apimService.getAuthHeaders();
-            retryHeaders['Content-Type'] = 'application/json';
-
-            final retryResponse = await _dio.post(
-              AppConfig.askBartenderEndpoint,
-              data: {
-                'message': message,
-                'context': context ?? '',
-              },
-              options: Options(headers: retryHeaders),
-            );
-
-            if (retryResponse.statusCode == 200) {
-              final data = retryResponse.data;
-              if (data is Map) {
-                return data['response'] ?? data['message'] ?? 'I received your message but couldn\'t generate a proper response.';
-              } else if (data is String) {
-                try {
-                  final parsed = json.decode(data);
-                  if (parsed is Map) {
-                    return parsed['response'] ?? parsed['message'] ?? data;
-                  }
-                } catch (_) {
-                  return data;
-                }
-              }
-              return 'I received your message but couldn\'t generate a proper response.';
-            }
-          } catch (retryError) {
-            print('Retry failed: $retryError');
-            // Fall through to original error handling
-          }
+          // Recursive retry with incremented counter
+          return await askBartender(
+            message: message,
+            context: context,
+            _retryCount: _retryCount + 1,
+          );
         }
 
-        // If re-exchange failed or retry failed
+        // If re-exchange failed
         if (e.response?.statusCode == 403) {
           throw Exception('Your subscription may not include AI features. Please check your subscription status.');
         } else {
           throw Exception('Authentication failed. Please sign in again.');
+        }
+      } else if (_retryCount > 0) {
+        // Already retried once, don't retry again
+        print('Retry limit reached ($_retryCount attempts). Failing request.');
+        if (e.response?.statusCode == 403) {
+          throw Exception('Access denied. Please verify your subscription status.');
+        } else {
+          throw Exception('Authentication failed after retry. Please sign in again.');
         }
       }
 

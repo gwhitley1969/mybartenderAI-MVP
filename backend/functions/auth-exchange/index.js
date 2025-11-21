@@ -1,7 +1,9 @@
 const { DefaultAzureCredential } = require('@azure/identity');
 const { ApiManagementClient } = require('@azure/arm-apimanagement');
+const { TableClient } = require('@azure/data-tables');
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
+const monitoring = require('../shared/monitoring');
 
 // Configuration from environment variables
 const APIM_SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID;
@@ -11,9 +13,14 @@ const TENANT_ID = 'a82813af-1054-4e2d-a8ec-c6b9c2908c91';
 const ISSUER = `https://mybartenderai.ciamlogin.com/${TENANT_ID}/v2.0`;
 const AUDIENCE = '04551003-a57c-4dc2-97a1-37e0b3d1a2f6'; // Your app registration client ID
 
+// Rate limiting configuration
+const RATE_LIMIT_TABLE = process.env.RATE_LIMIT_TABLE_NAME || 'authexchangeratelimit';
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute window
+const RATE_LIMIT_MAX_REQUESTS = 10; // Max 10 requests per minute per user
+
 // JWKS client for token validation
 const jwks = jwksClient({
-    jwksUri: `${ISSUER}/.well-known/openid-configuration`,
+    jwksUri: `${ISSUER}/discovery/v2.0/keys`,
     cache: true,
     rateLimit: true,
     jwksRequestsPerMinute: 5
@@ -23,6 +30,86 @@ const jwks = jwksClient({
 function maskKey(key) {
     if (!key || key.length < 8) return '****';
     return `****${key.slice(-4)}`;
+}
+
+// Rate limiting helper using Azure Table Storage
+async function checkRateLimit(userId) {
+    try {
+        const credential = new DefaultAzureCredential();
+        const tableClient = new TableClient(
+            `https://${process.env.STORAGE_ACCOUNT_NAME || 'mbacocktaildb3'}.table.core.windows.net`,
+            RATE_LIMIT_TABLE,
+            credential
+        );
+
+        // Ensure table exists
+        await tableClient.createTable().catch(() => {}); // Ignore if already exists
+
+        const partitionKey = 'auth-exchange';
+        const rowKey = userId;
+        const now = Date.now();
+
+        try {
+            // Get existing rate limit record
+            const entity = await tableClient.getEntity(partitionKey, rowKey);
+
+            // Parse request timestamps
+            const requests = JSON.parse(entity.requests || '[]');
+
+            // Filter out requests outside the time window
+            const recentRequests = requests.filter(timestamp =>
+                now - timestamp < RATE_LIMIT_WINDOW
+            );
+
+            // Check if limit exceeded
+            if (recentRequests.length >= RATE_LIMIT_MAX_REQUESTS) {
+                const oldestRequest = Math.min(...recentRequests);
+                const resetTime = new Date(oldestRequest + RATE_LIMIT_WINDOW);
+                return {
+                    allowed: false,
+                    resetTime: resetTime,
+                    remaining: 0
+                };
+            }
+
+            // Add current request
+            recentRequests.push(now);
+
+            // Update entity
+            await tableClient.updateEntity({
+                partitionKey: partitionKey,
+                rowKey: rowKey,
+                requests: JSON.stringify(recentRequests),
+                lastRequest: now
+            }, 'Merge');
+
+            return {
+                allowed: true,
+                remaining: RATE_LIMIT_MAX_REQUESTS - recentRequests.length
+            };
+
+        } catch (error) {
+            if (error.statusCode === 404) {
+                // First request from this user
+                await tableClient.createEntity({
+                    partitionKey: partitionKey,
+                    rowKey: rowKey,
+                    requests: JSON.stringify([now]),
+                    lastRequest: now
+                });
+
+                return {
+                    allowed: true,
+                    remaining: RATE_LIMIT_MAX_REQUESTS - 1
+                };
+            }
+            throw error;
+        }
+    } catch (error) {
+        console.error('Rate limit check failed:', error.message);
+        // Fail open - allow request if rate limiting fails
+        return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS };
+    }
 }
 
 // Helper to determine user tier from JWT claims
@@ -161,6 +248,9 @@ module.exports = async function (context, req) {
         // Extract JWT from Authorization header
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            monitoring.trackAuthFailure('unknown', 'missing_auth_header', {
+                endpoint: '/v1/auth/exchange'
+            });
             context.res = {
                 status: 401,
                 body: { error: 'Missing or invalid Authorization header' }
@@ -178,6 +268,10 @@ module.exports = async function (context, req) {
             console.log(`Token validated for user: ${decodedToken.sub}`);
         } catch (error) {
             console.error('JWT validation failed:', error.message);
+            monitoring.trackJwtValidationFailure(error.message, {
+                endpoint: '/v1/auth/exchange'
+            });
+            monitoring.checkFailureRate(); // Check if we're under attack
             context.res = {
                 status: 401,
                 body: { error: 'Invalid or expired token' }
@@ -187,8 +281,36 @@ module.exports = async function (context, req) {
 
         // Extract user ID and determine tier
         const userId = decodedToken.sub;
+
+        // Check rate limit
+        const rateLimitResult = await checkRateLimit(userId);
+        if (!rateLimitResult.allowed) {
+            console.log(`Rate limit exceeded for user ${userId}`);
+            monitoring.trackRateLimitExceeded(userId, '/v1/auth/exchange', {
+                resetTime: rateLimitResult.resetTime.toISOString()
+            });
+            monitoring.trackSuspiciousActivity(userId, 'excessive_token_exchange', {
+                resetTime: rateLimitResult.resetTime.toISOString()
+            });
+            context.res = {
+                status: 429,
+                headers: {
+                    'Retry-After': Math.ceil((rateLimitResult.resetTime - Date.now()) / 1000),
+                    'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS,
+                    'X-RateLimit-Remaining': 0,
+                    'X-RateLimit-Reset': rateLimitResult.resetTime.toISOString()
+                },
+                body: {
+                    error: 'Rate limit exceeded',
+                    message: 'Too many token exchange requests. Please try again later.',
+                    retryAfter: rateLimitResult.resetTime.toISOString()
+                }
+            };
+            return;
+        }
+
         const tier = getUserTier(decodedToken);
-        console.log(`User ${userId} mapped to tier: ${tier}`);
+        console.log(`User ${userId} mapped to tier: ${tier}, rate limit remaining: ${rateLimitResult.remaining}`);
 
         // Ensure APIM subscription exists
         const subscription = await ensureApimSubscription(userId, tier);
@@ -197,6 +319,13 @@ module.exports = async function (context, req) {
         const now = Math.floor(Date.now() / 1000);
         const jwtExpiry = decodedToken.exp || (now + 86400); // Default 24 hours
         const expiresIn = jwtExpiry - now;
+
+        // Track successful authentication
+        monitoring.trackAuthSuccess(userId, tier, {
+            subscriptionId: subscription.subscriptionId,
+            productId: subscription.productId,
+            endpoint: '/v1/auth/exchange'
+        });
 
         // Return subscription key and metadata (no PII)
         context.res = {

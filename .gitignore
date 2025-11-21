@@ -5,6 +5,26 @@
 # Local/Secrets
 .azure-config/
 local.settings.json
+current-settings.json
+staging-settings.txt
+apim-subscription-key.txt
+mobile/app/temp_key.txt
+
+# Test scripts with secrets (use templates instead)
+test-*.ps1
+!test-*.template.ps1
+
+# Policy files with embedded secrets (deploy programmatically)
+*-policy.xml
+!*-policy.template.xml
+
+# Backup folders that may contain secrets
+migration-backup-*/
+migration-scripts/
+
+# Temporary files with keys
+*.key
+*.secret
 
 # OS/logs
 *.log

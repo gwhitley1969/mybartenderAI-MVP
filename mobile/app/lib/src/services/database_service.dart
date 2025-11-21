@@ -354,6 +354,45 @@ class DatabaseService {
     return cocktail.copyWith(ingredients: ingredients);
   }
 
+  /// Get a random cocktail (defaults to curated cocktails only)
+  Future<Cocktail?> getRandomCocktail({bool includeCustom = false}) async {
+    final db = await database;
+
+    final String sql = '''
+      SELECT *
+      FROM drinks
+      ${includeCustom ? '' : 'WHERE is_custom = 0'}
+      ORDER BY RANDOM()
+      LIMIT 1
+    ''';
+
+    final List<Map<String, dynamic>> result = await db.rawQuery(sql);
+
+    if (result.isEmpty) {
+      if (!includeCustom) {
+        // Retry including custom cocktails as a fallback
+        return getRandomCocktail(includeCustom: true);
+      }
+      return null;
+    }
+
+    final cocktailRow = result.first;
+    final String cocktailId = cocktailRow['id'] as String;
+
+    final List<Map<String, dynamic>> ingredientsResult = await db.query(
+      'drink_ingredients',
+      where: 'drink_id = ?',
+      whereArgs: [cocktailId],
+      orderBy: 'ingredient_order ASC',
+    );
+
+    final cocktail = Cocktail.fromDb(cocktailRow);
+    final ingredients =
+        ingredientsResult.map((row) => DrinkIngredient.fromDb(row)).toList();
+
+    return cocktail.copyWith(ingredients: ingredients);
+  }
+
   /// Get all cocktails with optional filtering
   Future<List<Cocktail>> getCocktails({
     String? searchQuery,
@@ -857,9 +896,9 @@ class DatabaseService {
     );
 
     // Insert updated ingredients
-    if (cocktail.ingredients != null && cocktail.ingredients!.isNotEmpty) {
-      for (int i = 0; i < cocktail.ingredients!.length; i++) {
-        final ingredient = cocktail.ingredients![i];
+    if (cocktail.ingredients.isNotEmpty) {
+      for (int i = 0; i < cocktail.ingredients.length; i++) {
+        final ingredient = cocktail.ingredients[i];
         await db.insert(
           'drink_ingredients',
           {

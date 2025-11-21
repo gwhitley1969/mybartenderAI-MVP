@@ -1,12 +1,20 @@
 # MyBartenderAI Deployment Status
 
-## Current Status: ✅ All Functions Deployed - Create Studio AI Refine Enhanced - Release APK Ready
+## Current Status: ⚠️ Today's Special rotation + notifications implemented — release APK rebuild pending timezone plugin patch
 
 ### Summary
 
 After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan, we successfully pivoted to deploying on Windows Consumption plan (`func-mba-fresh`) using Azure Functions v3 SDK patterns. All functions are now deployed and operational.
 
-**Latest Update (2025-11-08):**
+**Latest Update (2025-11-10):**
+
+- ✅ Renamed home card to **Today's Special** with daily random cocktail selection & midnight refresh
+- ✅ Added `todaysSpecialProvider` caching layer (SharedPreferences) + detail navigation
+- ✅ Implemented daily 5 PM notification with custom chime (`todays_special_chime.wav`) using `NotificationService`
+- ✅ Added MSAL-safe `getRandomCocktail()` to database service for curated picks
+- ❌ Release APK rebuild blocked by outdated `flutter_native_timezone` plugin — namespace & JVM target patches in progress
+
+**Update (2025-11-08):**
 
 - ✅ **Create Studio AI Refine Enhanced** - Now available in edit mode with "Save as New Recipe" option
 - ✅ Electric blue (#00D9FF) UI accent for AI Refine button (improved visibility)
@@ -215,7 +223,7 @@ After extensive troubleshooting with Azure Functions v4 on Flex Consumption plan
    - AI Cocktail Concierge section with voice and create buttons
    - Lounge Essentials grid (Smart Scanner, Recipe Vault, My Bar, Taste Profile)
    - Master Mixologist section with Elite features
-   - Tonight's Special recommendation card
+   - Today's Special recommendation card with daily rotation + cocktail detail shortcut
    - File: `mobile/app/lib/src/features/home/home_screen.dart`
 
 3. ✅ **Backend Connection**

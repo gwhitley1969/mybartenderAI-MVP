@@ -234,7 +234,7 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
     ];
 
     return Container(
-      height: 44,
+      height: 60,
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
@@ -255,7 +255,7 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
                 }
               },
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Text(
                   action,
                   style: AppTypography.bodyMedium.copyWith(

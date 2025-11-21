@@ -120,8 +120,15 @@ Completely rebuilt `mobile/app/lib/src/features/home/home_screen.dart` to match 
 - AI Cocktail Concierge section with "Ask the Bartender" and "Create" buttons
 - Lounge Essentials grid (Smart Scanner, Recipe Vault, Premium Bar, Taste Profile)
 - Master Mixologist section with Elite features
-- Tonight's Special recommendation card
+- Today's Special recommendation card (daily rotating feature)
 
+#### 2025-11-10 Updates — Daily Special & Notifications
+
+- Home card retitled to `Today's Special` and backed by `todaysSpecialProvider`, which selects a random curated cocktail each day, caches via SharedPreferences, and refreshes automatically at local midnight.
+- Card now links directly to `CocktailDetailScreen` and surfaces dynamic tagline metadata (tags, category, alcoholic type) with graceful loading/error states.
+- Added `NotificationService` integrating `flutter_local_notifications`, `timezone`, `permission_handler`, and `flutter_native_timezone_updated_gradle` to schedule a 5 PM local notification that highlights the daily pick.
+- Bundled custom chime asset `android/app/src/main/res/raw/todays_special_chime.wav` and configured notifications to use it.
+- Release APK rebuild is currently blocked by the timezone plugin requiring manual namespace/JVM target fixes; additional build work paused here pending plugin patch.
 ### Backend Integration
 
 Successfully connected Flutter app to Azure Functions backend:
@@ -616,7 +623,8 @@ class AuthService {
           AuthConfig.clientId,
           AuthConfig.redirectUri,
           discoveryUrl: AuthConfig.discoveryUrl,
-          scopes: ['openid', 'profile', 'offline_access'],
+          scopes: ['openid', 'profile', 'email'],
+          // MSAL/Entra provide refresh tokens automatically; omit offline_access to avoid declines.
         ),
       );
 

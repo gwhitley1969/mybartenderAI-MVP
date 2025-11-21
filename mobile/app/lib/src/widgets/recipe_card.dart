@@ -199,74 +199,76 @@ class CompactRecipeCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image or placeholder
-            Container(
-              height: 160,
-              decoration: BoxDecoration(
-                color: AppColors.buttonSecondary,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(AppSpacing.cardBorderRadius),
-                  topRight: Radius.circular(AppSpacing.cardBorderRadius),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(AppSpacing.cardBorderRadius),
-                      topRight: Radius.circular(AppSpacing.cardBorderRadius),
-                    ),
-                    child: CachedCocktailImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                    ),
+            // Image or placeholder - use Expanded to fill available space
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.buttonSecondary,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(AppSpacing.cardBorderRadius),
+                    topRight: Radius.circular(AppSpacing.cardBorderRadius),
                   ),
-                  // Custom badge overlay (top-left)
-                  if (isCustom)
-                    Positioned(
-                      top: AppSpacing.sm,
-                      left: AppSpacing.sm,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm,
-                          vertical: AppSpacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryPurple,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.auto_fix_high,
-                                size: 12, color: AppColors.textPrimary),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Custom',
-                              style: AppTypography.caption.copyWith(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
+                ),
+                child: Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(AppSpacing.cardBorderRadius),
+                        topRight: Radius.circular(AppSpacing.cardBorderRadius),
+                      ),
+                      child: CachedCocktailImage(
+                        imageUrl: imageUrl,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                  // Match badge overlay (top-right)
-                  Positioned(
-                    top: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: MatchScoreBadge(
-                      matchCount: matchCount,
-                      totalCount: totalIngredients,
+                    // Custom badge overlay (top-left)
+                    if (isCustom)
+                      Positioned(
+                        top: AppSpacing.sm,
+                        left: AppSpacing.sm,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: AppSpacing.xs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryPurple,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.auto_fix_high,
+                                  size: 12, color: AppColors.textPrimary),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Custom',
+                                style: AppTypography.caption.copyWith(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    // Match badge overlay (top-right)
+                    Positioned(
+                      top: AppSpacing.sm,
+                      right: AppSpacing.sm,
+                      child: MatchScoreBadge(
+                        matchCount: matchCount,
+                        totalCount: totalIngredients,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-            // Name
-            Padding(
+            // Name - constrain height to prevent overflow
+            Container(
               padding: const EdgeInsets.all(AppSpacing.md),
+              height: 70, // Fixed height for text area to prevent overflow
               child: Text(
                 name,
                 style: AppTypography.cardTitle,

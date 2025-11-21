@@ -43,7 +43,7 @@ class BackendService {
       _dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) {
-            options.headers['x-functions-key'] = functionKey;
+            options.headers['Ocp-Apim-Subscription-Key'] = functionKey;
             handler.next(options);
           },
         ),

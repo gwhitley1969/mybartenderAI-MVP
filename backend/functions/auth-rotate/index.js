@@ -1,5 +1,6 @@
 const { DefaultAzureCredential } = require('@azure/identity');
 const { ApiManagementClient } = require('@azure/arm-apimanagement');
+const monitoring = require('../shared/monitoring');
 
 // Configuration
 const APIM_SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID;
@@ -88,6 +89,13 @@ module.exports = async function (context, req) {
 
         console.log('Rotation event:', JSON.stringify(rotationEvent));
 
+        // Track successful key rotation
+        monitoring.trackKeyRotation(targetSubscription, true, {
+            userId: userId || 'unknown',
+            reason: reason || 'scheduled',
+            endpoint: '/v1/auth/rotate'
+        });
+
         context.res = {
             status: 200,
             body: {
@@ -101,6 +109,13 @@ module.exports = async function (context, req) {
 
     } catch (error) {
         console.error('Key rotation error:', error.message);
+
+        // Track failed key rotation
+        const subscriptionName = req.body?.subscriptionName || req.body?.userId || 'unknown';
+        monitoring.trackKeyRotation(subscriptionName, false, {
+            error: error.message,
+            endpoint: '/v1/auth/rotate'
+        });
 
         context.res = {
             status: 500,

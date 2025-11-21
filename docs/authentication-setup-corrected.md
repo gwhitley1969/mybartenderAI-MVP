@@ -150,7 +150,8 @@ class AuthService {
           AuthConfig.clientId,
           AuthConfig.redirectUri,
           discoveryUrl: AuthConfig.discoveryUrl,
-          scopes: ['openid', 'profile', 'offline_access'],
+          scopes: ['openid', 'profile', 'email'],
+          // Leave offline_access out; MSAL acquires refresh tokens without it.
         ),
       );
       

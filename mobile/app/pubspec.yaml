@@ -48,6 +48,12 @@ dependencies:
   # Compression
   zstandard: ^1.3.26
 
+  # Notifications - DISABLED until we debug why it breaks Today's Special
+  # flutter_local_notifications: ^17.1.2
+  # timezone: ^0.9.3
+  # flutter_timezone: ^5.0.1
+  # permission_handler: ^11.3.1
+
   # Camera and image handling
   image_picker: ^1.0.8
   image: ^4.2.0
@@ -60,6 +66,9 @@ dependencies:
 
   # UI
   cupertino_icons: ^1.0.8
+
+  # Social sharing
+  share_plus: ^7.2.1
 
   # Preferences
   shared_preferences: ^2.2.3

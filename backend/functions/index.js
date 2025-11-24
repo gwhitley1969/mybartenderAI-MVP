@@ -1594,7 +1594,7 @@ ${cocktailDescription}`;
 });
 
 // =============================================================================
-// 12. Vision Analyze - POST /vision-analyze
+// 12. Vision Analyze - POST /vision-analyze (Claude Haiku 4.5)
 // =============================================================================
 app.http('vision-analyze', {
     methods: ['POST', 'OPTIONS'],
@@ -1603,7 +1603,7 @@ app.http('vision-analyze', {
     handler: async (request, context) => {
         const axios = require('axios');
 
-        context.log('Vision Analyze - Request received');
+        context.log('Vision Analyze - Request received (Claude Haiku 4.5)');
 
         // CORS headers
         const headers = {
@@ -1631,12 +1631,12 @@ app.http('vision-analyze', {
                 };
             }
 
-            // Get Computer Vision credentials
-            const cvKey = process.env.AZURE_CV_KEY;
-            const cvEndpoint = process.env.AZURE_CV_ENDPOINT;
+            // Get Claude credentials from environment (from Key Vault)
+            const claudeApiKey = process.env.CLAUDE_API_KEY;
+            const claudeEndpoint = process.env.CLAUDE_ENDPOINT;
 
-            if (!cvKey || !cvEndpoint) {
-                context.log.error('Computer Vision credentials not configured');
+            if (!claudeApiKey || !claudeEndpoint) {
+                context.error('Claude credentials not configured');
                 return {
                     status: 500,
                     headers,
@@ -1644,184 +1644,351 @@ app.http('vision-analyze', {
                 };
             }
 
-            // Prepare image data
-            let imageData;
-            let contentType;
+            context.log('Claude endpoint:', claudeEndpoint);
 
+            // Prepare the image for Claude Haiku 4.5
+            let imageContent;
             if (imageUrl) {
-                imageData = JSON.stringify({ url: imageUrl });
-                contentType = 'application/json';
+                // For URL-based images, fetch and convert to base64
+                try {
+                    const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                    const base64Image = Buffer.from(imageResponse.data, 'binary').toString('base64');
+                    imageContent = {
+                        type: "image",
+                        source: {
+                            type: "base64",
+                            media_type: "image/jpeg",
+                            data: base64Image
+                        }
+                    };
+                } catch (urlError) {
+                    context.error('Failed to fetch image from URL:', urlError.message);
+                    return {
+                        status: 400,
+                        headers,
+                        jsonBody: { error: 'Failed to fetch image from URL' }
+                    };
+                }
             } else {
-                imageData = Buffer.from(image, 'base64');
-                contentType = 'application/octet-stream';
+                // For base64 images, use directly (remove data URI prefix if present)
+                let base64Data = image;
+                if (base64Data.startsWith('data:')) {
+                    base64Data = base64Data.split(',')[1];
+                }
+
+                imageContent = {
+                    type: "image",
+                    source: {
+                        type: "base64",
+                        media_type: "image/jpeg",
+                        data: base64Data
+                    }
+                };
             }
 
-            // Call Computer Vision API
-            const visionUrl = `${cvEndpoint}vision/v3.2/analyze?visualFeatures=Tags,Description,Objects,Brands&language=en`;
+            // System prompt for Claude
+            const systemPrompt = `You are an expert bartender and spirits inventory manager.
 
-            context.log('Calling Computer Vision API...');
-            const visionResponse = await axios.post(visionUrl, imageData, {
-                headers: {
-                    'Ocp-Apim-Subscription-Key': cvKey,
-                    'Content-Type': contentType
-                }
-            });
+Your job is to analyze a photo of a bar or a group of bottles and identify each distinct bottle of alcohol that is clearly visible.
 
-            // Process results
-            const analysis = visionResponse.data;
-            context.log('Vision analysis complete:', {
-                tags: analysis.tags?.length || 0,
-                objects: analysis.objects?.length || 0,
-                brands: analysis.brands?.length || 0
-            });
+You must:
+- Focus on bottles and drink containers, not random background objects.
+- Infer the most likely brand name and type of alcohol using your general knowledge (e.g., "Smirnoff vodka", "Baileys Irish cream", "Evan Williams bourbon", "Hennessy cognac").
+- Classify each bottle into a cocktail-relevant category like: "vodka", "gin", "rum", "tequila", "whiskey", "bourbon", "rye", "scotch", "brandy", "cognac", "vermouth", "liqueur", "aperitif", "digestif", "bitter", "beer", "wine", "syrup", "mixer", "other".
 
-            // Helper function to extract alcohol-related items
-            const extractAlcoholItems = (analysis) => {
-                const items = [];
-                const alcoholKeywords = [
-                    'bottle', 'whiskey', 'vodka', 'rum', 'gin', 'tequila', 'wine',
-                    'beer', 'liquor', 'alcohol', 'spirit', 'bourbon', 'scotch',
-                    'brandy', 'cognac', 'champagne', 'prosecco', 'liqueur'
-                ];
+Always return a single JSON object and nothing else. Do not include explanations or prose.`;
 
-                if (analysis.tags) {
-                    for (const tag of analysis.tags) {
-                        const name = tag.name.toLowerCase();
-                        if (alcoholKeywords.some(keyword => name.includes(keyword))) {
-                            items.push({
-                                type: 'tag',
-                                name: tag.name,
-                                confidence: tag.confidence
-                            });
-                        }
-                    }
-                }
+            // User prompt with structured JSON request
+            const userPrompt = `Analyze this image and return a JSON object with this exact structure:
+{
+  "bottles": [
+    {
+      "brand": "Brand Name",
+      "type": "liquor type",
+      "confidence": 0.95
+    }
+  ]
+}
 
-                if (analysis.brands) {
-                    for (const brand of analysis.brands) {
-                        items.push({
-                            type: 'brand',
-                            name: brand.name,
-                            confidence: brand.confidence || 0.8
-                        });
-                    }
-                }
+If no bottles are visible, return: {"bottles": []}`;
 
-                if (analysis.objects) {
-                    for (const obj of analysis.objects) {
-                        if (obj.object.toLowerCase().includes('bottle')) {
-                            items.push({
-                                type: 'object',
-                                name: 'bottle',
-                                confidence: obj.confidence,
-                                rectangle: obj.rectangle
-                            });
-                        }
-                    }
-                }
-
-                return items;
-            };
-
-            // Helper function to match detected items to database
-            const matchToDatabase = async (detectedItems) => {
-                const knownBrands = {
-                    'absolut': 'Absolut Vodka',
-                    'jack daniels': 'Jack Daniels',
-                    'jack daniel\'s': 'Jack Daniels',
-                    'smirnoff': 'Smirnoff Vodka',
-                    'bacardi': 'Bacardi Rum',
-                    'captain morgan': 'Captain Morgan Rum',
-                    'grey goose': 'Grey Goose Vodka',
-                    'patron': 'Patron Tequila',
-                    'hennessy': 'Hennessy Cognac',
-                    'johnnie walker': 'Johnnie Walker Scotch',
-                    'jim beam': 'Jim Beam Bourbon',
-                    'maker\'s mark': 'Maker\'s Mark Bourbon',
-                    'tanqueray': 'Tanqueray Gin',
-                    'bombay': 'Bombay Sapphire Gin',
-                    'jose cuervo': 'Jose Cuervo Tequila',
-                    'crown royal': 'Crown Royal Whisky',
-                    'jameson': 'Jameson Irish Whiskey',
-                    'baileys': 'Baileys Irish Cream',
-                    'kahlua': 'Kahlua',
-                    'cointreau': 'Cointreau',
-                    'grand marnier': 'Grand Marnier',
-                    'amaretto': 'Amaretto',
-                    'southern comfort': 'Southern Comfort'
-                };
-
-                const matched = [];
-
-                for (const item of detectedItems) {
-                    if (item.type === 'brand' || item.type === 'tag') {
-                        const itemLower = item.name.toLowerCase();
-
-                        for (const [key, value] of Object.entries(knownBrands)) {
-                            if (itemLower.includes(key) || key.includes(itemLower)) {
-                                matched.push({
-                                    ingredientName: value,
-                                    confidence: item.confidence,
-                                    matchType: 'brand'
-                                });
-                                break;
+            // Build Anthropic Messages API request
+            const requestBody = {
+                model: "claude-haiku-4-5",
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            imageContent,
+                            {
+                                type: "text",
+                                text: userPrompt
                             }
+                        ]
+                    }
+                ]
+            };
+
+            context.log('Calling Claude Haiku 4.5...');
+
+            let claudeResponse;
+            try {
+                claudeResponse = await axios.post(claudeEndpoint, requestBody, {
+                    headers: {
+                        'x-api-key': claudeApiKey,
+                        'anthropic-version': '2023-06-01',
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 60000
+                });
+            } catch (axiosError) {
+                context.error('Claude API error:', axiosError.message);
+                if (axiosError.response) {
+                    context.error('Status:', axiosError.response.status);
+                    context.error('Data:', JSON.stringify(axiosError.response.data));
+                }
+
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: {
+                        error: 'Vision API call failed',
+                        message: axiosError.message,
+                        details: axiosError.response?.data
+                    }
+                };
+            }
+
+            // Validate response
+            if (!claudeResponse.data?.content?.[0]?.text) {
+                context.error('Invalid response from Claude');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: { error: 'Invalid response from vision API' }
+                };
+            }
+
+            const aiResponse = claudeResponse.data.content[0].text;
+            context.log('Claude Haiku 4.5 raw response:', aiResponse);
+
+            // Parse JSON response
+            let detectedBottles = [];
+
+            try {
+                // Extract JSON from response - handle markdown code blocks and extra text
+                let cleanedResponse = aiResponse.trim();
+
+                // Try to extract JSON from markdown code block first
+                const jsonBlockMatch = cleanedResponse.match(/```(?:json)?\s*([\s\S]*?)```/);
+                if (jsonBlockMatch) {
+                    cleanedResponse = jsonBlockMatch[1].trim();
+                } else {
+                    // Try to find raw JSON object
+                    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                        cleanedResponse = jsonMatch[0];
+                    }
+                }
+
+                const jsonResponse = JSON.parse(cleanedResponse);
+
+                if (jsonResponse.bottles && Array.isArray(jsonResponse.bottles)) {
+                    detectedBottles = jsonResponse.bottles.map(bottle => ({
+                        brand: bottle.brand,
+                        type: bottle.type,
+                        confidence: bottle.confidence || 0.90
+                    }));
+                }
+
+                context.log(`Parsed ${detectedBottles.length} bottles from JSON response`);
+
+            } catch (parseError) {
+                context.error('Failed to parse Claude JSON response:', parseError.message);
+                context.error('Raw response was:', aiResponse);
+
+                // Fallback: try to extract bottles from text
+                if (!aiResponse.toUpperCase().includes('NONE') && aiResponse.trim().length > 0) {
+                    const lines = aiResponse.split('\n').filter(line => line.trim().length > 0);
+
+                    for (const line of lines) {
+                        let brand = line
+                            .replace(/^\d+[\.\)]\s*/, '')
+                            .replace(/^[-•*]\s*/, '')
+                            .replace(/["']/g, '')
+                            .trim();
+
+                        if (brand.length > 0 && !brand.toUpperCase().includes('NONE')) {
+                            const typeMapping = inferTypeFromBrand(brand);
+
+                            detectedBottles.push({
+                                brand: brand,
+                                type: typeMapping.type,
+                                confidence: 0.85
+                            });
                         }
                     }
                 }
+            }
 
-                const unique = matched.filter((item, index, self) =>
-                    index === self.findIndex((t) => t.ingredientName === item.ingredientName)
-                );
+            context.log(`Detected ${detectedBottles.length} bottles`);
 
-                return unique;
-            };
+            // Match to database
+            const matchedIngredients = matchBottlesToDatabase(detectedBottles);
 
-            // Helper function to calculate overall confidence
-            const calculateConfidence = (analysis) => {
-                let totalConfidence = 0;
-                let count = 0;
+            // Calculate average confidence
+            const avgConfidence = detectedBottles.length > 0
+                ? detectedBottles.reduce((sum, b) => sum + b.confidence, 0) / detectedBottles.length
+                : 0;
 
-                if (analysis.tags) {
-                    for (const tag of analysis.tags.slice(0, 5)) {
-                        totalConfidence += tag.confidence;
-                        count++;
-                    }
-                }
-
-                return count > 0 ? totalConfidence / count : 0;
-            };
-
-            const detectedItems = extractAlcoholItems(analysis);
-            const matchedIngredients = await matchToDatabase(detectedItems);
-
-            // Return results
+            // Return response
             return {
                 status: 200,
                 headers,
                 jsonBody: {
                     success: true,
-                    detected: detectedItems,
+                    detected: detectedBottles.map(bottle => ({
+                        type: 'brand',
+                        name: bottle.brand,
+                        confidence: bottle.confidence
+                    })),
                     matched: matchedIngredients,
-                    confidence: calculateConfidence(analysis),
+                    confidence: avgConfidence,
                     rawAnalysis: {
-                        description: analysis.description?.captions?.[0]?.text || '',
-                        tags: analysis.tags?.slice(0, 10) || [],
-                        brands: analysis.brands || []
+                        description: `Detected ${detectedBottles.length} alcohol bottle(s)`,
+                        fullResponse: aiResponse,
+                        tags: detectedBottles.map(b => ({
+                            name: `${b.brand} ${b.type}`,
+                            confidence: b.confidence
+                        })),
+                        brands: detectedBottles.map(b => ({
+                            name: b.brand,
+                            confidence: b.confidence
+                        }))
                     }
                 }
             };
 
         } catch (error) {
-            context.log.error('Vision analysis error:', error);
+            context.error('Vision analysis error:', error);
             return {
                 status: 500,
                 headers,
                 jsonBody: {
                     error: 'Failed to analyze image',
-                    message: error.message
+                    message: error.message,
+                    stack: error.stack
                 }
             };
+        }
+
+        // Helper function to infer alcohol type from brand name
+        function inferTypeFromBrand(brand) {
+            const brandLower = brand.toLowerCase();
+
+            if (brandLower.includes('smirnoff') || brandLower.includes('absolut') ||
+                brandLower.includes('grey goose') || brandLower.includes('ketel one') ||
+                brandLower.includes('tito') || brandLower.includes('belvedere')) {
+                return { type: 'Vodka' };
+            }
+
+            if (brandLower.includes('jack daniel') || brandLower.includes('jim beam') ||
+                brandLower.includes('evan williams') || brandLower.includes('maker') ||
+                brandLower.includes('jameson') || brandLower.includes('crown royal') ||
+                brandLower.includes('johnnie walker') || brandLower.includes('glenfiddich')) {
+                return { type: 'Whiskey' };
+            }
+
+            if (brandLower.includes('kahlua') || brandLower.includes('baileys') ||
+                brandLower.includes('amaretto') || brandLower.includes('disaronno') ||
+                brandLower.includes('cointreau') || brandLower.includes('grand marnier')) {
+                return { type: 'Liqueur' };
+            }
+
+            if (brandLower.includes('hennessy') || brandLower.includes('cognac') ||
+                brandLower.includes('remy martin') || brandLower.includes('courvoisier')) {
+                return { type: 'Cognac' };
+            }
+
+            if (brandLower.includes('bacardi') || brandLower.includes('captain morgan') ||
+                brandLower.includes('malibu') || brandLower.includes('rum')) {
+                return { type: 'Rum' };
+            }
+
+            if (brandLower.includes('patron') || brandLower.includes('jose cuervo') ||
+                brandLower.includes('tequila')) {
+                return { type: 'Tequila' };
+            }
+
+            if (brandLower.includes('tanqueray') || brandLower.includes('bombay') ||
+                brandLower.includes('hendrick') || brandLower.includes('gin')) {
+                return { type: 'Gin' };
+            }
+
+            return { type: 'Spirit' };
+        }
+
+        // Helper function to match detected bottles to database
+        function matchBottlesToDatabase(detectedBottles) {
+            const brandMappings = {
+                'smirnoff': 'Smirnoff Vodka',
+                'absolut': 'Absolut Vodka',
+                'grey goose': 'Grey Goose Vodka',
+                'ketel one': 'Ketel One Vodka',
+                'kahlua': 'Kahlua Coffee Liqueur',
+                'baileys': 'Baileys Irish Cream',
+                "bailey's": 'Baileys Irish Cream',
+                'jack daniels': 'Jack Daniels Whiskey',
+                "jack daniel's": 'Jack Daniels Whiskey',
+                'jameson': 'Jameson Irish Whiskey',
+                'crown royal': 'Crown Royal Whisky',
+                'hennessy': 'Hennessy Cognac',
+                'patron': 'Patron Tequila',
+                'jose cuervo': 'Jose Cuervo Tequila',
+                'bacardi': 'Bacardi Rum',
+                'captain morgan': 'Captain Morgan Rum',
+                'tanqueray': 'Tanqueray Gin',
+                'bombay': 'Bombay Sapphire Gin',
+                "hendrick's": 'Hendricks Gin',
+                'evan williams': 'Evan Williams Bourbon',
+                "maker's mark": 'Makers Mark Bourbon',
+                'jim beam': 'Jim Beam Bourbon',
+                'johnnie walker': 'Johnnie Walker Scotch',
+                'glenfiddich': 'Glenfiddich Scotch',
+                'cointreau': 'Cointreau',
+                'grand marnier': 'Grand Marnier',
+                'amaretto': 'Amaretto',
+                'disaronno': 'Disaronno Amaretto',
+                'southern comfort': 'Southern Comfort'
+            };
+
+            const matched = [];
+
+            for (const bottle of detectedBottles) {
+                const brandLower = bottle.brand.toLowerCase();
+
+                let matchedName = null;
+                for (const [key, value] of Object.entries(brandMappings)) {
+                    if (brandLower.includes(key) || key.includes(brandLower)) {
+                        matchedName = value;
+                        break;
+                    }
+                }
+
+                if (!matchedName) {
+                    matchedName = `${bottle.brand} ${bottle.type}`;
+                }
+
+                matched.push({
+                    ingredientName: matchedName,
+                    confidence: bottle.confidence,
+                    matchType: 'brand'
+                });
+            }
+
+            return matched;
         }
     }
 });

@@ -41,7 +41,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
       searchQuery: _searchQuery.isEmpty ? null : _searchQuery,
       category: _selectedCategory,
       alcoholic: _selectedAlcoholic,
-      limit: 1000, // Load all for now
+      limit: 10000, // Increased to handle full cocktail database
     );
 
     // Watch cocktails - use inventory-based provider if "Can Make" is enabled

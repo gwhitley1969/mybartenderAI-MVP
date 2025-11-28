@@ -120,6 +120,8 @@ class LoginScreen extends ConsumerWidget {
   Widget _buildSignInButton(BuildContext context, WidgetRef ref) {
     return ElevatedButton(
       onPressed: () async {
+        // Clear any previous error state before attempting sign in
+        ref.read(authNotifierProvider.notifier).clearError();
         await ref.read(authNotifierProvider.notifier).signIn();
       },
       style: ElevatedButton.styleFrom(

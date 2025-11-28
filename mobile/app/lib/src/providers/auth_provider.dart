@@ -93,10 +93,21 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       await _authService.signOut();
       developer.log('Sign out successful', name: 'AuthNotifier');
-      state = const AuthState.unauthenticated();
     } catch (e) {
-      developer.log('Sign out error', name: 'AuthNotifier', error: e);
-      state = AuthState.error(e.toString());
+      // Log the error but still transition to unauthenticated
+      // The auth service already cleared local storage, so we're effectively signed out
+      developer.log('Sign out error (non-fatal): ${e.toString()}', name: 'AuthNotifier', error: e);
+    }
+    // Always transition to unauthenticated after sign out attempt
+    state = const AuthState.unauthenticated();
+  }
+
+  /// Clear error state and return to unauthenticated
+  /// Call this when user dismisses an error or wants to retry
+  void clearError() {
+    if (state is AuthStateError) {
+      developer.log('Clearing error state', name: 'AuthNotifier');
+      state = const AuthState.unauthenticated();
     }
   }
 

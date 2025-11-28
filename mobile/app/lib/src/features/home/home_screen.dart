@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/cocktail.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
-import '../ask_bartender/chat_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../my_bar/my_bar_screen.dart';
+import '../recipe_vault/cocktail_detail_screen.dart';
 import '../recipe_vault/recipe_vault_screen.dart';
+import 'providers/todays_special_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -41,8 +43,8 @@ class HomeScreen extends ConsumerWidget {
               _buildMasterMixologist(context),
               SizedBox(height: AppSpacing.sectionSpacing),
 
-              // Tonight's Special
-              _buildTonightsSpecial(context),
+              // Today's Special
+              _buildTodaysSpecial(context, ref),
               SizedBox(height: AppSpacing.xxl),
             ],
           ),
@@ -393,14 +395,7 @@ class HomeScreen extends ConsumerWidget {
               title: 'Academy',
               subtitle: 'Professional techniques',
               iconColor: AppColors.iconCirclePink,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Academy coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
-                  ),
-                );
-              },
+              onTap: () => context.go('/academy'),
             ),
             FeatureCard(
               icon: Icons.calculate,
@@ -422,8 +417,46 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTonightsSpecial(BuildContext context) {
-    return Container(
+  Widget _buildTodaysSpecial(BuildContext context, WidgetRef ref) {
+    final specialAsync = ref.watch(todaysSpecialProvider);
+
+    return specialAsync.when(
+      data: (cocktail) => _buildSpecialCard(
+        context: context,
+        cocktail: cocktail,
+        onTap: cocktail != null
+            ? () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        CocktailDetailScreen(cocktailId: cocktail.id),
+                  ),
+                );
+              }
+            : null,
+        contentBuilder: () => _buildSpecialDetails(cocktail),
+      ),
+      loading: () => _buildSpecialCard(
+        context: context,
+        cocktail: null,
+        contentBuilder: _buildSpecialLoading,
+      ),
+      error: (error, stackTrace) => _buildSpecialCard(
+        context: context,
+        cocktail: null,
+        contentBuilder: _buildSpecialError,
+      ),
+    );
+  }
+
+  Widget _buildSpecialCard({
+    required BuildContext context,
+    required Widget Function() contentBuilder,
+    Cocktail? cocktail,
+    VoidCallback? onTap,
+  }) {
+    final card = Container(
       padding: EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
         color: AppColors.cardBackground,
@@ -439,38 +472,184 @@ class HomeScreen extends ConsumerWidget {
             width: AppSpacing.iconCircleMedium,
             height: AppSpacing.iconCircleMedium,
             decoration: BoxDecoration(
-              color: AppColors.primaryPurple,
+              color: AppColors.iconCirclePurple,
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.nightlight_round,
+              Icons.wb_sunny_outlined,
               color: AppColors.textPrimary,
               size: AppSpacing.iconSizeMedium,
             ),
           ),
           SizedBox(width: AppSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tonight\'s Special',
-                  style: AppTypography.cardTitle.copyWith(
-                    fontSize: 18,
-                  ),
-                ),
-                SizedBox(height: AppSpacing.xs),
-                Text(
-                  'Perfectly crafted for your palate: Sweet + Citrusy',
-                  style: AppTypography.cardSubtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
+          Expanded(child: contentBuilder()),
         ],
       ),
     );
+
+    if (onTap == null) {
+      return card;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: card,
+    );
+  }
+
+  Widget _buildSpecialDetails(Cocktail? cocktail) {
+    final titleStyle = AppTypography.cardTitle.copyWith(fontSize: 18);
+
+    if (cocktail == null) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Today\'s Special',
+            style: titleStyle,
+          ),
+          SizedBox(height: AppSpacing.xs),
+          Text(
+            'Check back soon for a bartender-curated pick.',
+            style: AppTypography.cardSubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
+    }
+
+    final subtitle = _buildSpecialSubtitle(cocktail);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Special',
+          style: titleStyle,
+        ),
+        SizedBox(height: AppSpacing.xs),
+        Text(
+          cocktail.name,
+          style: AppTypography.cardTitle.copyWith(
+            fontSize: 16,
+            color: AppColors.textPrimary,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (subtitle.isNotEmpty) ...[
+          SizedBox(height: AppSpacing.xs),
+          Text(
+            subtitle,
+            style: AppTypography.cardSubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSpecialLoading() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Special',
+          style: AppTypography.cardTitle.copyWith(fontSize: 18),
+        ),
+        SizedBox(height: AppSpacing.xs),
+        Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation(AppColors.textSecondary),
+              ),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Text(
+                'Shaking up something special...',
+                style: AppTypography.cardSubtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpecialError() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Today\'s Special',
+          style: AppTypography.cardTitle.copyWith(fontSize: 18),
+        ),
+        SizedBox(height: AppSpacing.xs),
+        Text(
+          'We\'re restocking the bar. Please check back shortly.',
+          style: AppTypography.cardSubtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  String _buildSpecialSubtitle(Cocktail cocktail) {
+    final tagLine = _buildTagLineFromTags(cocktail.tags);
+    if (tagLine != null) {
+      return 'Flavor profile: $tagLine';
+    }
+
+    final category = cocktail.category?.trim();
+    final alcoholic = cocktail.alcoholic?.trim();
+
+    if (category != null && category.isNotEmpty && alcoholic != null && alcoholic.isNotEmpty) {
+      return '$category · $alcoholic';
+    }
+
+    if (category != null && category.isNotEmpty) {
+      return category;
+    }
+
+    if (alcoholic != null && alcoholic.isNotEmpty) {
+      return alcoholic;
+    }
+
+    return 'A bartender-curated favorite for today.';
+  }
+
+  String? _buildTagLineFromTags(List<String> tags) {
+    final formattedTags = tags
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .map(_capitalizeWords)
+        .toList();
+
+    if (formattedTags.isEmpty) {
+      return null;
+    }
+
+    return formattedTags.take(2).join(' + ');
+  }
+
+  String _capitalizeWords(String input) {
+    final words = input.split(RegExp(r'\s+')).where((word) => word.isNotEmpty);
+    return words
+        .map(
+          (word) => word.length == 1
+              ? word.toUpperCase()
+              : word[0].toUpperCase() + word.substring(1).toLowerCase(),
+        )
+        .join(' ');
   }
 }

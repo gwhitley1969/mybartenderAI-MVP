@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
+import 'src/features/academy/academy_screen.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
 import 'src/features/age_verification/age_verification_screen.dart';
 import 'src/features/auth/login_screen.dart';
@@ -136,6 +137,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'profile',
             builder: (BuildContext context, GoRouterState state) {
               return const ProfileScreen();
+            },
+          ),
+          GoRoute(
+            path: 'academy',
+            builder: (BuildContext context, GoRouterState state) {
+              return const AcademyScreen();
             },
           ),
         ],

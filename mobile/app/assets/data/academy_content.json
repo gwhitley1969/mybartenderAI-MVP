@@ -1,0 +1,200 @@
+{
+  "categories": [
+    {
+      "id": "fundamentals",
+      "title": "Fundamentals",
+      "description": "Master the basics every bartender needs",
+      "iconName": "school",
+      "sortOrder": 1,
+      "lessons": [
+        {
+          "id": "jigger-basics",
+          "title": "How to Use a Jigger",
+          "description": "Learn proper measuring technique for consistent cocktails. A jigger is essential for precise pours and balanced drinks.",
+          "duration": "4:52",
+          "difficulty": "beginner",
+          "youtubeVideoId": "Vu2CkQwA19M",
+          "tags": ["measuring", "basics", "tools"],
+          "sortOrder": 1
+        },
+        {
+          "id": "pouring-technique",
+          "title": "Free Pouring Technique",
+          "description": "Master the art of free pouring without measuring tools. Learn the count method used by professional bartenders.",
+          "duration": "6:15",
+          "difficulty": "intermediate",
+          "youtubeVideoId": "w-ylhJS_iUo",
+          "tags": ["pouring", "speed", "technique"],
+          "sortOrder": 2
+        },
+        {
+          "id": "ice-handling",
+          "title": "Ice Handling & Types",
+          "description": "Understanding different ice types and when to use them. From cubes to crushed, ice affects dilution and presentation.",
+          "duration": "5:30",
+          "difficulty": "beginner",
+          "youtubeVideoId": "uHu7iOzuFdU",
+          "tags": ["ice", "dilution", "basics"],
+          "sortOrder": 3
+        },
+        {
+          "id": "glassware-selection",
+          "title": "Essential Bar Glassware",
+          "description": "Learn which glass to use for different cocktails. Proper glassware enhances both presentation and drinking experience.",
+          "duration": "7:45",
+          "difficulty": "beginner",
+          "youtubeVideoId": "CODeSo8ePtM",
+          "tags": ["glassware", "presentation", "basics"],
+          "sortOrder": 4
+        }
+      ]
+    },
+    {
+      "id": "shaking-stirring",
+      "title": "Shaking & Stirring",
+      "description": "Perfect your mixing techniques",
+      "iconName": "sports_bar",
+      "sortOrder": 2,
+      "lessons": [
+        {
+          "id": "shake-vs-stir",
+          "title": "When to Shake vs Stir",
+          "description": "The golden rule: shake drinks with citrus or dairy, stir spirit-forward cocktails. Learn the science behind each method.",
+          "duration": "5:18",
+          "difficulty": "beginner",
+          "youtubeVideoId": "MAAQkLSetcE",
+          "tags": ["shaking", "stirring", "basics"],
+          "sortOrder": 1
+        },
+        {
+          "id": "hard-shake",
+          "title": "The Japanese Hard Shake",
+          "description": "Master the iconic Japanese hard shake technique developed by Kazuo Ueda for optimal dilution and aeration.",
+          "duration": "8:22",
+          "difficulty": "advanced",
+          "youtubeVideoId": "pi8yL8A0G60",
+          "tags": ["shaking", "japanese", "advanced"],
+          "sortOrder": 2
+        },
+        {
+          "id": "dry-shake",
+          "title": "Dry Shake for Egg Whites",
+          "description": "Learn the two-step shake method for perfectly frothy egg white cocktails like Whiskey Sours and Pisco Sours.",
+          "duration": "4:45",
+          "difficulty": "intermediate",
+          "youtubeVideoId": "GcjBDxzfF9s",
+          "tags": ["egg white", "foam", "technique"],
+          "sortOrder": 3
+        },
+        {
+          "id": "proper-stirring",
+          "title": "Proper Stirring Technique",
+          "description": "Achieve the perfect dilution and chill for Martinis, Manhattans, and other stirred cocktails without over-diluting.",
+          "duration": "5:55",
+          "difficulty": "beginner",
+          "youtubeVideoId": "ueo3gKWPNO4",
+          "tags": ["stirring", "martini", "manhattan"],
+          "sortOrder": 4
+        }
+      ]
+    },
+    {
+      "id": "garnishes",
+      "title": "Garnishes",
+      "description": "Elevate your drinks with professional garnishes",
+      "iconName": "eco",
+      "sortOrder": 3,
+      "lessons": [
+        {
+          "id": "citrus-twists",
+          "title": "Citrus Twists & Peels",
+          "description": "Create beautiful lemon, lime, and orange twists. Learn different styles from simple twists to elaborate horse's necks.",
+          "duration": "6:30",
+          "difficulty": "beginner",
+          "youtubeVideoId": "640aJL2zmww",
+          "tags": ["citrus", "garnish", "presentation"],
+          "sortOrder": 1
+        },
+        {
+          "id": "expressing-oils",
+          "title": "Expressing Citrus Oils",
+          "description": "The finishing touch that transforms cocktails. Learn to properly express oils over the drink surface for aroma and flavor.",
+          "duration": "3:45",
+          "difficulty": "beginner",
+          "youtubeVideoId": "lYnvd_oqzXE",
+          "tags": ["oils", "aroma", "technique"],
+          "sortOrder": 2
+        },
+        {
+          "id": "flaming-peel",
+          "title": "Flaming a Citrus Peel",
+          "description": "Add drama and caramelized citrus notes by flaming orange peels. A classic technique for Old Fashioneds and more.",
+          "duration": "4:12",
+          "difficulty": "intermediate",
+          "youtubeVideoId": "w-vJpeIwVwk",
+          "tags": ["fire", "orange", "showmanship"],
+          "sortOrder": 3
+        },
+        {
+          "id": "herb-garnishes",
+          "title": "Working with Herb Garnishes",
+          "description": "From mint sprigs to rosemary smoke, learn to select, prepare, and present aromatic herb garnishes.",
+          "duration": "5:20",
+          "difficulty": "beginner",
+          "youtubeVideoId": "liHlEbfgDug",
+          "tags": ["herbs", "mint", "aromatics"],
+          "sortOrder": 4
+        }
+      ]
+    },
+    {
+      "id": "advanced-techniques",
+      "title": "Advanced Techniques",
+      "description": "Pro-level skills for the serious mixologist",
+      "iconName": "auto_awesome",
+      "sortOrder": 4,
+      "lessons": [
+        {
+          "id": "layering-drinks",
+          "title": "Layering Drinks",
+          "description": "Create stunning layered shots and cocktails using density differences. Master the pour-over-spoon technique.",
+          "duration": "6:45",
+          "difficulty": "intermediate",
+          "youtubeVideoId": "QENCJN9Z6vY",
+          "tags": ["layering", "density", "presentation"],
+          "sortOrder": 1
+        },
+        {
+          "id": "fat-washing",
+          "title": "Fat Washing Spirits",
+          "description": "Infuse spirits with savory flavors from bacon to butter. Learn this modern technique used in craft cocktail bars.",
+          "duration": "9:15",
+          "difficulty": "advanced",
+          "youtubeVideoId": "9M4mBhJg6C4",
+          "tags": ["infusion", "fat wash", "modern"],
+          "sortOrder": 2
+        },
+        {
+          "id": "clarified-cocktails",
+          "title": "Milk Clarified Cocktails",
+          "description": "Use milk clarification to create crystal-clear versions of citrus cocktails with silky texture and shelf stability.",
+          "duration": "11:30",
+          "difficulty": "advanced",
+          "youtubeVideoId": "EyToyAVim2k",
+          "tags": ["clarification", "milk punch", "advanced"],
+          "sortOrder": 3
+        },
+        {
+          "id": "smoking-cocktails",
+          "title": "Smoking Cocktails",
+          "description": "Add depth and drama with smoke. Learn different methods from smoking guns to wood planks and torched herbs.",
+          "duration": "7:50",
+          "difficulty": "advanced",
+          "youtubeVideoId": "0pJtGs3bma4",
+          "tags": ["smoke", "presentation", "flavor"],
+          "sortOrder": 4
+        }
+      ]
+    }
+  ]
+}

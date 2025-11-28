@@ -1,0 +1,395 @@
+{
+  "tiers": [
+    {
+      "id": "essential",
+      "title": "Essential",
+      "subtitle": "Start Here",
+      "description": "The must-haves for any home bar. These six tools will let you make 90% of classic cocktails.",
+      "iconName": "star",
+      "sortOrder": 1,
+      "tools": [
+        {
+          "id": "jigger",
+          "name": "Jigger",
+          "subtitle": "Japanese Style, 1oz/2oz",
+          "description": "A jigger ensures consistent pours every time. The Japanese style has a sleek profile and internal measurement lines for precise measurements.",
+          "whyYouNeedIt": "Eyeballing measurements leads to inconsistent drinks. A jigger is the difference between a balanced cocktail and a boozy mess. Even professional bartenders use jiggers for precision.",
+          "whatToLookFor": [
+            "Internal measurement lines (1/2oz, 3/4oz marks)",
+            "Sturdy construction - thin metal dents easily",
+            "Japanese style for precision, American style for speed"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-10", "note": "Basic stainless steel" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$15-25", "note": "Japanese style with lines" },
+            { "tier": "premium", "label": "Premium", "range": "$30-50", "note": "Weighted, copper or gold finish" }
+          ],
+          "iconName": "straighten",
+          "sortOrder": 1,
+          "tags": ["measuring", "essential", "precision"]
+        },
+        {
+          "id": "boston-shaker",
+          "name": "Boston Shaker",
+          "subtitle": "18oz + 28oz Tins",
+          "description": "The Boston shaker is the industry standard. Two pieces - a smaller tin that fits into a larger one - with no built-in strainer, giving you maximum volume for shaking.",
+          "whyYouNeedIt": "The Boston shaker chills drinks faster than cobbler shakers and is easier to clean. It's what you'll see in every professional bar because it just works better.",
+          "whatToLookFor": [
+            "18oz and 28oz tin combo (or tin + tempered mixing glass)",
+            "Weighted bottom for stability on the bar",
+            "Smooth edges that seal well"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$10-15", "note": "Basic tins" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$20-35", "note": "Weighted tins" },
+            { "tier": "premium", "label": "Premium", "range": "$40-60", "note": "Koriko weighted set" }
+          ],
+          "iconName": "sports_bar",
+          "sortOrder": 2,
+          "tags": ["shaking", "essential", "mixing"]
+        },
+        {
+          "id": "bar-spoon",
+          "name": "Bar Spoon",
+          "subtitle": "Twisted Handle, 12 inch",
+          "description": "A bar spoon's twisted handle lets you stir drinks smoothly without introducing too much air. The long length reaches the bottom of tall mixing glasses.",
+          "whyYouNeedIt": "Stirring with a regular spoon introduces too much dilution and aeration. A bar spoon creates the silky texture that spirit-forward cocktails like Martinis and Manhattans demand.",
+          "whatToLookFor": [
+            "12 inch length minimum",
+            "Twisted shaft for smooth rotation",
+            "Weighted end or teardrop for balance"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-8", "note": "Basic twisted" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$12-20", "note": "Japanese style, teardrop end" },
+            { "tier": "premium", "label": "Premium", "range": "$25-40", "note": "Handmade, custom finish" }
+          ],
+          "iconName": "sync",
+          "sortOrder": 3,
+          "tags": ["stirring", "essential", "technique"]
+        },
+        {
+          "id": "hawthorne-strainer",
+          "name": "Hawthorne Strainer",
+          "subtitle": "Spring-loaded, Fits Shaker Tin",
+          "description": "The Hawthorne strainer has a coiled spring that fits inside your shaker tin, catching ice and large particles while letting the liquid through.",
+          "whyYouNeedIt": "Keeps ice and large particles out of your drink when pouring from a shaker. The spring creates a tight seal against the tin for clean pours every time.",
+          "whatToLookFor": [
+            "Tight spring coil that holds its shape",
+            "Fits your specific shaker tin size",
+            "Comfortable finger rest on top"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-8", "note": "Basic stainless" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$12-18", "note": "Tighter spring, better fit" },
+            { "tier": "premium", "label": "Premium", "range": "$25-35", "note": "Buswell or similar pro brand" }
+          ],
+          "iconName": "filter_alt",
+          "sortOrder": 4,
+          "tags": ["straining", "essential", "shaking"]
+        },
+        {
+          "id": "muddler",
+          "name": "Muddler",
+          "subtitle": "Wooden or Stainless Steel",
+          "description": "A muddler releases oils from herbs and juice from fruit. Essential for drinks like Mojitos, Old Fashioneds, and Smashes.",
+          "whyYouNeedIt": "Properly muddled ingredients release their essential oils and flavors without becoming bitter. A good muddler gives you control over how much extraction you get.",
+          "whatToLookFor": [
+            "Flat bottom (not toothed) - toothed muddlers shred herbs",
+            "Comfortable grip for repetitive use",
+            "Long enough to reach bottom of a mixing glass"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-10", "note": "Basic wood" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$12-20", "note": "Stainless steel" },
+            { "tier": "premium", "label": "Premium", "range": "$25-40", "note": "Weighted, ergonomic" }
+          ],
+          "iconName": "vertical_align_bottom",
+          "sortOrder": 5,
+          "tags": ["muddling", "essential", "herbs"]
+        },
+        {
+          "id": "citrus-juicer",
+          "name": "Citrus Juicer",
+          "subtitle": "Handheld Press Style",
+          "description": "Fresh citrus is non-negotiable for quality cocktails. A handheld press juicer extracts maximum juice with minimal effort.",
+          "whyYouNeedIt": "Bottled juice tastes flat and oxidized. Fresh-squeezed citrus is the single biggest upgrade you can make to your cocktails. A press juicer makes it quick and easy.",
+          "whatToLookFor": [
+            "Handles lemons AND limes (some are sized for one or the other)",
+            "Sturdy hinge that won't bend under pressure",
+            "Enamel coating prevents metal taste"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$10-15", "note": "Basic press" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$20-30", "note": "Heavy duty, enamel coated" },
+            { "tier": "premium", "label": "Premium", "range": "$35-50", "note": "Commercial grade" }
+          ],
+          "iconName": "compress",
+          "sortOrder": 6,
+          "tags": ["citrus", "essential", "fresh"]
+        }
+      ]
+    },
+    {
+      "id": "level-up",
+      "title": "Level Up",
+      "subtitle": "Expand Your Arsenal",
+      "description": "Ready to go beyond the basics? These tools unlock new techniques and refine your craft.",
+      "iconName": "trending_up",
+      "sortOrder": 2,
+      "tools": [
+        {
+          "id": "mixing-glass",
+          "name": "Mixing Glass",
+          "subtitle": "Weighted Base, 500-700ml",
+          "description": "A dedicated mixing glass for stirred cocktails. The thick glass walls stay cold longer and the weighted base keeps it stable while stirring.",
+          "whyYouNeedIt": "While you can stir in your shaker tin, a proper mixing glass looks better and performs better. The visual of stirring a Manhattan in crystal clear glass is part of the experience.",
+          "whatToLookFor": [
+            "500-700ml capacity for proper dilution",
+            "Weighted base for stability",
+            "Thick walls for insulation",
+            "Pouring spout for clean pours"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$15-25", "note": "Basic glass" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$30-50", "note": "Yarai cut pattern" },
+            { "tier": "premium", "label": "Premium", "range": "$60-100", "note": "Handblown crystal" }
+          ],
+          "iconName": "local_bar",
+          "sortOrder": 1,
+          "tags": ["stirring", "glassware", "presentation"]
+        },
+        {
+          "id": "fine-mesh-strainer",
+          "name": "Fine Mesh Strainer",
+          "subtitle": "For Double-Straining",
+          "description": "A fine mesh strainer catches the small ice shards and pulp that slip through a Hawthorne strainer, giving you a perfectly clear drink.",
+          "whyYouNeedIt": "Double-straining removes tiny ice chips that dilute your drink and citrus pulp that clouds it. Essential for elegant cocktails served up.",
+          "whatToLookFor": [
+            "Fine mesh that catches small particles",
+            "Handle long enough to hold comfortably",
+            "Rim that fits standard glasses"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-8", "note": "Basic mesh" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$10-15", "note": "Conical shape, finer mesh" },
+            { "tier": "premium", "label": "Premium", "range": "$20-30", "note": "Gold-plated, bar-specific" }
+          ],
+          "iconName": "filter_list",
+          "sortOrder": 2,
+          "tags": ["straining", "clarity", "technique"]
+        },
+        {
+          "id": "channel-knife",
+          "name": "Channel Knife",
+          "subtitle": "For Citrus Twists",
+          "description": "A channel knife cuts thin strips of citrus peel for elegant twists and garnishes. Creates those long spiraling peels you see in craft cocktail bars.",
+          "whyYouNeedIt": "A channel knife creates uniform, professional-looking twists that a regular peeler can't match. The thin strips express oils without adding bitterness from the pith.",
+          "whatToLookFor": [
+            "Sharp blade that cuts cleanly",
+            "Comfortable handle for control",
+            "Small enough for detail work"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-8", "note": "Basic steel" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$10-18", "note": "Ergonomic handle" },
+            { "tier": "premium", "label": "Premium", "range": "$20-35", "note": "Japanese steel" }
+          ],
+          "iconName": "content_cut",
+          "sortOrder": 3,
+          "tags": ["garnish", "citrus", "presentation"]
+        },
+        {
+          "id": "julep-strainer",
+          "name": "Julep Strainer",
+          "subtitle": "For Stirred Drinks",
+          "description": "The julep strainer is designed for stirred drinks in a mixing glass. Its perforated bowl shape fits perfectly against the ice.",
+          "whyYouNeedIt": "While you can use a Hawthorne strainer for everything, a julep strainer gives you more control with stirred drinks and looks more elegant when making cocktails at the bar.",
+          "whatToLookFor": [
+            "Perforations sized to catch ice but not slow the pour",
+            "Curved shape that fits mixing glasses",
+            "Comfortable handle angle"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$8-12", "note": "Basic stainless" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$15-25", "note": "Better fit, weighted" },
+            { "tier": "premium", "label": "Premium", "range": "$30-45", "note": "Copper or gold finish" }
+          ],
+          "iconName": "filter_2",
+          "sortOrder": 4,
+          "tags": ["straining", "stirred", "classic"]
+        },
+        {
+          "id": "pour-spouts",
+          "name": "Pour Spouts",
+          "subtitle": "Speed Pourers",
+          "description": "Pour spouts replace bottle caps for faster, more controlled pours. They let air in as liquid comes out for a smooth, consistent flow.",
+          "whyYouNeedIt": "Speed pourers give you consistent flow rates, making free-pouring more accurate. They also make it easier to pour multiple ingredients quickly.",
+          "whatToLookFor": [
+            "Metal spouts over plastic for durability",
+            "Tapered design for standard bottle necks",
+            "Dust caps for bottles you use less often"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$1-2 each", "note": "Plastic, pack of 12" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$3-5 each", "note": "Metal with dust cap" },
+            { "tier": "premium", "label": "Premium", "range": "$8-12 each", "note": "Measured pourers" }
+          ],
+          "iconName": "water_drop",
+          "sortOrder": 5,
+          "tags": ["pouring", "speed", "efficiency"]
+        },
+        {
+          "id": "ice-cube-trays",
+          "name": "Ice Cube Trays",
+          "subtitle": "Large Format, 2 inch Cubes",
+          "description": "Large ice cubes melt slower, keeping your drink cold longer without diluting it as quickly. Essential for spirit-forward drinks served on the rocks.",
+          "whyYouNeedIt": "Big ice isn't just for looks - the lower surface-to-volume ratio means slower dilution. An Old Fashioned stays strong longer with a 2-inch cube than with regular ice.",
+          "whatToLookFor": [
+            "2 inch cubes for rocks drinks",
+            "Silicone trays for easy release",
+            "Lids to prevent freezer odors"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$8-12", "note": "Basic silicone tray" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$15-25", "note": "Insulated for clear ice" },
+            { "tier": "premium", "label": "Premium", "range": "$30-50", "note": "Directional freezing system" }
+          ],
+          "iconName": "ac_unit",
+          "sortOrder": 6,
+          "tags": ["ice", "dilution", "presentation"]
+        }
+      ]
+    },
+    {
+      "id": "pro-status",
+      "title": "Pro Status",
+      "subtitle": "Advanced Gear",
+      "description": "For the serious home bartender. These specialized tools unlock professional techniques and show you mean business.",
+      "iconName": "workspace_premium",
+      "sortOrder": 3,
+      "tools": [
+        {
+          "id": "japanese-jigger-set",
+          "name": "Japanese Jigger Set",
+          "subtitle": "Multiple Sizes",
+          "description": "A set of Japanese-style jiggers in multiple sizes gives you the precision to measure any amount without math or guesswork.",
+          "whyYouNeedIt": "Having dedicated jiggers for common measurements (0.5oz, 0.75oz, 1oz, 1.5oz, 2oz) means faster, more accurate pours. No more filling a jigger halfway.",
+          "whatToLookFor": [
+            "Set includes at least 4-5 sizes",
+            "Consistent quality across all pieces",
+            "Internal lines for sub-measurements"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$20-30", "note": "Basic 4-piece set" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$40-60", "note": "5-piece with lines" },
+            { "tier": "premium", "label": "Premium", "range": "$80-120", "note": "Copper or gold, weighted" }
+          ],
+          "iconName": "tune",
+          "sortOrder": 1,
+          "tags": ["measuring", "precision", "professional"]
+        },
+        {
+          "id": "lewis-bag-mallet",
+          "name": "Lewis Bag & Mallet",
+          "subtitle": "For Crushed Ice",
+          "description": "The canvas Lewis bag absorbs water while you crush ice with a wooden mallet, creating dry, fluffy crushed ice for Juleps and Swizzles.",
+          "whyYouNeedIt": "Blender-crushed ice is wet and clumpy. A Lewis bag creates the dry, snow-like ice that proper Mint Juleps and Tiki drinks demand.",
+          "whatToLookFor": [
+            "Heavy canvas that absorbs water",
+            "Wooden mallet that won't damage the bag",
+            "Bag size that holds enough ice for several drinks"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$15-20", "note": "Basic canvas and mallet" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$25-35", "note": "Heavier canvas, better mallet" },
+            { "tier": "premium", "label": "Premium", "range": "$40-60", "note": "Professional grade" }
+          ],
+          "iconName": "gavel",
+          "sortOrder": 2,
+          "tags": ["ice", "crushed", "julep"]
+        },
+        {
+          "id": "smoking-gun",
+          "name": "Smoking Gun",
+          "subtitle": "For Smoked Cocktails",
+          "description": "A handheld smoker infuses drinks with wood smoke flavor. Fill a glass with smoke, trap it, then pour in your cocktail for dramatic presentation.",
+          "whyYouNeedIt": "Smoke adds complexity and theater to cocktails. A Smoked Old Fashioned isn't just delicious - it's an experience your guests will remember.",
+          "whatToLookFor": [
+            "Variable airflow control",
+            "Works with different wood chips",
+            "Easy to clean and maintain"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$25-40", "note": "Basic handheld" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$50-80", "note": "PolyScience or similar" },
+            { "tier": "premium", "label": "Premium", "range": "$100-150", "note": "Professional grade" }
+          ],
+          "iconName": "smoking_rooms",
+          "sortOrder": 3,
+          "tags": ["smoke", "presentation", "flavor"]
+        },
+        {
+          "id": "atomizer",
+          "name": "Atomizer",
+          "subtitle": "For Absinthe Rinses and Spritzes",
+          "description": "An atomizer sprays a fine mist of spirits or bitters on top of drinks or inside glasses for aromatic impact without adding volume.",
+          "whyYouNeedIt": "A Sazerac needs an absinthe rinse - an atomizer gives you that wash of flavor without drowning the drink. Also perfect for aromatic bitters on top of cocktails.",
+          "whatToLookFor": [
+            "Glass bottle that won't react with spirits",
+            "Fine mist spray pattern",
+            "Easy to refill and clean"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$5-10", "note": "Basic glass bottle" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$12-20", "note": "Better spray mechanism" },
+            { "tier": "premium", "label": "Premium", "range": "$25-40", "note": "Vintage style, metal accents" }
+          ],
+          "iconName": "air",
+          "sortOrder": 4,
+          "tags": ["aroma", "rinse", "technique"]
+        },
+        {
+          "id": "fine-scale",
+          "name": "Fine Scale",
+          "subtitle": "0.1g Precision for Bitters",
+          "description": "A precision scale measures ingredients by weight instead of volume. Essential for recipes that call for exact amounts of bitters or tinctures.",
+          "whyYouNeedIt": "Weight is more accurate than volume for small amounts. When a recipe calls for 2 dashes of bitters, a scale tells you exactly what that means in grams.",
+          "whatToLookFor": [
+            "0.1g (or better) precision",
+            "Tare function for zeroing with a glass",
+            "Compact size for bar use"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$10-15", "note": "Basic 0.1g scale" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$20-35", "note": "0.01g precision" },
+            { "tier": "premium", "label": "Premium", "range": "$50-80", "note": "Lab-grade accuracy" }
+          ],
+          "iconName": "scale",
+          "sortOrder": 5,
+          "tags": ["measuring", "precision", "bitters"]
+        },
+        {
+          "id": "sous-vide",
+          "name": "Sous Vide",
+          "subtitle": "For Rapid Infusions",
+          "description": "A sous vide circulator rapidly infuses spirits with flavors that would take weeks using traditional methods. Make custom bitters, infused syrups, and flavored spirits.",
+          "whyYouNeedIt": "Traditional infusions take days or weeks. Sous vide infuses flavors in hours while preserving delicate notes that heat would destroy.",
+          "whatToLookFor": [
+            "Precise temperature control",
+            "Works with Mason jars or vacuum bags",
+            "Quiet operation"
+          ],
+          "priceRanges": [
+            { "tier": "budget", "label": "Budget", "range": "$50-80", "note": "Basic circulator" },
+            { "tier": "mid", "label": "Mid-Range", "range": "$100-150", "note": "Anova or similar" },
+            { "tier": "premium", "label": "Premium", "range": "$200-300", "note": "Professional grade" }
+          ],
+          "iconName": "thermostat",
+          "sortOrder": 6,
+          "tags": ["infusion", "advanced", "technique"]
+        }
+      ]
+    }
+  ]
+}

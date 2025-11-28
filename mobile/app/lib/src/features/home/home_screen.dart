@@ -398,18 +398,11 @@ class HomeScreen extends ConsumerWidget {
               onTap: () => context.go('/academy'),
             ),
             FeatureCard(
-              icon: Icons.calculate,
+              icon: Icons.build,
               title: 'Pro Tools',
               subtitle: 'Precision instruments',
               iconColor: AppColors.iconCircleOrange,
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Pro Tools coming soon!'),
-                    backgroundColor: AppColors.cardBackground,
-                  ),
-                );
-              },
+              onTap: () => context.go('/pro-tools'),
             ),
           ],
         ),

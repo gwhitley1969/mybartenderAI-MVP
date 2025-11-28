@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/academy/academy_screen.dart';
+import 'src/features/pro_tools/pro_tools_screen.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
 import 'src/features/age_verification/age_verification_screen.dart';
 import 'src/features/auth/login_screen.dart';
@@ -143,6 +144,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'academy',
             builder: (BuildContext context, GoRouterState state) {
               return const AcademyScreen();
+            },
+          ),
+          GoRoute(
+            path: 'pro-tools',
+            builder: (BuildContext context, GoRouterState state) {
+              return const ProToolsScreen();
             },
           ),
         ],

@@ -3,24 +3,35 @@ const { getPool } = require('../shared/db/postgresPool');
 /**
  * cocktail-preview function
  * Generates HTML preview pages with Open Graph tags for social sharing
- * Route: GET /v1/cocktails/{id}/preview
+ * Route: GET /cocktail/{id}
+ * URL: https://share.mybartenderai.com/api/cocktail/{id}
  */
 
 async function getCocktailById(cocktailId) {
     const pool = getPool();
 
-    // Query cocktail by ID from PostgreSQL
+    // Query drink from PostgreSQL with ingredients joined
+    // Table is 'drinks' not 'cocktails', using 'thumbnail' not 'image_url'
     const result = await pool.query(
         `SELECT
-            id,
-            name,
-            category,
-            glass,
-            instructions,
-            image_url,
-            ingredients
-         FROM cocktails
-         WHERE id = $1 OR LOWER(REPLACE(name, ' ', '-')) = LOWER($1)
+            d.id,
+            d.name,
+            d.category,
+            d.glass,
+            d.instructions,
+            d.thumbnail,
+            COALESCE(
+                json_agg(
+                    json_build_object('name', i.name, 'measure', m.measure)
+                    ORDER BY i.position
+                ) FILTER (WHERE i.name IS NOT NULL),
+                '[]'::json
+            ) as ingredients
+         FROM drinks d
+         LEFT JOIN ingredients i ON d.id = i.drink_id
+         LEFT JOIN measures m ON d.id = m.drink_id AND i.position = m.position
+         WHERE d.id = $1 OR LOWER(REPLACE(d.name, ' ', '-')) = LOWER($1)
+         GROUP BY d.id, d.name, d.category, d.glass, d.instructions, d.thumbnail
          LIMIT 1`,
         [cocktailId]
     );
@@ -36,7 +47,7 @@ async function getCocktailById(cocktailId) {
         category: row.category,
         glass: row.glass,
         instructions: row.instructions,
-        imageUrl: row.image_url,
+        imageUrl: row.thumbnail,
         ingredients: row.ingredients
     };
 }
@@ -65,7 +76,7 @@ function generateDescription(cocktail) {
 }
 
 function generatePreviewPage(cocktail) {
-    const shareUrl = `https://fd-mba-share.azurefd.net/cocktail/${cocktail.id}`;
+    const shareUrl = `https://share.mybartenderai.com/api/cocktail/${cocktail.id}`;
     const imageUrl = cocktail.imageUrl || 'https://mbacocktaildb3.blob.core.windows.net/images/default-cocktail.jpg';
     const description = escapeHtml(generateDescription(cocktail));
     const cocktailName = escapeHtml(cocktail.name);
@@ -101,23 +112,32 @@ function generatePreviewPage(cocktail) {
     <meta property="al:ios:app_store_id" content="YOUR_APP_STORE_ID">
     <meta property="al:ios:app_name" content="My AI Bartender">
 
-    <!-- Fallback redirect -->
+    <!-- Smart behavior - show content, attempt deep link only if app installed -->
     <script>
-        // Try to open the app via deep link
-        window.location.href = "mybartender://cocktail/${cocktail.id}";
-
-        // Fallback to app store after a delay if app not installed
-        setTimeout(function() {
+        (function() {
             const userAgent = navigator.userAgent || navigator.vendor;
-            if (/android/i.test(userAgent)) {
-                window.location.href = "https://play.google.com/store/apps/details?id=com.mybartenderai.app";
-            } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-                window.location.href = "https://apps.apple.com/app/idYOUR_APP_STORE_ID";
-            } else {
-                // Desktop - show the web page
-                document.getElementById('install-prompt').style.display = 'block';
+            const isAndroid = /android/i.test(userAgent);
+            const isIOS = /iPad|iPhone|iPod/.test(userAgent);
+            const isMobile = isAndroid || isIOS;
+
+            // Always show the install prompt (download buttons)
+            document.querySelector('.loading').style.display = 'none';
+            document.getElementById('install-prompt').style.display = 'block';
+
+            if (isMobile) {
+                // On mobile: try deep link (will open app if installed, otherwise nothing happens)
+                // Use an iframe to attempt deep link without navigating away
+                var iframe = document.createElement('iframe');
+                iframe.style.display = 'none';
+                iframe.src = "mybartender://cocktail/${cocktail.id}";
+                document.body.appendChild(iframe);
+
+                // Clean up iframe after attempt
+                setTimeout(function() {
+                    document.body.removeChild(iframe);
+                }, 2000);
             }
-        }, 1000);
+        })();
     </script>
 
     <style>
@@ -288,30 +308,34 @@ function generateErrorPage(message, errorCode = null) {
 }
 
 module.exports = async function (context, req) {
-    const cocktailId = context.bindingData.id;
+    // Support both v3 (bindingData) and v4 (req.params) models
+    const cocktailId = context.bindingData?.id || req.params?.id;
 
-    context.log(`[cocktail-preview] Request for cocktail: ${cocktailId}`);
+    // Use console.log for v4 compatibility (context.log works in v3)
+    const log = (msg) => console.log(msg);
+    const logError = (msg, err) => console.error(msg, err);
+
+    log(`[cocktail-preview] Request for cocktail: ${cocktailId}`);
 
     try {
         // Get cocktail from database
         const cocktail = await getCocktailById(cocktailId);
 
         if (!cocktail) {
-            context.log(`[cocktail-preview] Cocktail not found: ${cocktailId}`);
-            context.res = {
+            log(`[cocktail-preview] Cocktail not found: ${cocktailId}`);
+            return {
                 status: 404,
                 headers: { 'Content-Type': 'text/html; charset=utf-8' },
                 body: generateErrorPage('Cocktail not found. The recipe you\'re looking for doesn\'t exist.', 'COCKTAIL_NOT_FOUND')
             };
-            return;
         }
 
-        context.log(`[cocktail-preview] Found cocktail: ${cocktail.name}`);
+        log(`[cocktail-preview] Found cocktail: ${cocktail.name}`);
 
         // Generate HTML preview page
         const html = generatePreviewPage(cocktail);
 
-        context.res = {
+        return {
             status: 200,
             headers: {
                 'Content-Type': 'text/html; charset=utf-8',
@@ -321,8 +345,8 @@ module.exports = async function (context, req) {
         };
 
     } catch (error) {
-        context.log.error('[cocktail-preview] Error:', error);
-        context.res = {
+        logError('[cocktail-preview] Error:', error);
+        return {
             status: 500,
             headers: { 'Content-Type': 'text/html; charset=utf-8' },
             body: generateErrorPage('Unable to load cocktail preview. Please try again later.', 'INTERNAL_ERROR')

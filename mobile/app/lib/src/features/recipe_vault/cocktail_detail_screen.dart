@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
@@ -52,6 +53,11 @@ class CocktailDetailScreen extends ConsumerWidget {
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
+                  // Share button
+                  IconButton(
+                    icon: Icon(Icons.share, color: AppColors.textPrimary),
+                    onPressed: () => _shareRecipe(context, cocktail),
+                  ),
                   // Favorite button
                   Consumer(
                     builder: (context, ref, child) {
@@ -453,5 +459,66 @@ class CocktailDetailScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// Share the cocktail recipe using native OS share sheet
+  Future<void> _shareRecipe(BuildContext context, Cocktail cocktail) async {
+    // Generate share URL - this will be crawled for Open Graph tags
+    // Uses custom domain with /api/cocktail path for proper Front Door routing
+    final shareUrl =
+        'https://share.mybartenderai.com/api/cocktail/${cocktail.id}';
+
+    // Create description based on available information
+    String description = '';
+    if (cocktail.instructions != null && cocktail.instructions!.isNotEmpty) {
+      description = cocktail.instructions!.length > 100
+          ? '${cocktail.instructions!.substring(0, 100)}...'
+          : cocktail.instructions!;
+    } else if (cocktail.category != null) {
+      description =
+          'A delicious ${cocktail.category?.toLowerCase()} cocktail you have to try.';
+    } else {
+      description = 'A delicious cocktail you have to try.';
+    }
+
+    // Create share text
+    final shareText = '''
+🍹 ${cocktail.name}
+
+Check out this amazing cocktail recipe I found on My AI Bartender!
+
+$description
+''';
+
+    try {
+      final result = await Share.shareWithResult(
+        '$shareText\n$shareUrl',
+        subject: '${cocktail.name} - My AI Bartender Recipe',
+      );
+
+      // Show success feedback if shared successfully
+      if (result.status == ShareResultStatus.success) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Recipe shared successfully!'),
+              backgroundColor: AppColors.cardBackground,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Handle share errors gracefully
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Unable to share recipe. Please try again.'),
+            backgroundColor: AppColors.accentRed.withOpacity(0.9),
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 }

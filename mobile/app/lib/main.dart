@@ -11,9 +11,17 @@ import 'src/features/auth/login_screen.dart';
 import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
 import 'src/features/profile/profile_screen.dart';
+import 'src/features/recipe_vault/cocktail_detail_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
 import 'src/models/auth_state.dart';
 import 'src/providers/auth_provider.dart';
+import 'src/services/notification_service.dart';
+
+/// Global navigator key for navigation from notification taps
+final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
+
+/// Global router instance for notification navigation when app is already running
+GoRouter? _globalRouter;
 
 Future<void> main() async {
   await bootstrap(
@@ -28,12 +36,90 @@ Future<void> main() async {
   );
 }
 
-class MyBartenderApp extends ConsumerWidget {
+class MyBartenderApp extends ConsumerStatefulWidget {
   const MyBartenderApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyBartenderApp> createState() => _MyBartenderAppState();
+}
+
+class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
+  // Store pending cocktail ID for navigation after app is fully loaded
+  static String? _pendingCocktailId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    await NotificationService.instance.initialize(
+      onTap: (cocktailId) {
+        // Navigate to cocktail detail when notification is tapped
+        debugPrint('Notification tap callback received: $cocktailId');
+        if (cocktailId != null) {
+          // Use a slight delay to ensure we're not in the middle of a build
+          Future.microtask(() => _navigateToCocktail(cocktailId));
+        }
+      },
+    );
+
+    // Check if app was launched from a notification
+    final launchDetails = await NotificationService.instance.getNotificationAppLaunchDetails();
+    if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
+      final payload = launchDetails.notificationResponse?.payload;
+      if (payload != null) {
+        _pendingCocktailId = payload;
+        // Delay navigation to ensure router is ready
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _navigateToCocktail(payload);
+        });
+      }
+    }
+  }
+
+  void _navigateToCocktail(String cocktailId) {
+    debugPrint('Attempting to navigate to cocktail: $cocktailId');
+
+    // Method 1: Use the global router directly (most reliable when app is running)
+    if (_globalRouter != null) {
+      debugPrint('Using global router to navigate');
+      _globalRouter!.push('/cocktail/$cocktailId');
+      debugPrint('Navigation pushed via global router');
+      return;
+    }
+
+    // Method 2: Try using the navigator key's current state
+    final navigatorState = _rootNavigatorKey.currentState;
+    if (navigatorState != null) {
+      debugPrint('Using navigator state to push route');
+      final context = _rootNavigatorKey.currentContext;
+      if (context != null) {
+        GoRouter.of(context).push('/cocktail/$cocktailId');
+        debugPrint('Navigation pushed successfully');
+        return;
+      }
+    }
+
+    // Method 3: Fallback - try context directly
+    final context = _rootNavigatorKey.currentContext;
+    if (context != null) {
+      debugPrint('Using context.push fallback');
+      context.push('/cocktail/$cocktailId');
+    } else {
+      // Store for later if context not ready
+      debugPrint('Context not ready, storing for later');
+      _pendingCocktailId = cocktailId;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+
+    // Store router globally for notification navigation when app is already running
+    _globalRouter = router;
 
     return MaterialApp.router(
       routerConfig: router,
@@ -58,6 +144,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   final isAgeVerified = ref.watch(ageVerificationProvider);
 
   return GoRouter(
+    navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
     redirect: (BuildContext context, GoRouterState state) {
       // Get authentication status
@@ -107,6 +194,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (BuildContext context, GoRouterState state) {
           return const LoginScreen();
+        },
+      ),
+      // Cocktail detail route (for deep linking from notifications)
+      GoRoute(
+        path: '/cocktail/:id',
+        builder: (BuildContext context, GoRouterState state) {
+          final cocktailId = state.pathParameters['id']!;
+          return CocktailDetailScreen(cocktailId: cocktailId);
         },
       ),
       // Home route (protected)

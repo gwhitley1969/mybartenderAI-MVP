@@ -48,11 +48,10 @@ dependencies:
   # Compression
   zstandard: ^1.3.26
 
-  # Notifications - DISABLED until we debug why it breaks Today's Special
-  # flutter_local_notifications: ^17.1.2
-  # timezone: ^0.9.3
-  # flutter_timezone: ^5.0.1
-  # permission_handler: ^11.3.1
+  # Notifications for Today's Special daily reminder
+  flutter_local_notifications: ^18.0.1
+  timezone: ^0.10.0
+  permission_handler: ^11.3.1
 
   # Camera and image handling
   image_picker: ^1.0.8

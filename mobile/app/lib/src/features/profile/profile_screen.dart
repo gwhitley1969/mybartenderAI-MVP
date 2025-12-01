@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/notification_service.dart';
+import '../../services/token_storage_service.dart';
 import '../../theme/theme.dart';
+import '../age_verification/age_verification_screen.dart';
+import '../home/providers/todays_special_provider.dart';
 
 /// User profile screen
 class ProfileScreen extends ConsumerWidget {
@@ -12,6 +17,8 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    // Check both user profile AND local age verification status
+    final localAgeVerified = ref.watch(ageVerificationProvider);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
@@ -61,7 +68,20 @@ class ProfileScreen extends ConsumerWidget {
                   // Age Verification Section
                   _buildSectionTitle('Verification Status'),
                   SizedBox(height: AppSpacing.md),
-                  _buildVerificationCard(user.ageVerified),
+                  // Use local age verification OR user profile verification
+                  _buildVerificationCard(localAgeVerified || user.ageVerified),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Notification Settings Section
+                  _buildSectionTitle('Notifications'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildNotificationSettingsCard(context, ref),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Developer Tools Section
+                  _buildSectionTitle('Developer Tools'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildJwtTokenCard(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // Sign Out Button
@@ -234,6 +254,289 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
+  Widget _buildNotificationSettingsCard(BuildContext context, WidgetRef ref) {
+    final notificationSettings = ref.watch(notificationSettingsProvider);
+
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: notificationSettings.when(
+        data: (settings) => Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Enable/Disable toggle
+            Row(
+              children: [
+                Icon(
+                  Icons.notifications_outlined,
+                  color: AppColors.iconCirclePurple,
+                  size: 24,
+                ),
+                SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Today's Special Reminder",
+                        style: AppTypography.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Get daily cocktail inspiration',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch(
+                  value: settings.enabled,
+                  onChanged: (value) async {
+                    await NotificationService.instance.setNotificationEnabled(value);
+                    ref.invalidate(notificationSettingsProvider);
+
+                    // If enabling, reschedule the notification
+                    if (value) {
+                      final todaysSpecial = ref.read(todaysSpecialProvider);
+                      todaysSpecial.whenData((cocktail) {
+                        if (cocktail != null) {
+                          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail);
+                        }
+                      });
+                    }
+
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            value
+                                ? 'Daily reminders enabled!'
+                                : 'Daily reminders disabled',
+                          ),
+                          backgroundColor: AppColors.cardBackground,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  activeColor: AppColors.primaryPurple,
+                ),
+              ],
+            ),
+
+            // Time picker (only shown when enabled)
+            if (settings.enabled) ...[
+              SizedBox(height: AppSpacing.md),
+              Divider(color: AppColors.cardBorder),
+              SizedBox(height: AppSpacing.md),
+              InkWell(
+                onTap: () => _showTimePicker(context, ref, settings),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.access_time,
+                      color: AppColors.iconCircleTeal,
+                      size: 24,
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Reminder Time',
+                            style: AppTypography.bodyMedium,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            settings.formattedTime,
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.primaryPurple,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: AppSpacing.md),
+              Divider(color: AppColors.cardBorder),
+              SizedBox(height: AppSpacing.md),
+              // Test notification button
+              InkWell(
+                onTap: () => _sendTestNotification(context, ref),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.send,
+                      color: AppColors.iconCircleOrange,
+                      size: 24,
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Test Notification',
+                            style: AppTypography.bodyMedium,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Send a test notification now',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.chevron_right,
+                      color: AppColors.textSecondary,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+        loading: () => Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.lg),
+            child: CircularProgressIndicator(
+              color: AppColors.primaryPurple,
+            ),
+          ),
+        ),
+        error: (error, _) => Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            'Unable to load notification settings',
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.error,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendTestNotification(BuildContext context, WidgetRef ref) async {
+    final todaysSpecial = ref.read(todaysSpecialProvider);
+
+    todaysSpecial.when(
+      data: (cocktail) async {
+        if (cocktail != null) {
+          await NotificationService.instance.showTestNotification(cocktail);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Test notification sent! Check your notification shade.'),
+                backgroundColor: AppColors.success,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        } else {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('No cocktail available for test notification.'),
+                backgroundColor: AppColors.error,
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+        }
+      },
+      loading: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Loading cocktail data...'),
+            backgroundColor: AppColors.cardBackground,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+      error: (error, _) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: Could not send test notification.'),
+            backgroundColor: AppColors.error,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showTimePicker(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationSettings settings,
+  ) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: settings.hour, minute: settings.minute),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.dark(
+              primary: AppColors.primaryPurple,
+              surface: AppColors.backgroundSecondary,
+              onSurface: AppColors.textPrimary,
+            ),
+            dialogBackgroundColor: AppColors.backgroundSecondary,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      await NotificationService.instance.setNotificationTime(picked.hour, picked.minute);
+      ref.invalidate(notificationSettingsProvider);
+
+      // Reschedule notification with new time
+      final todaysSpecial = ref.read(todaysSpecialProvider);
+      todaysSpecial.whenData((cocktail) {
+        if (cocktail != null) {
+          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail);
+        }
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Reminder time updated to ${NotificationService.instance.formatTime(picked.hour, picked.minute)}',
+            ),
+            backgroundColor: AppColors.cardBackground,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildSignOutButton(BuildContext context, WidgetRef ref) {
     return ElevatedButton(
       onPressed: () async {
@@ -292,6 +595,102 @@ class ProfileScreen extends ConsumerWidget {
             'Sign Out',
             style: AppTypography.bodyMedium.copyWith(
               fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJwtTokenCard(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.code, color: AppColors.iconCirclePurple, size: 20),
+              SizedBox(width: AppSpacing.sm),
+              Text(
+                'JWT Token',
+                style: AppTypography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.sm),
+          Text(
+            'Copy your JWT token for API testing',
+            style: AppTypography.caption.copyWith(
+              color: AppColors.textSecondary,
+            ),
+          ),
+          SizedBox(height: AppSpacing.md),
+          ElevatedButton.icon(
+            onPressed: () async {
+              try {
+                // Get token from storage
+                final tokenStorage = ref.read(tokenStorageServiceProvider);
+                final token = await tokenStorage.getAccessToken();
+
+                if (token != null) {
+                  // Copy to clipboard
+                  await Clipboard.setData(ClipboardData(text: token));
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('JWT token copied to clipboard'),
+                        backgroundColor: AppColors.success,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('No JWT token available. Please sign in.'),
+                        backgroundColor: AppColors.error,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error: ${e.toString()}'),
+                      backgroundColor: AppColors.error,
+                      duration: Duration(seconds: 3),
+                    ),
+                  );
+                }
+              }
+            },
+            icon: Icon(Icons.copy, size: 18),
+            label: Text('Copy JWT Token'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryPurple,
+              foregroundColor: AppColors.textPrimary,
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.sm,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
           ),
         ],

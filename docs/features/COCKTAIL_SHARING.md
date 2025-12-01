@@ -198,9 +198,143 @@ Test each layer individually to isolate issues:
 | `backend/functions/cocktail-preview/index.js` | HTML generation with OG tags |
 | `backend/functions/cocktail-preview/function.json` | Function route binding |
 
+## Enhanced Preview Page (December 2025)
+
+### Background
+
+User feedback requested that the shared link preview page show the full recipe card (like in the app) instead of just a minimal preview with cocktail image and name.
+
+### Before Enhancement
+
+The original preview page showed:
+- Circular cocktail image
+- Cocktail name with emoji
+- Category label
+- Brief description (instructions truncated)
+- "Get the App" buttons
+
+### After Enhancement
+
+The enhanced preview page now displays a full recipe card matching the app's design:
+
+```
+┌─────────────────────────────────────┐
+│      [Full-width Cocktail Image]    │
+├─────────────────────────────────────┤
+│  Cocktail Name                      │
+│  [Cocktail] [Alcoholic] [Glass]     │
+│                                     │
+│  Ingredients                        │
+│  ┌─────────────────────────────┐    │
+│  │ • Vodka              1 oz   │    │
+│  │ • Peach schnapps     1 oz   │    │
+│  │ • Orange juice       3 oz   │    │
+│  │ • Cranberry juice    3 oz   │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  Instructions                       │
+│  ┌─────────────────────────────┐    │
+│  │ Shaken, not stirred!        │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│  ┌─────────────────────────────┐    │
+│  │ Get My AI Bartender...      │    │
+│  │ [Google Play] [App Store]   │    │
+│  └─────────────────────────────┘    │
+│                                     │
+│     Shared from My AI Bartender     │
+└─────────────────────────────────────┘
+```
+
+### Implementation Changes
+
+**File**: `backend/functions/cocktail-preview/index.js`
+
+1. **Added ingredients HTML generation**:
+```javascript
+const ingredientsHtml = cocktail.ingredients && cocktail.ingredients.length > 0
+    ? cocktail.ingredients.map(ing => `
+        <div class="ingredient-row">
+            <span class="ingredient-dot"></span>
+            <span class="ingredient-name">${escapeHtml(ing.name || '')}</span>
+            <span class="ingredient-measure">${escapeHtml(ing.measure || '')}</span>
+        </div>`).join('')
+    : '<p class="no-ingredients">No ingredients listed</p>';
+```
+
+2. **Added tags generation** (category, alcoholic, glass type):
+```javascript
+const tags = [];
+if (cocktail.category) tags.push(cocktail.category);
+tags.push('Alcoholic');
+if (cocktail.glass) tags.push(cocktail.glass);
+const tagsHtml = tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+```
+
+3. **Redesigned HTML template** with:
+   - Full-width hero image (not circular)
+   - Colored tag badges (purple, pink, blue)
+   - Ingredients card with purple gradient background
+   - Instructions card
+   - App promo section
+   - Dark theme (#0d0d1a background) matching the app
+
+4. **CSS styling** includes:
+   - Responsive design (mobile and desktop)
+   - Purple accent colors (#8b5cf6) matching app theme
+   - Gradient backgrounds for cards
+   - Flexbox layout for ingredients
+
+### Data Already Available
+
+No database changes were needed. The PostgreSQL query already retrieved:
+- `category` (e.g., "Cocktail")
+- `glass` (e.g., "Collins glass")
+- `instructions` (full text)
+- `ingredients` array with `name` and `measure`
+
+### Testing
+
+Test URL: `https://share.mybartenderai.com/api/cocktail/16943` (A Gilligan's Island)
+
+### Image Display Fix (December 1, 2025)
+
+**Issue**: The hero image was using `object-fit: cover` which zoomed in too much, cutting off the cocktail garnishes and glass shape. Users could only see a close-up of the drink color.
+
+**Solution**: Changed to `object-fit: contain` so the full cocktail image is always visible.
+
+```css
+/* Before */
+.hero-image {
+    width: 100%;
+    height: 280px;
+    object-fit: cover;
+    display: block;
+}
+
+/* After */
+.hero-image {
+    width: 100%;
+    max-height: 350px;
+    object-fit: contain;
+    display: block;
+    background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+    padding: 1rem 0;
+}
+```
+
+**Changes**:
+- `object-fit: contain` - Shows entire image without cropping
+- `max-height` instead of fixed `height` - Allows image to size naturally
+- Gradient background - Blends with dark theme if image doesn't fill full width
+- Padding - Gives image breathing room
+
+---
+
 ## Date Resolved
 
-November 30, 2025
+- **Initial sharing fix**: November 30, 2025
+- **Enhanced preview page**: December 1, 2025
 
 ## Key Learnings
 
@@ -208,3 +342,5 @@ November 30, 2025
 2. **Front Door routing** - Use existing `/api/*` route rather than complex URL rewriting
 3. **Deep links on mobile** - Use iframe technique to attempt without navigating away
 4. **Show content first** - Never hide page content waiting for redirects
+5. **Data availability** - Check what data is already being queried before assuming backend changes are needed
+6. **Match app design** - Use same color palette and styling for brand consistency

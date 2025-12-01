@@ -81,6 +81,24 @@ function generatePreviewPage(cocktail) {
     const description = escapeHtml(generateDescription(cocktail));
     const cocktailName = escapeHtml(cocktail.name);
 
+    // Generate ingredients HTML
+    const ingredientsHtml = cocktail.ingredients && cocktail.ingredients.length > 0
+        ? cocktail.ingredients.map(ing => `
+            <div class="ingredient-row">
+                <span class="ingredient-dot"></span>
+                <span class="ingredient-name">${escapeHtml(ing.name || '')}</span>
+                <span class="ingredient-measure">${escapeHtml(ing.measure || '')}</span>
+            </div>`).join('')
+        : '<p class="no-ingredients">No ingredients listed</p>';
+
+    // Generate tags
+    const tags = [];
+    if (cocktail.category) tags.push(cocktail.category);
+    tags.push('Alcoholic'); // Most cocktails are alcoholic
+    if (cocktail.glass) tags.push(cocktail.glass);
+
+    const tagsHtml = tags.map(tag => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,19 +138,12 @@ function generatePreviewPage(cocktail) {
             const isIOS = /iPad|iPhone|iPod/.test(userAgent);
             const isMobile = isAndroid || isIOS;
 
-            // Always show the install prompt (download buttons)
-            document.querySelector('.loading').style.display = 'none';
-            document.getElementById('install-prompt').style.display = 'block';
-
             if (isMobile) {
                 // On mobile: try deep link (will open app if installed, otherwise nothing happens)
-                // Use an iframe to attempt deep link without navigating away
                 var iframe = document.createElement('iframe');
                 iframe.style.display = 'none';
                 iframe.src = "mybartender://cocktail/${cocktail.id}";
                 document.body.appendChild(iframe);
-
-                // Clean up iframe after attempt
                 setTimeout(function() {
                     document.body.removeChild(iframe);
                 }, 2000);
@@ -141,104 +152,203 @@ function generatePreviewPage(cocktail) {
     </script>
 
     <style>
+        * {
+            box-sizing: border-box;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
             margin: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-align: center;
-            padding: 2rem;
+            padding: 0;
+            background: #0d0d1a;
+            color: #ffffff;
+            min-height: 100vh;
         }
-        .container {
-            max-width: 600px;
-            padding: 2rem;
-        }
-        .cocktail-image {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin: 0 auto 1.5rem;
+        .hero-image {
+            width: 100%;
+            max-height: 350px;
+            object-fit: contain;
             display: block;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+            background: linear-gradient(180deg, #1a1a2e 0%, #0d0d1a 100%);
+            padding: 1rem 0;
+        }
+        .content {
+            padding: 1.5rem;
+            max-width: 600px;
+            margin: 0 auto;
         }
         h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            font-weight: bold;
+            font-size: 1.75rem;
+            margin: 0 0 1rem 0;
+            font-weight: 600;
         }
-        .category {
-            font-size: 1rem;
-            opacity: 0.8;
+        .tags {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
             margin-bottom: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
         }
-        p {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            line-height: 1.6;
+        .tag {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            border: 1px solid rgba(139, 92, 246, 0.5);
+            color: #c4b5fd;
+            background: rgba(139, 92, 246, 0.1);
         }
-        .loading {
-            margin-top: 2rem;
+        .tag:nth-child(2) {
+            border-color: rgba(244, 114, 182, 0.5);
+            color: #f9a8d4;
+            background: rgba(244, 114, 182, 0.1);
+        }
+        .tag:nth-child(3) {
+            border-color: rgba(96, 165, 250, 0.5);
+            color: #93c5fd;
+            background: rgba(96, 165, 250, 0.1);
+        }
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 1.5rem 0 1rem 0;
+        }
+        .ingredients-card {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(59, 7, 100, 0.3) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+        }
+        .ingredient-row {
+            display: flex;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .ingredient-row:last-child {
+            border-bottom: none;
+        }
+        .ingredient-dot {
+            width: 8px;
+            height: 8px;
+            background: #8b5cf6;
+            border-radius: 50%;
+            margin-right: 0.75rem;
+            flex-shrink: 0;
+        }
+        .ingredient-name {
+            flex: 1;
+            font-size: 0.95rem;
+        }
+        .ingredient-measure {
+            color: rgba(255, 255, 255, 0.7);
             font-size: 0.9rem;
-            opacity: 0.7;
+            margin-left: 1rem;
         }
-        #install-prompt {
-            display: none;
+        .instructions-card {
+            background: rgba(30, 30, 50, 0.5);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        .instructions-text {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: rgba(255, 255, 255, 0.9);
+            margin: 0;
+        }
+        .app-promo {
             margin-top: 2rem;
             padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.1);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(59, 7, 100, 0.4) 100%);
             border-radius: 12px;
-            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+        .app-promo-text {
+            font-size: 0.95rem;
+            margin-bottom: 1rem;
+            color: rgba(255, 255, 255, 0.9);
         }
         .store-buttons {
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             justify-content: center;
-            margin-top: 1rem;
             flex-wrap: wrap;
         }
         .store-button {
             display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid white;
+            padding: 0.6rem 1.25rem;
+            background: #8b5cf6;
             border-radius: 8px;
             color: white;
             text-decoration: none;
-            font-weight: bold;
-            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.2s;
         }
         .store-button:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
+            background: #7c3aed;
+            transform: translateY(-1px);
+        }
+        .no-ingredients {
+            color: rgba(255, 255, 255, 0.6);
+            font-style: italic;
+            margin: 0;
+        }
+        .branding {
+            text-align: center;
+            margin-top: 2rem;
+            padding-bottom: 1rem;
+        }
+        .branding-text {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        @media (min-width: 768px) {
+            .hero-image {
+                max-height: 450px;
+            }
+            h1 {
+                font-size: 2rem;
+            }
+            .content {
+                padding: 2rem;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <img src="${imageUrl}" alt="${cocktailName}" class="cocktail-image" onerror="this.style.display='none'">
-        <h1>🍹 ${cocktailName}</h1>
-        ${cocktail.category ? `<div class="category">${escapeHtml(cocktail.category)}</div>` : ''}
-        <p>${description}</p>
-        <p class="loading">Opening My AI Bartender...</p>
+    <img src="${imageUrl}" alt="${cocktailName}" class="hero-image" onerror="this.style.display='none'">
 
-        <div id="install-prompt">
-            <p style="font-size: 1rem; margin-bottom: 1rem;">Get the My AI Bartender app to view this recipe and discover more!</p>
+    <div class="content">
+        <h1>${cocktailName}</h1>
+
+        <div class="tags">
+            ${tagsHtml}
+        </div>
+
+        <div class="section-title">Ingredients</div>
+        <div class="ingredients-card">
+            ${ingredientsHtml}
+        </div>
+
+        <div class="section-title">Instructions</div>
+        <div class="instructions-card">
+            <p class="instructions-text">${cocktail.instructions ? escapeHtml(cocktail.instructions) : 'No instructions available.'}</p>
+        </div>
+
+        <div class="app-promo">
+            <p class="app-promo-text">Get My AI Bartender for more recipes, AI recommendations, and bar inventory tracking!</p>
             <div class="store-buttons">
                 <a href="https://play.google.com/store/apps/details?id=com.mybartenderai.app" class="store-button">
-                    Get on Google Play
+                    Google Play
                 </a>
                 <a href="https://apps.apple.com/app/idYOUR_APP_STORE_ID" class="store-button">
-                    Get on App Store
+                    App Store
                 </a>
             </div>
+        </div>
+
+        <div class="branding">
+            <span class="branding-text">Shared from My AI Bartender</span>
         </div>
     </div>
 </body>

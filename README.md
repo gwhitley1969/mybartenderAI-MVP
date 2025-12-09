@@ -2,23 +2,26 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: November 8, 2025)
+## 🚀 Current Status (Updated: December 9, 2025)
 
-- **Backend**: ✅ Azure Functions deployed (`func-mba-fresh`)
-- **API Gateway**: ✅ Azure API Management configured (`apim-mba-001`)
+- **Backend**: ✅ Azure Functions v4 Programming Model (`func-mba-fresh`) - 31 functions deployed
+- **API Gateway**: ✅ Azure API Management configured (`apim-mba-002`)
 - **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
 - **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
-- **AI**: ✅ GPT-4o-mini integrated for chat & recommendations
-- **Authentication**: ⏸️ Simplified - using Azure Function Keys directly
-- **Voice**: ❌ **REMOVED** - Too expensive for current business model
+- **AI**: ✅ Azure OpenAI GPT-4o-mini integrated (official @azure/openai SDK)
+- **Authentication**: ✅ Entra External ID (Google, Facebook, Email)
 - **Vision**: ✅ Azure Computer Vision for bottle identification
+- **Voice AI**: ✅ Real-time voice conversations with Azure OpenAI Realtime API (Pro tier)
 - **Mobile**: 📱 Flutter app - Core features complete and working
+- **Social Sharing**: ✅ Friends via Code backend deployed
+- **Static Website**: ✅ Azure Front Door with custom domain (share.mybartenderai.com)
+- **Migration**: ✅ v4 Programming Model - All functions migrated and deployed
 
 ### Mobile App Features
+
 - ✅ Recipe Vault with 621+ cocktails, search, filters, offline-first
 - ✅ My Bar inventory management with "Can Make" filter
 - ✅ AI Bartender Chat with inventory integration
-- ❌ Voice Bartender **REMOVED** (cost optimization)
 - ✅ Smart Scanner for bottle identification (Azure Computer Vision)
 - ✅ Create Studio with enhanced AI Refine feature
   - AI suggestions for improving recipes
@@ -26,44 +29,187 @@ AI-powered bartender app that helps users discover and create cocktails based on
   - Electric blue UI accents for better visibility
 - ✅ Favorites/Bookmarks
 - ✅ Backend connectivity via Azure Function Keys
-- ⚠️ **Premium migration pending** - EP1 quota increase submitted to Microsoft
+- ✅ **Friends via Code** - Social recipe sharing
+- ✅ **Voice AI Bartender** - Real-time voice conversations (Pro tier only)
+  - WebRTC-based audio streaming via Azure OpenAI Realtime API
+  - Live transcription of user and AI speech
+  - 30 minutes/month quota for Pro users
+  - Visual status indicators (listening, thinking, speaking)
+  - "Tap microphone to stop" instruction for ending sessions
+
+### Recent Deployments
+
+**Voice AI Feature (December 9, 2025):**
+
+- ✅ Voice AI backend functions deployed (voice-session, voice-usage, voice-quota, voice-realtime-test)
+- ✅ Azure OpenAI Realtime API integration via WebRTC
+- ✅ Database schema for voice sessions, messages, and quota tracking
+- ✅ Flutter Voice AI screen with real-time transcription
+- ✅ Pro tier gating with 30 minutes/month quota
+- ✅ User-friendly "Tap microphone to stop" instruction
+
+**Azure Functions v4 Migration (November 20, 2025):**
+
+- ✅ All 27 functions migrated from v3 to v4 programming model
+- ✅ Code-centric function registration in single `index.js` file
+- ✅ Migrated all AI functions to official Azure OpenAI SDK (@azure/openai)
+- ✅ Updated request/response handling to v4 APIs
+- ✅ Fixed logging API (context.error() instead of context.log.error())
+- ✅ Added missing Azure SDK dependencies
+- ✅ 26/27 functions verified working (96% success rate)
+- ✅ Comprehensive migration documentation created
+
+**Friends via Code Feature (November 15, 2025):**
+
+- ✅ Database schema (5 tables: user_profile, custom_recipes, recipe_share, share_invite, friendships)
+- ✅ Azure Functions (5 endpoints: users-me, social-share-internal, social-invite, social-inbox, social-outbox)
+- ✅ APIM Operations (7 operations with JWT authentication, rate limiting, tier-based quotas)
+- ✅ Static website hosting for recipe preview pages
+- ✅ Azure Front Door Standard CDN
+- ✅ Custom domain with SSL: `https://share.mybartenderai.com/` (validated)
+- ✅ Application Insights monitoring
+- ✅ Complete documentation
 
 ## 📁 Project Structure
 
 ```
 mybartenderAI-MVP/
-├── apps/
-│   └── backend/          # Azure Functions (Node.js/TypeScript)
+├── backend/
+│   └── functions/            # Azure Functions v4 (27 functions, Node.js 18+)
+│       ├── index.js          # Root file with all v4 function registrations
+│       ├── ask-bartender*/   # AI chat endpoint modules
+│       ├── auth-*/           # Authentication & token management
+│       ├── users-me/         # User profile management
+│       ├── social-*/         # Social sharing endpoints
+│       ├── snapshots-*/      # Cocktail database distribution
+│       ├── download-images*/ # Image asset management
+│       ├── sync-cocktaildb*/ # TheCocktailDB sync (timer triggers)
+│       ├── test-*/           # Testing & diagnostics
+│       ├── shared/           # Shared utilities (monitoring, auth)
+│       ├── services/         # Shared service modules
+│       ├── config/           # Configuration management
+│       └── package.json      # Dependencies including @azure/openai
 ├── mobile/
-│   └── app/             # Flutter mobile application
-├── docs/                # Architecture and documentation
-├── prompts/             # AI system prompts
-└── spec/                # API specifications
+│   └── app/                  # Flutter mobile application
+├── infrastructure/
+│   ├── apim/                 # APIM policies and configuration
+│   │   ├── policies/         # JWT validation, rate limiting
+│   │   └── scripts/          # Deployment scripts
+│   ├── storage/              # Static website configuration
+│   └── monitoring/           # Application Insights queries
+├── docs/                     # Architecture and documentation
+│   ├── FRIENDS-VIA-CODE-*.md # Social feature documentation
+│   └── *.md                  # Architecture, deployment guides
+├── prompts/                  # AI system prompts
+└── spec/                     # API specifications
 ```
 
 ## 🏗️ Architecture
 
 ### Azure Infrastructure
 
-- **API Gateway**: Azure API Management (`apim-mba-001`)
-  - Gateway: https://apim-mba-001.azure-api.net
-  - Three-tier products: Free, Premium ($4.99/mo), Pro ($9.99/mo)
-- **Backend**: Azure Functions (`func-mba-fresh`, Windows Consumption Plan)
-- **Database**: PostgreSQL (`pg-mybartenderdb`)
+- **API Gateway**: Azure API Management (`apim-mba-002`)
+  - Gateway: https://apim-mba-002.azure-api.net
+  - Three-tier products: Free, Premium ($$4.99/mo), Pro ($14.99/mo)
+  - JWT authentication with Entra External ID
+  - Rate limiting: 5 requests/minute + daily quotas (100/1000/5000)
+- **Backend**: Azure Functions (`func-mba-fresh`)
+  - Hosting Plan: Premium Consumption (Windows)
+  - Runtime: Node.js 18+
+  - Programming Model: v4 (code-centric registration)
+  - Functions: 27 total (24 HTTP triggers + 3 timer triggers)
+  - AI SDK: Official @azure/openai package
+  - Authentication: Managed Identity for Key Vault & Storage
+- **Database**: PostgreSQL Flexible Server (`pg-mybartenderdb`)
 - **Storage**: Azure Blob Storage (`mbacocktaildb3`)
-- **Security**: Azure Key Vault (`kv-mybartenderai-prod`), Region: (East US), Resource Group: (rg-mba-dev)
-- **AI**: Azure OpenAI (GPT-4o-mini) + Azure Speech Services
+  - Cocktail database snapshots
+  - Static website hosting ($web container)
+- **CDN**: Azure Front Door Standard (`fd-mba-share`) custom domain: `share.mybartenderai.com`
+  - Custom domain: https://share.mybartenderai.com
+  - Managed SSL certificate
+  - Global edge network
+- **Security**: Azure Key Vault (`kv-mybartenderai-prod`)
+  - Region: East US
+  - Resource Group: rg-mba-dev
+- **AI**: Azure OpenAI (GPT-4o-mini) + Azure Anthropic Haiku for Smart Scanner (East US2)
 - **Region**: South Central US (primary)
-- **Resource Group**: (everything but Azure Key Vault): (rg-mba-prod)
+- **Resource Group**: rg-mba-prod (except Key Vault)
+
+### Authentication Architecture
+
+- **Provider**: Microsoft Entra External ID (CIAM)
+- **Tenant**: mybartenderai.onmicrosoft.com
+- **Login Endpoint**: https://mybartenderai.ciamlogin.com
+- **Supported Methods**: Email/Password, Google, Facebook
+- **Token Type**: JWT with sub claim (user ID)
+- **Tier Detection**: JWT claims (`tier` or `subscription_tier`)
+- **Age Verification**: Server-side validation (21+)
+
+### Azure Functions (31 Total)
+
+**Core & Health (1)**
+
+- `health` - Health check endpoint (GET /api/health)
+
+**AI & Vision Functions (8)**
+
+- `ask-bartender` - AI bartender with telemetry (POST /api/v1/ask-bartender)
+- `ask-bartender-simple` - Simplified AI bartender (POST /api/v1/ask-bartender-simple)
+- `ask-bartender-test` - AI bartender test endpoint (POST /api/v1/ask-bartender-test)
+- `recommend` - AI recommendations with JWT (POST /api/v1/recommend)
+- `refine-cocktail` - Create Studio AI refinement (POST /api/v1/create-studio/refine)
+- `vision-analyze` - Computer Vision bottle detection (POST /api/v1/vision/analyze)
+- `voice-bartender` - Voice-guided cocktail making (POST /api/v1/voice-bartender)
+- `speech-token` - Azure Speech token generation (GET /api/speech-token)
+
+**Voice AI Functions (4)**
+
+- `voice-session` - Create voice session and get ephemeral token (POST /api/v1/voice/session)
+- `voice-usage` - Record voice session usage and transcripts (POST /api/v1/voice/usage)
+- `voice-quota` - Get voice quota status for user (GET /api/v1/voice/quota)
+- `voice-realtime-test` - Test Realtime API connectivity (GET/POST /api/v1/voice/test)
+
+**Authentication Functions (4)**
+
+- `auth-exchange` - Token exchange for APIM subscriptions (POST /api/v1/auth/exchange)
+- `auth-rotate` - Key rotation for APIM (POST /api/v1/auth/rotate)
+- `users-me` - User profile endpoint (GET /api/v1/users/me)
+- `validate-age` - Age validation (POST /api/validate-age)
+
+**Data & Storage Functions (6)**
+
+- `snapshots-latest` - Get latest snapshot (GET /api/snapshots/latest)
+- `snapshots-latest-mi` - Snapshot with managed identity (GET /api/v1/snapshots/latest-mi)
+- `download-images` - Download cocktail images (POST /api/v1/admin/download-images)
+- `download-images-mi` - Images with managed identity (POST /api/v1/admin/download-images-mi)
+- `sync-cocktaildb` - Daily cocktail DB sync (timer: 03:30 UTC)
+- `sync-cocktaildb-mi` - Cocktail sync with managed identity (timer)
+
+**Social Features (4)**
+
+- `social-inbox` - Social inbox (GET /api/v1/social/inbox)
+- `social-invite` - Social invites (GET /api/v1/social/invite/{token?})
+- `social-outbox` - Social outbox (GET /api/v1/social/outbox)
+- `social-share-internal` - Internal sharing (POST /api/v1/social/share-internal)
+
+**Testing & Utilities (4)**
+
+- `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
+- `test-mi-access` - Managed Identity test (GET /api/test/mi-access)
+- `test-write` - Blob write test (GET /api/test/write)
+- `rotate-keys-timer` - Scheduled key rotation (timer)
+
+**Programming Model**: All functions use Azure Functions v4 with code-centric registration in `index.js`. Complex functions delegate to v3-style modules as needed.
 
 ### Key Features
 
-- **Offline First**: Complete cocktail database (SQLite) available offline
-- **AI Recommendations**: GPT-4o-mini powered suggestions (~$0.007/session)
-- **Voice Assistant**: Azure Speech Services (93% cheaper than OpenAI Realtime)
-- **Tiered Access**: APIM-enforced Free/Premium/Pro subscription levels
-- **Privacy Focused**: No PII stored for free tier users
-- **Secure Storage**: SAS tokens (MVP), Managed Identity (planned)
+- **Offline First**: Complete cocktail database (SQLite with Zstandard compression) available offline
+- **AI Recommendations**: GPT-4o-mini powered suggestions using official @azure/openai SDK (~$0.007/session)
+- **Social Sharing**: Share recipes internally (by alias) or externally (via invite links)
+- **Privacy-Focused**: System-generated aliases (@adjective-animal-###), minimal PII collection
+- **Tiered Access**: APIM-enforced Free/Premium/Pro subscription levels with rate limiting and quotas
+- **Secure Storage**: Managed Identity for Key Vault and Storage access
+- **Global CDN**: Azure Front Door for fast recipe sharing worldwide
 
 ## 🔧 Quick Start
 
@@ -77,9 +223,8 @@ mybartenderAI-MVP/
 ### Backend Setup
 
 ```bash
-cd apps/backend
+cd backend/functions
 npm install
-npm run build
 
 # Deploy to Azure
 func azure functionapp publish func-mba-fresh
@@ -91,30 +236,45 @@ func azure functionapp publish func-mba-fresh
 cd mobile/app
 flutter pub get
 flutter run
+
+# Build release APK
+flutter build apk --release
 ```
 
 ### APIM Configuration
 
-1. Navigate to Azure Portal → API Management (`apim-mba-001`)
-2. Import OpenAPI spec from `/spec/openapi.yaml`
-3. Configure three Products: Free, Premium, Pro
-4. Set up rate limiting policies per tier
+The APIM is configured with JWT validation policies and tier-based quotas. See:
+
+- `infrastructure/apim/policies/social-endpoints-policy.xml` for social endpoints
+- `FRIENDS-VIA-CODE-DEPLOYMENT-RUNBOOK.md` for deployment steps
 
 ### Test Endpoints
 
 ```bash
 # Health check (anonymous)
-curl https://apim-mba-001.azure-api.net/api/health
+curl https://func-mba-fresh.azurewebsites.net/api/health
 
 # Get latest snapshot (requires API key)
 curl https://apim-mba-001.azure-api.net/api/v1/snapshots/latest \
   -H "Ocp-Apim-Subscription-Key: YOUR_KEY"
 
-# Ask bartender (requires Premium/Pro tier)
-curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
+# Get user profile (requires JWT)
+curl https://apim-mba-001.azure-api.net/api/v1/users/me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -H "Ocp-Apim-Subscription-Key: YOUR_KEY"
+
+# Share recipe internally (requires JWT)
+curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/share-internal \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Ocp-Apim-Subscription-Key: YOUR_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"query": "How do I make a Negroni?"}'
+  -d '{
+    "recipeId": "12345",
+    "recipeName": "Margarita",
+    "recipeType": "standard",
+    "recipientAlias": "@cool-panda-123",
+    "message": "Try this!"
+  }'
 ```
 
 ## 📚 Documentation
@@ -122,20 +282,30 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 ### Core Documentation
 
 - [Architecture Overview](docs/ARCHITECTURE.md) - Complete system design
-- [Product Requirements](docs/PRD.md) - Feature specifications and roadmap
+- [Deployment Status](docs/DEPLOYMENT_STATUS.md) - Current deployment state
 - [API Specification](spec/openapi.yaml) - OpenAPI contract
-- [Development Plan](docs/PLAN.md) - Sprint planning and acceptance criteria
+- [v4 Migration Guide](V4_MIGRATION_COMPLETE.md) - Azure Functions v4 migration details
+
+### Friends via Code (Social Sharing)
+
+- [API Documentation](docs/FRIENDS-VIA-CODE-API.md) - Complete endpoint reference
+- [Deployment Guide](FRIENDS-VIA-CODE-DEPLOYMENT-RUNBOOK.md) - Step-by-step deployment
+- [Deployment Summary](FRIENDS-VIA-CODE-DEPLOYMENT-COMPLETE.md) - Status and next steps
+- [Feature Specification](FEATURE-FriendsViaCode.md) - Complete feature design
+- [Implementation Plan](IMPLEMENTATION-PLAN-FriendsViaCode.md) - 16-day plan
+- [UI Mockups](FRIENDS-VIA-CODE-UI-MOCKUPS.md) - Flutter UI designs
+- [HTML Templates](FRIENDS-VIA-CODE-HTML-TEMPLATES.md) - Web preview pages
 
 ### Integration Guides
 
 - [Flutter Integration](docs/FLUTTER_INTEGRATION_PLAN.md) - Mobile app setup
-- [Voice Integration](docs/VOICE_INTEGRATION_PLAN.md) - Azure Speech Services
-- [Authentication Setup](docs/AUTHENTICATION_SETUP.md) - Entra External ID
+- [Authentication Setup](docs/authentication-setup-corrected.md) - Entra External ID configuration
 
-### Operations
+### Operations & Monitoring
 
-- [Deployment Status](docs/DEPLOYMENT_STATUS.md) - Current deployment state
-- [Managed Identity Migration](docs/MANAGED_IDENTITY_MIGRATION.md) - Future MI plan
+- [Monitoring Setup](infrastructure/monitoring/MONITORING-SETUP.md) - Application Insights queries and alerts
+- [Monitoring Script](infrastructure/monitoring/check-social-metrics.ps1) - Real-time metrics dashboard
+- [JWT Policy Guide](infrastructure/apim/JWT_POLICY_DEPLOYMENT_GUIDE.md) - APIM authentication setup
 
 ## 🎯 Feature Tiers
 
@@ -143,131 +313,190 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/ask-bartender \
 
 - ✅ Offline cocktail database (~621 drinks)
 - ✅ Local search and filtering
-- ✅ 10 AI recommendations/month
-- ❌ No voice assistant
-- ❌ No vision scanning
+- ✅ My Bar inventory management
+- ✅ Favorites/Bookmarks
+- ✅ Limited social sharing: 100 requests/day
+- ❌ Limited AI chat: 10 requests/month
+- ✅ 2 vision scanning/month
 
 ### Premium Tier ($4.99/month)
 
-- ✅ 100 AI recommendations/month
-- ✅ 30 minutes voice assistant/month
-- ✅ 5 vision scans/month
+- ✅ Everything in Free
+- ✅ Enhanced social sharing: 1,000 requests/day
+- ✅ AI chat: 300,000 tokens/month
+- ✅ Smart Scanner: 30 scans/month
+- ✅ Create Studio with AI Refine
 - ✅ 25 custom recipes
 
-### Pro Tier ($9.99/month)
+### Pro Tier ($8.99/month)
 
-- ✅ Unlimited AI recommendations
-- ✅ 5 hours voice assistant/month
-- ✅ 50 vision scans/month
+- ✅ Everything in Premium
+- ✅ Maximum social sharing: 5,000 requests/day
+- ✅ AI chat: 1,000,000 tokens/month
+- ✅ Smart Scanner: 100 scans/month
 - ✅ Unlimited custom recipes
 - ✅ Priority support
 
 ## 🔮 Roadmap
 
-### Phase 1: Early Beta (Current)
+### Phase 1: Early Beta ✅ Complete (November 2025)
 
 - ✅ Core backend infrastructure
+- ✅ **Azure Functions v4 programming model migration (27 functions)**
+- ✅ **Official Azure OpenAI SDK integration (@azure/openai)**
 - ✅ APIM configuration for tier management
 - ✅ Database synchronization from TheCocktailDB
 - ✅ JSON snapshot generation and delivery
 - ✅ GPT-4o-mini integration
-- ✅ Authentication with Entra External ID (Email, Google, Facebook)
-- ✅ Server-side age verification (21+) via Custom Authentication Extension
-- ✅ Flutter design system matching UI mockups
-- ✅ Flutter home screen implementation
-- ✅ Flutter backend connection (snapshots endpoint)
-- ✅ Recipe Vault screen with search, filters, and cocktail detail views
+- ✅ Authentication with Entra External ID
+- ✅ Server-side age verification (21+)
+- ✅ Managed Identity for Key Vault and Storage access
+- ✅ Flutter design system
+- ✅ Recipe Vault with search, filters, detail views
 - ✅ Offline-first SQLite database with Zstandard compression
-- ✅ Inventory management system (My Bar)
-- ✅ User ingredient tracking with quick-add functionality
-- ✅ "Can Make" filter for cocktails based on user inventory
-- 🚧 Voice Chat/Ask the Bartender screen integration
-- 🚧 AI recommendations with JWT authentication
-- 🚧 Voice assistant implementation
+- ✅ Inventory management (My Bar)
+- ✅ "Can Make" filter
+- ✅ AI Bartender Chat
+- ✅ Smart Scanner (Computer Vision)
+- ✅ Create Studio with AI Refine
+- ✅ Friends via Code backend (social sharing)
+- ✅ Static website with Azure Front Door
+- ✅ Custom domain with SSL (share.mybartenderai.com)
 
-### Phase 2: Premium Features (Q1 2026)
+### Phase 2: Mobile App Polish (December 2025)
 
-- 📋 Azure Speech Services integration
-- 📋 Voice-guided cocktail making
-- 📋 Azure Computer Vision for bar scanning
-- 📋 Custom recipe AI enhancement
-- 📋 iOS app launch
+- 📋 Friends via Code UI implementation
+- 📋 User profile management screen
+- 📋 Recipe sharing flows (internal & external)
+- 📋 Share inbox/outbox screens
+- 📋 Web share preview page implementation
+- 📋 Deep linking from web to app
+- 📋 Push notifications for shares
+- 📋 Beta testing with select users
+- 📋 Android Play Store submission
 
-### Phase 3: Advanced Features (Q2 2026)
+### Phase 3: iOS Launch (Q1 2026)
+
+- 📋 iOS app development
+- 📋 MSAL authentication for iOS
+- 📋 iOS-specific UI polish
+- 📋 TestFlight beta testing
+- 📋 App Store submission
+- 📋 Cross-platform feature parity
+
+### Phase 4: Advanced Features (Q2 2026)
 
 - 📋 Real-time collaboration on recipes
-- 📋 Social features (share custom cocktails)
+- 📋 Friend relationships (symmetric friendships)
 - 📋 Ingredient substitution AI
 - 📋 Cocktail preferences learning
 - 📋 Multi-language support
+- 📋 Advanced search filters
 
-### Phase 4: Scale & Optimize (Q3 2026)
+### Phase 5: Scale & Optimize (Q3 2026)
 
-- 📋 Migrate to Managed Identity
-- 📋 APIM Consumption tier
-- 📋 Azure Front Door (global CDN)
+- 📋 Migrate APIM to Consumption tier
 - 📋 Premium PostgreSQL tier
-- 📋 Advanced analytics
+- 📋 Advanced analytics dashboard
+- 📋 A/B testing framework
+- 📋 Performance optimization
 
 ## 💰 Cost Structure
 
-### Development (Current)
+### Beta (Current Monthly Costs)
 
-- APIM Developer tier: ~$50/month
-- Azure Functions: ~$0.20/month (minimal usage)
-- PostgreSQL Basic: ~$12-30/month
-- Storage: ~$1/month
-- **Total: ~$60-70/month**
+- APIM Basic V2 tier: ~$70/month
+- Azure Functions (Premium Consumption): ~$160/month
+- PostgreSQL Flexible Server: ~$30/month
+- Storage: ~$2/month
+- Azure Front Door Standard: ~$35/month
+- Application Insights: ~$3/month
+- **Total: ~$600/month**
 
-### Production (Target)
+### Production (Target Monthly Costs)
 
-- APIM Consumption: ~$5-15/month
-- Azure Functions: ~$0.20/month
-- PostgreSQL Optimized: ~$12-20/month
-- Storage: ~$1/month
-- AI Services: Covered by subscription revenue
-- **Total: ~$20-30/month base + usage**
+- APIM Consumption: ~$70/month
+- Azure Functions: ~$160/month
+- PostgreSQL: ~$30/month
+- Storage: ~$2/month
+- Azure Front Door: ~$36/month + data transfer
+- Application Insights: ~$5/month
+- **Total: ~$$$300 - $$$400/month base + usage**
 
 ### Per-User Costs (Premium)
 
 - AI (GPT-4o-mini): ~$0.40/month
-- Voice (Azure Speech): ~$0.10/month
-- **Total: ~$0.50/user/month**
+- Vision (Smart Scanner): ~ unknown as of 12/08/2025
+- **Total: ~$.75/user/month**
 
 ### Revenue Model
 
-- 1,000 Premium users @ $4.99 = $5,000/month
-- AI costs: ~$500/month
-- **Profit margin: ~90%**
+- 1,000 Premium users @ $4.99 = $4,990/month
+- 200 Pro users @ $14.99 = $2,998/month
+- **Total Revenue**: $7,988/month
+- AI costs: ~$540/month
+- Infrastructure: ~$650/month
+- **Net Profit**: ~$6,798/month (~70% margin)
 
 ## 🔐 Security
 
-### Authentication
+### Authentication & Authorization
 
-- Microsoft Entra External ID (Azure AD B2C)
+- Microsoft Entra External ID (Azure AD B2C successor)
 - JWT tokens validated at APIM layer
 - APIM subscription keys per app installation
+- Tier-based access control via JWT claims
+- Rate limiting and quotas enforced by APIM
 
 ### Secrets Management
 
 - All secrets in Azure Key Vault (`kv-mybartenderai-prod`)
+- Function App uses Managed Identity for Key Vault access
 - No secrets in code or configuration files
-- Key Vault references in Function App settings
+- Key Vault references in Function App settings (@Microsoft.KeyVault)
 
-### Privacy
+### Privacy & Compliance
 
-- No PII stored for Free tier
-- Voice transcripts ephemeral (unless user opts in)
-- Bar photos never stored
-- User ingredients hashed in logs
-- 90-day retention for opted-in data
+- **Minimal PII**: System-generated aliases for social features
+- **No email storage**: Only Entra ID stores identity
+- **Ephemeral data**: Voice transcripts not stored
+- **Bar photos**: Never uploaded or stored
+- **User ingredients**: Hashed in logs
+- **Data retention**: 90-day retention for opted-in data
+- **Age verification**: Server-side validation (21+)
+
+### Network Security
+
+- **HTTPS only**: All endpoints enforce TLS 1.2+
+- **CORS**: Configured for web sharing domain only
+- **HSTS**: Strict-Transport-Security headers
+- **Content Security**: X-Content-Type-Options, X-Frame-Options
+- **DDoS Protection**: Azure Front Door built-in protection
 
 ## 🧪 Testing
 
 ### Backend Testing
 
+**PowerShell Test Scripts (v4 Migration):**
+
+```powershell
+# Basic function tests
+.\test-v4-functions.ps1
+
+# Authentication function tests
+.\test-auth-functions.ps1
+
+# Comprehensive test suite
+.\test-v4-comprehensive.ps1
+
+# Route-specific tests
+.\test-specific-routes.ps1
+```
+
+**Unit & Integration Tests:**
+
 ```bash
-cd apps/backend
+cd backend/functions
 npm test                    # Unit tests
 npm run test:integration   # Integration tests
 ```
@@ -278,16 +507,68 @@ npm run test:integration   # Integration tests
 cd mobile/app
 flutter test               # Unit + widget tests
 flutter drive             # Integration tests
+
+# Test on physical device
+flutter run --release
 ```
 
 ### API Testing
 
-Use the APIM Developer Portal test console:
+**Test social endpoints:**
+
+```bash
+# Get user profile (auto-creates on first call)
+curl https://apim-mba-001.azure-api.net/api/v1/users/me \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Ocp-Apim-Subscription-Key: $APIM_KEY"
+
+# Create external invite
+curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/invite \
+  -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Ocp-Apim-Subscription-Key: $APIM_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"recipeId":"12345","recipeName":"Margarita","recipeType":"standard"}'
+```
+
+**Use APIM Developer Portal:**
 
 1. Navigate to https://apim-mba-001.developer.azure-api.net
 2. Sign in with your Azure account
 3. Select an API and operation
 4. Click "Try it" to test endpoints
+
+### Monitoring & Metrics
+
+```powershell
+# Run real-time metrics dashboard
+.\infrastructure\monitoring\check-social-metrics.ps1
+
+# Check last 6 hours
+.\infrastructure\monitoring\check-social-metrics.ps1 -TimeRangeHours 6
+```
+
+## 📊 Monitoring
+
+### Application Insights
+
+- **Resource**: `func-mba-fresh`
+- **Instrumentation Key**: Configured in Function App settings
+- **Auto-collection**: Functions requests, dependencies, exceptions
+
+### Key Metrics
+
+- Social endpoint request counts
+- Error rates by endpoint
+- Response time percentiles (P50, P95, P99)
+- Rate limit violations (429 responses)
+- User tier distribution
+- Database query performance
+
+### Dashboards
+
+- Azure Portal: Real-time metrics and logs
+- Custom queries: See `infrastructure/monitoring/MONITORING-SETUP.md`
+- Alerts: Configured for error rates and slow responses
 
 ## 🤝 Contributing
 
@@ -296,8 +577,9 @@ This is a private MVP project. For questions or access, please contact the proje
 ## 📞 Support
 
 - **Technical Issues**: Check [DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md)
-- **API Documentation**: See [OpenAPI spec](spec/openapi.yaml)
-- **Feature Requests**: Contact project owner
+- **API Documentation**: See [FRIENDS-VIA-CODE-API.md](docs/FRIENDS-VIA-CODE-API.md)
+- **Monitoring**: Run `.\infrastructure\monitoring\check-social-metrics.ps1`
+- **Troubleshooting**: See [MONITORING-SETUP.md](infrastructure/monitoring/MONITORING-SETUP.md)
 
 ## 📄 License
 
@@ -310,7 +592,15 @@ Proprietary - All rights reserved
 - Flutter (Mobile)
 - Azure Functions (Backend)
 - Azure API Management (Gateway)
-- Azure OpenAI (GPT-4o-mini)
-- Azure Speech Services (Voice)
+- Azure OpenAI GPT-4o-mini (AI)
+- Azure Computer Vision (Smart Scanner)
+- Azure Front Door (CDN)
 - PostgreSQL (Database)
-- Azure Blob Storage (Assets)
+- Azure Blob Storage (Assets & Static Website)
+- Microsoft Entra External ID (Authentication)
+
+---
+
+**Last Updated**: December 9, 2025
+**Version**: 0.9.1-beta
+**Status**: Early Beta - Voice AI Feature Complete, Backend Modernized, Mobile App Testing In Progress

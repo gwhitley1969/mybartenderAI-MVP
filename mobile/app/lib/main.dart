@@ -6,6 +6,7 @@ import 'src/app/bootstrap.dart';
 import 'src/features/academy/academy_screen.dart';
 import 'src/features/pro_tools/pro_tools_screen.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
+import 'src/features/voice_ai/voice_ai_screen.dart';
 import 'src/features/age_verification/age_verification_screen.dart';
 import 'src/features/auth/login_screen.dart';
 import 'src/features/create_studio/create_studio_screen.dart';
@@ -245,6 +246,12 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'pro-tools',
             builder: (BuildContext context, GoRouterState state) {
               return const ProToolsScreen();
+            },
+          ),
+          GoRoute(
+            path: 'voice-ai',
+            builder: (BuildContext context, GoRouterState state) {
+              return const VoiceAIScreen();
             },
           ),
         ],

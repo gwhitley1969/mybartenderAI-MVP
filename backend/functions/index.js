@@ -2286,14 +2286,701 @@ app.timer('sync-cocktaildb-mi', {
 });
 
 // =============================================================================
-// 28. Cocktail Preview - GET /v1/cocktails/{id}/preview
+// 28. Cocktail Preview - GET /cocktail/{id}
+// For social sharing with Open Graph tags
+// URL: https://share.mybartenderai.com/cocktail/{id}
 // =============================================================================
 app.http('cocktail-preview', {
     methods: ['GET'],
     authLevel: 'anonymous',  // Public access for social crawlers
-    route: 'v1/cocktails/{id}/preview',
+    route: 'cocktail/{id}',
     handler: async (request, context) => {
         const cocktailPreviewModule = require('./cocktail-preview');
         return await cocktailPreviewModule(context, request);
+    }
+});
+
+// =============================================================================
+// 29. Voice Realtime Test - GET/POST /v1/voice/test
+// Tests Azure OpenAI Realtime API connectivity and ephemeral token generation
+// =============================================================================
+app.http('voice-realtime-test', {
+    methods: ['GET', 'POST', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/voice/test',
+    handler: async (request, context) => {
+        context.log('Voice Realtime Test - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key'
+        };
+
+        // Handle CORS preflight
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            // Get configuration from environment (populated from Key Vault)
+            const realtimeEndpoint = process.env.AZURE_OPENAI_REALTIME_ENDPOINT;
+            const realtimeKey = process.env.AZURE_OPENAI_REALTIME_KEY;
+            const realtimeDeployment = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT;
+
+            // Validate configuration
+            const configCheck = {
+                endpoint: !!realtimeEndpoint,
+                key: !!realtimeKey,
+                deployment: !!realtimeDeployment
+            };
+
+            if (!realtimeEndpoint || !realtimeKey || !realtimeDeployment) {
+                context.log.error('Missing Realtime API configuration:', configCheck);
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'Missing configuration',
+                        configCheck,
+                        message: 'One or more Realtime API settings are not configured. Check Key Vault references.'
+                    }
+                };
+            }
+
+            context.log('Configuration validated. Attempting ephemeral token request...');
+            context.log('Endpoint:', realtimeEndpoint);
+            context.log('Deployment:', realtimeDeployment);
+
+            // Build the sessions URL for ephemeral token
+            // Format: POST https://{endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview
+            const sessionsUrl = `${realtimeEndpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`;
+
+            context.log('Sessions URL:', sessionsUrl);
+
+            // Session configuration for the ephemeral token request
+            const sessionConfig = {
+                model: realtimeDeployment,
+                voice: 'alloy',
+                instructions: 'You are a helpful AI bartender assistant.',
+                input_audio_transcription: {
+                    model: 'whisper-1'
+                },
+                turn_detection: {
+                    type: 'server_vad',
+                    threshold: 0.5,
+                    prefix_padding_ms: 300,
+                    silence_duration_ms: 500
+                }
+            };
+
+            // Request ephemeral token
+            const response = await fetch(sessionsUrl, {
+                method: 'POST',
+                headers: {
+                    'api-key': realtimeKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sessionConfig)
+            });
+
+            const responseText = await response.text();
+            context.log('Response status:', response.status);
+            context.log('Response body:', responseText.substring(0, 500));
+
+            if (!response.ok) {
+                context.log.error('Ephemeral token request failed');
+                return {
+                    status: response.status,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'Ephemeral token request failed',
+                        httpStatus: response.status,
+                        details: responseText,
+                        sessionsUrl: sessionsUrl
+                    }
+                };
+            }
+
+            // Parse successful response
+            const sessionData = JSON.parse(responseText);
+
+            // The WebRTC URL for East US2
+            const webrtcUrl = 'https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc';
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    message: 'Realtime API connection validated successfully!',
+                    session: {
+                        id: sessionData.id,
+                        model: sessionData.model,
+                        voice: sessionData.voice,
+                        hasClientSecret: !!sessionData.client_secret,
+                        expiresAt: sessionData.client_secret?.expires_at
+                    },
+                    webrtcUrl,
+                    note: 'Ephemeral token generated successfully. The token is valid for ~60 seconds and can be used for WebRTC connection.'
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Exception in voice-realtime-test:', error.message);
+            context.log.error('Stack:', error.stack);
+
+            return {
+                status: 500,
+                headers,
+                jsonBody: {
+                    success: false,
+                    error: 'Exception occurred',
+                    message: error.message,
+                    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 30. Voice Session - POST /v1/voice/session
+// Creates a voice session and returns ephemeral token for WebRTC connection
+// Pro tier only, checks quota before issuing token
+// =============================================================================
+app.http('voice-session', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/voice/session',
+    handler: async (request, context) => {
+        context.log('Voice Session - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, x-user-id'
+        };
+
+        // Handle CORS preflight
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            const db = require('./shared/database');
+
+            // Get user ID from header (set by APIM after JWT validation)
+            const userId = request.headers.get('x-user-id');
+
+            if (!userId) {
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'unauthorized',
+                        message: 'User ID not provided'
+                    }
+                };
+            }
+
+            context.log('Checking user tier for azure_ad_sub:', userId);
+
+            // Check user tier - look up by azure_ad_sub (the JWT sub claim)
+            let userResult = await db.query(
+                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                [userId]
+            );
+
+            // Auto-create user if not found (first-time voice feature access)
+            if (userResult.rows.length === 0) {
+                context.log('User not found, auto-creating with free tier');
+                const insertResult = await db.query(
+                    `INSERT INTO users (azure_ad_sub, tier, created_at, updated_at)
+                     VALUES ($1, 'free', NOW(), NOW())
+                     RETURNING id, tier`,
+                    [userId]
+                );
+                userResult = insertResult;
+                context.log('Created new user:', insertResult.rows[0]);
+            }
+
+            const user = userResult.rows[0];
+
+            if (user.tier !== 'pro') {
+                return {
+                    status: 403,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'tier_required',
+                        requiredTier: 'pro',
+                        currentTier: user.tier,
+                        message: 'Voice AI is a Pro tier feature. Upgrade to Pro to access real-time voice conversations.'
+                    }
+                };
+            }
+
+            context.log('User is Pro tier, checking quota for internal user.id:', user.id);
+
+            // Check voice quota using database function (uses internal UUID, not azure_ad_sub)
+            const quotaResult = await db.query(
+                'SELECT * FROM check_voice_quota($1)',
+                [user.id]
+            );
+
+            const quota = quotaResult.rows[0];
+            context.log('Quota check result:', quota);
+
+            if (!quota.has_quota) {
+                return {
+                    status: 403,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'quota_exceeded',
+                        quota: {
+                            monthlyUsedSeconds: quota.monthly_used_seconds,
+                            monthlyLimitSeconds: quota.monthly_limit_seconds,
+                            addonSecondsRemaining: quota.addon_seconds_remaining,
+                            totalRemainingSeconds: quota.total_remaining_seconds
+                        },
+                        message: 'Voice quota exhausted. Purchase additional minutes to continue.'
+                    }
+                };
+            }
+
+            // Parse request body for optional inventory context
+            let inventory = null;
+            try {
+                const body = await request.json();
+                inventory = body.inventory;
+            } catch (e) {
+                // No body or invalid JSON - that's fine
+            }
+
+            // Build system instructions with bartender personality
+            const inventoryContext = inventory ? `
+USER'S CURRENT BAR INVENTORY:
+Spirits: ${inventory.spirits?.join(', ') || 'None specified'}
+Mixers: ${inventory.mixers?.join(', ') || 'None specified'}
+Garnishes: ${inventory.garnishes?.join(', ') || 'None specified'}
+
+Prioritize suggesting drinks the user can make with these ingredients.
+` : '';
+
+            const systemInstructions = `You are an expert bartender and mixologist with decades of experience. Your name is "My AI Bartender" and you work exclusively within the My AI Bartender mobile app.
+
+EXPERTISE AREAS (respond helpfully to these topics):
+- Cocktail recipes, ingredients, measurements, and preparation techniques
+- Mixology theory: flavor profiles, spirit categories, balancing drinks
+- Bar tools and equipment: shakers, jiggers, muddlers, strainers, glassware
+- Garnishes and presentation techniques
+- Spirit knowledge: production, aging, tasting notes, brands
+- Non-alcoholic mocktails and low-ABV options
+- Drink history and origins
+- Bar setup and home bar recommendations
+- Food pairings with cocktails
+- Responsible drinking guidance
+
+${inventoryContext}
+
+VOICE INTERACTION STYLE:
+- Speak naturally and conversationally, as if talking across a bar
+- Keep responses concise for voice (aim for under 30 seconds of speech)
+- Use clear step-by-step instructions for recipes
+- Offer follow-up suggestions ("Would you like to know about a variation?")
+
+STRICT BOUNDARIES:
+If asked about topics outside bartending/mixology (politics, news, technology, health advice, etc.), respond warmly but redirect:
+"I'm your bartender - my expertise is cocktails and drinks! I'd be happy to help with anything drink-related. Is there a cocktail I can help you make?"
+
+Never provide:
+- Medical or health advice beyond general responsible drinking
+- Political opinions or commentary
+- Information unrelated to beverages and bar culture`;
+
+            // Get Realtime API configuration
+            const realtimeEndpoint = process.env.AZURE_OPENAI_REALTIME_ENDPOINT;
+            const realtimeKey = process.env.AZURE_OPENAI_REALTIME_KEY;
+            const realtimeDeployment = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT;
+
+            if (!realtimeEndpoint || !realtimeKey || !realtimeDeployment) {
+                context.log.error('Missing Realtime API configuration');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'config_error',
+                        message: 'Voice AI service is not properly configured'
+                    }
+                };
+            }
+
+            // Request ephemeral token from Azure OpenAI FIRST (before creating DB session)
+            const sessionsUrl = `${realtimeEndpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`;
+
+            const sessionConfig = {
+                model: realtimeDeployment,
+                voice: 'alloy',
+                instructions: systemInstructions,
+                input_audio_transcription: {
+                    model: 'whisper-1'
+                },
+                turn_detection: {
+                    type: 'server_vad',
+                    threshold: 0.5,
+                    prefix_padding_ms: 300,
+                    silence_duration_ms: 500
+                }
+            };
+
+            context.log('Requesting ephemeral token from Azure OpenAI...');
+            const response = await fetch(sessionsUrl, {
+                method: 'POST',
+                headers: {
+                    'api-key': realtimeKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(sessionConfig)
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                context.log.error('Ephemeral token request failed:', response.status, errorText);
+
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'token_error',
+                        message: 'Failed to initialize voice session'
+                    }
+                };
+            }
+
+            const sessionData = await response.json();
+            context.log('Ephemeral token obtained, realtime session:', sessionData.id);
+
+            // NOW create session record in database with the realtime session_id
+            const sessionInsertResult = await db.query(
+                `INSERT INTO voice_sessions (user_id, session_id, status, started_at)
+                 VALUES ($1, $2, 'active', NOW())
+                 RETURNING id`,
+                [user.id, sessionData.id]
+            );
+            const dbSessionId = sessionInsertResult.rows[0].id;
+            context.log('Created database session:', dbSessionId);
+
+            // WebRTC URL for East US2
+            const webrtcUrl = 'https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc';
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    session: {
+                        dbSessionId: dbSessionId,
+                        realtimeSessionId: sessionData.id,
+                        model: sessionData.model,
+                        voice: sessionData.voice
+                    },
+                    token: {
+                        value: sessionData.client_secret?.value,
+                        expiresAt: sessionData.client_secret?.expires_at
+                    },
+                    webrtcUrl: webrtcUrl,
+                    quota: {
+                        remainingSeconds: quota.total_remaining_seconds,
+                        monthlyUsedSeconds: quota.monthly_used_seconds,
+                        monthlyLimitSeconds: quota.monthly_limit_seconds,
+                        addonSecondsRemaining: quota.addon_seconds_remaining,
+                        warningThreshold: 360 // 6 minutes = 80% of 30 min used
+                    }
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Exception in voice-session:', error.message);
+            context.log.error('Stack:', error.stack);
+
+            // Ensure headers are defined for error response
+            const errorHeaders = {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, x-user-id'
+            };
+
+            return {
+                status: 500,
+                headers: errorHeaders,
+                jsonBody: {
+                    success: false,
+                    error: 'exception',
+                    message: error.message || 'An unexpected error occurred'
+                }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 31. Voice Usage - POST /v1/voice/usage
+// Records completed voice session usage and updates quotas
+// Called by client when WebRTC session ends
+// =============================================================================
+app.http('voice-usage', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/voice/usage',
+    handler: async (request, context) => {
+        context.log('Voice Usage - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, x-user-id'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            const db = require('./shared/database');
+
+            const userId = request.headers.get('x-user-id');
+            if (!userId) {
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { success: false, error: 'unauthorized' }
+                };
+            }
+
+            const body = await request.json();
+            const { sessionId, durationSeconds, inputTokens, outputTokens, transcripts } = body;
+
+            if (!sessionId || durationSeconds === undefined) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'invalid_request',
+                        message: 'sessionId and durationSeconds are required'
+                    }
+                };
+            }
+
+            context.log('Recording usage for session:', sessionId, 'duration:', durationSeconds);
+
+            // Look up user by azure_ad_sub to get internal UUID
+            const userResult = await db.query(
+                'SELECT id FROM users WHERE azure_ad_sub = $1',
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                return {
+                    status: 404,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'user_not_found',
+                        message: 'User not found'
+                    }
+                };
+            }
+
+            const internalUserId = userResult.rows[0].id;
+
+            // Verify session belongs to user (using internal UUID)
+            const sessionCheck = await db.query(
+                'SELECT id FROM voice_sessions WHERE id = $1 AND user_id = $2',
+                [sessionId, internalUserId]
+            );
+
+            if (sessionCheck.rows.length === 0) {
+                return {
+                    status: 404,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'session_not_found',
+                        message: 'Session not found or does not belong to user'
+                    }
+                };
+            }
+
+            // Record the session completion using database function (with internal UUID)
+            await db.query(
+                'SELECT record_voice_session($1, $2, $3, $4, $5)',
+                [internalUserId, sessionId, durationSeconds, inputTokens || null, outputTokens || null]
+            );
+
+            // Save transcripts if provided
+            if (transcripts && Array.isArray(transcripts) && transcripts.length > 0) {
+                for (const msg of transcripts) {
+                    await db.query(
+                        `INSERT INTO voice_messages (session_id, role, transcript, timestamp)
+                         VALUES ($1, $2, $3, $4)`,
+                        [sessionId, msg.role, msg.transcript, msg.timestamp || new Date()]
+                    );
+                }
+                context.log('Saved', transcripts.length, 'transcript messages');
+            }
+
+            // Get updated quota (using internal UUID)
+            const quotaResult = await db.query(
+                'SELECT * FROM check_voice_quota($1)',
+                [internalUserId]
+            );
+            const quota = quotaResult.rows[0];
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    message: 'Usage recorded successfully',
+                    sessionId: sessionId,
+                    durationRecorded: durationSeconds,
+                    quota: {
+                        remainingSeconds: quota.total_remaining_seconds,
+                        monthlyUsedSeconds: quota.monthly_used_seconds,
+                        monthlyLimitSeconds: quota.monthly_limit_seconds,
+                        addonSecondsRemaining: quota.addon_seconds_remaining
+                    }
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Exception in voice-usage:', error.message);
+            return {
+                status: 500,
+                headers,
+                jsonBody: { success: false, error: 'exception', message: error.message }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 32. Voice Quota - GET /v1/voice/quota
+// Returns current voice quota status for user
+// Used by Flutter to display remaining minutes before starting session
+// =============================================================================
+app.http('voice-quota', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/voice/quota',
+    handler: async (request, context) => {
+        context.log('Voice Quota - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, x-user-id'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            const db = require('./shared/database');
+
+            const userId = request.headers.get('x-user-id');
+            if (!userId) {
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { success: false, error: 'unauthorized' }
+                };
+            }
+
+            // Check user tier - look up by azure_ad_sub (the JWT sub claim)
+            const userResult = await db.query(
+                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                return {
+                    status: 404,
+                    headers,
+                    jsonBody: { success: false, error: 'user_not_found' }
+                };
+            }
+
+            const user = userResult.rows[0];
+
+            // Non-Pro users don't have voice quota
+            if (user.tier !== 'pro') {
+                return {
+                    status: 200,
+                    headers,
+                    jsonBody: {
+                        success: true,
+                        hasAccess: false,
+                        tier: user.tier,
+                        message: 'Voice AI requires Pro tier'
+                    }
+                };
+            }
+
+            // Get quota from database function (using internal UUID)
+            const quotaResult = await db.query(
+                'SELECT * FROM check_voice_quota($1)',
+                [user.id]
+            );
+            const quota = quotaResult.rows[0];
+
+            // Calculate warning threshold (6 minutes = 360 seconds)
+            const warningThreshold = 360;
+            const showWarning = quota.total_remaining_seconds <= warningThreshold && quota.total_remaining_seconds > 0;
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    hasAccess: true,
+                    hasQuota: quota.has_quota,
+                    tier: user.tier,
+                    quota: {
+                        remainingSeconds: quota.total_remaining_seconds,
+                        remainingMinutes: Math.floor(quota.total_remaining_seconds / 60),
+                        monthlyUsedSeconds: quota.monthly_used_seconds,
+                        monthlyLimitSeconds: quota.monthly_limit_seconds,
+                        addonSecondsRemaining: quota.addon_seconds_remaining,
+                        percentUsed: Math.round((quota.monthly_used_seconds / quota.monthly_limit_seconds) * 100)
+                    },
+                    showWarning: showWarning,
+                    warningMessage: showWarning ?
+                        `${Math.floor(quota.total_remaining_seconds / 60)} minutes remaining this month` : null
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Exception in voice-quota:', error.message);
+            return {
+                status: 500,
+                headers,
+                jsonBody: { success: false, error: 'exception', message: error.message }
+            };
+        }
     }
 });

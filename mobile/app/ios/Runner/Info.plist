@@ -49,5 +49,24 @@
 	<string>MyBartenderAI needs camera access to scan your bar inventory</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MyBartenderAI needs photo library access to select photos of your bar</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>My AI Bartender needs microphone access to have voice conversations with your AI bartender.</string>
+	<!-- Deep linking configuration for social sharing -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>ai.mybartender.deeplink</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mybartender</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Universal Links for web URL deep linking -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
 </dict>
 </plist>

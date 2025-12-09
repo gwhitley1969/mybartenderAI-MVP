@@ -184,6 +184,22 @@ class HomeScreen extends ConsumerWidget {
               Expanded(
                 child: _buildActionButton(
                   context: context,
+                  icon: Icons.mic,
+                  title: 'Voice',
+                  subtitle: 'Talk to AI',
+                  color: AppColors.iconCircleTeal, // Teal to match My Bar
+                  onTap: () => context.go('/voice-ai'),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          // Action Buttons - Row 2
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
                   icon: Icons.camera_alt,
                   title: 'Scanner',
                   subtitle: 'Identify bottles',

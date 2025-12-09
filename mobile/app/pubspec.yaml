@@ -53,6 +53,9 @@ dependencies:
   timezone: ^0.10.0
   permission_handler: ^11.3.1
 
+  # Voice AI - WebRTC for real-time audio with Azure OpenAI Realtime API
+  flutter_webrtc: ^0.12.6
+
   # Camera and image handling
   image_picker: ^1.0.8
   image: ^4.2.0
@@ -106,6 +109,7 @@ flutter:
     - assets/msal_config.json
     - assets/data/academy_content.json
     - assets/data/pro_tools_content.json
+    - assets/images/pro_tools/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

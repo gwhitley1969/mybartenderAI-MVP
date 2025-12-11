@@ -206,8 +206,8 @@ class AuthConfig {
     'openid',
     'profile',
     'email',
-    'offline_access'
   ];
+// MSAL receives refresh tokens automatically; offline_access is not required.
 }
 ```
 

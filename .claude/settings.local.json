@@ -31,7 +31,9 @@
       "Bash(flutter clean:*)",
       "Bash(flutter run:*)",
       "Bash(flutter build:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(mkdir:*)",
+      "Bash(az storage blob service-properties update:*)"
     ],
     "deny": [],
     "ask": []

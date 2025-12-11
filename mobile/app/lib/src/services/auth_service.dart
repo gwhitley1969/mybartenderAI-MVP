@@ -305,8 +305,25 @@ class AuthService {
         return null;
       }
 
+      // CRITICAL DEBUG: Log token lengths and first 50 chars to verify they're different
+      _diagLog('Access token length: ${accessToken.length}');
+      _diagLog('ID token length: ${idToken.length}');
+      _diagLog('Tokens are same: ${accessToken == idToken}');
+
+      // Decode BOTH tokens to see their claims
+      final decodedAccessToken = JwtDecoder.decode(accessToken);
+      final decodedIdToken = JwtDecoder.decode(idToken);
+
+      _diagLog('=== ACCESS TOKEN CLAIMS ===');
+      _diagLog('Access token aud: ${decodedAccessToken['aud']}');
+      _diagLog('Access token iss: ${decodedAccessToken['iss']}');
+
+      _diagLog('=== ID TOKEN CLAIMS ===');
+      _diagLog('ID token aud: ${decodedIdToken['aud']}');
+      _diagLog('ID token iss: ${decodedIdToken['iss']}');
+
       // Decode the ID token to get user information
-      final decodedToken = JwtDecoder.decode(idToken);
+      final decodedToken = decodedIdToken;
       _diagLog('ID token decoded successfully');
 
       // Log token claims for diagnostics (excluding sensitive data)
@@ -607,6 +624,8 @@ class AuthService {
   }
 
   /// Get valid access token (refreshes if expired)
+  /// NOTE: This returns a Microsoft Graph access token (audience: graph.microsoft.com)
+  /// For APIM JWT validation, use getValidIdToken() instead (audience: client app ID)
   Future<String?> getValidAccessToken() async {
     try {
       // First check if we have a stored token
@@ -640,5 +659,66 @@ class AuthService {
       );
       return null;
     }
+  }
+
+  /// Get valid ID token (refreshes if expired)
+  /// The ID token has audience = client app ID, which is required for APIM JWT validation
+  /// Use this for authenticating to first-party APIs with APIM JWT validation
+  Future<String?> getValidIdToken() async {
+    try {
+      _diagLog('getValidIdToken() called');
+
+      // First check if we have a stored token
+      final storedIdToken = await _tokenStorage.getIdToken();
+      final expiresAt = await _tokenStorage.getExpiresAt();
+
+      _diagLog('Stored ID token: ${storedIdToken != null ? "${storedIdToken.length} chars" : "NULL"}');
+      _diagLog('Expires at: ${expiresAt?.toIso8601String() ?? "NULL"}');
+
+      // CRITICAL DEBUG: Decode and show the claims of the stored token
+      if (storedIdToken != null) {
+        try {
+          final decoded = JwtDecoder.decode(storedIdToken);
+          _diagLog('Stored token aud: ${decoded['aud']}');
+          _diagLog('Stored token iss: ${decoded['iss']}');
+        } catch (e) {
+          _diagLog('Could not decode stored token: $e');
+        }
+      }
+
+      // Check if token is still valid
+      if (storedIdToken != null &&
+          expiresAt != null &&
+          expiresAt.isAfter(DateTime.now().add(const Duration(minutes: 5)))) {
+        // Token is still valid for at least 5 more minutes
+        _diagLog('ID token still valid, returning cached token');
+        return storedIdToken;
+      }
+
+      // Try to refresh the token
+      _diagLog('ID token expired or missing, attempting refresh...');
+      final user = await refreshToken();
+
+      if (user != null) {
+        final newIdToken = await _tokenStorage.getIdToken();
+        _diagLog('Token refresh successful, new ID token: ${newIdToken != null ? "${newIdToken.length} chars" : "NULL"}');
+        return newIdToken;
+      }
+
+      _diagLog('Token refresh failed, no ID token available');
+      return null;
+    } catch (e, stackTrace) {
+      _diagLog(
+        'Error getting valid ID token: ${e.toString()}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
+  /// Refresh access token - alias for compatibility
+  Future<User?> refreshAccessToken() async {
+    return await refreshToken();
   }
 }

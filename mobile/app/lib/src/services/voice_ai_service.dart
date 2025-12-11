@@ -7,17 +7,25 @@ import 'package:permission_handler/permission_handler.dart';
 
 /// Voice AI Service for managing real-time voice conversations
 /// with Azure OpenAI Realtime API via WebRTC
+///
+/// Production Architecture:
+/// - Session setup (REST): Mobile App → Front Door → APIM (JWT validation) → Function App
+/// - Voice conversation (WebRTC): Mobile App ←══ WebRTC ══→ Azure OpenAI Realtime API (direct)
+///
+/// APIM handles:
+/// - JWT validation (Entra External ID)
+/// - User ID extraction from JWT sub claim
+/// - Rate limiting (10 requests/minute per user)
+/// - Security headers
 class VoiceAIService {
-  // Direct Function App configuration for testing (bypassing APIM)
-  // TODO: Remove this when APIM is configured for voice endpoints
-  static const String _functionAppBaseUrl = 'https://func-mba-fresh.azurewebsites.net/api';
-  // Function key stored in environment/config - DO NOT hardcode
-  static const String _functionKey = String.fromEnvironment('VOICE_FUNCTION_KEY', defaultValue: '');
-  static const bool _bypassApim = true; // Set to false when APIM is ready
+  // Production: Use APIM for secure access with JWT authentication
+  // APIM extracts user ID from JWT and passes it to the function via X-User-Id header
+  static const bool _bypassApim = false; // APIM is now configured for voice endpoints
 
   final Dio _dio;
   final Future<String?> Function() _getUserId; // Function to get current user ID
-  late final Dio _voiceDio; // Dedicated Dio for voice endpoints
+  final Future<String?> Function() _getAccessToken; // Function to get JWT access token
+  late final Dio _voiceDio; // Uses shared APIM-configured Dio instance
 
   RTCPeerConnection? _peerConnection;
   RTCDataChannel? _dataChannel;
@@ -40,38 +48,68 @@ class VoiceAIService {
   VoiceAIState _state = VoiceAIState.idle;
   VoiceAIState get state => _state;
 
-  VoiceAIService(this._dio, {required Future<String?> Function() getUserId})
-      : _getUserId = getUserId {
-    // Initialize voice-specific Dio for direct Function App calls (bypassing APIM)
-    if (_bypassApim) {
-      _voiceDio = Dio(BaseOptions(
-        baseUrl: _functionAppBaseUrl,
-        connectTimeout: const Duration(seconds: 30),
-        receiveTimeout: const Duration(seconds: 30),
-        headers: {
-          'x-functions-key': _functionKey,
-          'Content-Type': 'application/json',
-        },
-      ));
-      debugPrint('VoiceAIService: Using direct Function App (bypassing APIM)');
-    } else {
-      _voiceDio = _dio; // Use shared APIM-configured Dio
-      debugPrint('VoiceAIService: Using APIM');
-    }
+  VoiceAIService(
+    this._dio, {
+    required Future<String?> Function() getUserId,
+    required Future<String?> Function() getAccessToken,
+  })  : _getUserId = getUserId,
+        _getAccessToken = getAccessToken {
+    // CRITICAL: Create a SEPARATE Dio instance for Voice AI requests
+    //
+    // Why? The shared _dio from BackendService has an interceptor that automatically
+    // sets Authorization header with the Graph access token (for Microsoft Graph API).
+    // But Voice AI endpoints require the ID token (with aud=client_app_id) for APIM
+    // JWT validation. The interceptor would OVERWRITE our correct ID token with the
+    // wrong Graph token, causing 401 errors.
+    //
+    // By creating a fresh Dio instance without interceptors, we ensure the
+    // Authorization header we set in _getAuthHeaders() is preserved.
+    _voiceDio = Dio(BaseOptions(
+      baseUrl: _dio.options.baseUrl,
+      connectTimeout: _dio.options.connectTimeout,
+      receiveTimeout: _dio.options.receiveTimeout,
+    ));
+
+    // Add logging interceptor for debugging (this one doesn't modify headers)
+    _voiceDio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+    ));
+
+    debugPrint('VoiceAIService: Initialized with dedicated Dio instance (no auth interceptor)');
+    debugPrint('VoiceAIService: Base URL: ${_voiceDio.options.baseUrl}');
   }
 
-  /// Get headers with user ID for authentication (when bypassing APIM)
-  Future<Map<String, dynamic>> _getAuthHeaders() async {
-    final headers = <String, dynamic>{};
-    if (_bypassApim) {
-      final userId = await _getUserId();
-      if (userId != null && userId.isNotEmpty) {
-        headers['x-user-id'] = userId;
-        debugPrint('VoiceAIService: Added x-user-id header: $userId');
+  /// Get headers for voice API calls
+  /// Explicitly adds Authorization header with JWT token for APIM JWT validation
+  /// APIM extracts user ID from JWT sub claim and sets X-User-Id header for backend
+  Future<Map<String, String>> _getAuthHeaders() async {
+    final headers = <String, String>{};
+
+    debugPrint('=== VoiceAIService: _getAuthHeaders START ===');
+
+    // Get JWT access token for APIM authentication
+    try {
+      debugPrint('VoiceAIService: Calling _getAccessToken()...');
+      final accessToken = await _getAccessToken();
+      debugPrint('VoiceAIService: _getAccessToken returned: ${accessToken == null ? "NULL" : "${accessToken.length} chars"}');
+
+      if (accessToken != null && accessToken.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $accessToken';
+        // Log token preview for debugging (first 20 chars only)
+        final preview = accessToken.length > 20 ? '${accessToken.substring(0, 20)}...' : accessToken;
+        debugPrint('VoiceAIService: Added Authorization header, token starts with: $preview');
       } else {
-        debugPrint('VoiceAIService: WARNING - No user ID available!');
+        debugPrint('VoiceAIService: ERROR - No access token available!');
+        debugPrint('VoiceAIService: accessToken is ${accessToken == null ? "null" : "empty string"}');
       }
+    } catch (e, stackTrace) {
+      debugPrint('VoiceAIService: EXCEPTION getting access token: $e');
+      debugPrint('VoiceAIService: Stack trace: $stackTrace');
     }
+
+    debugPrint('VoiceAIService: Final headers keys: ${headers.keys.toList()}');
+    debugPrint('=== VoiceAIService: _getAuthHeaders END ===');
     return headers;
   }
 
@@ -129,16 +167,26 @@ class VoiceAIService {
       }
 
       // Request session and ephemeral token from backend
-      debugPrint('VoiceAIService: Requesting voice session...');
+      debugPrint('=== VoiceAIService: Starting voice session request ===');
+      debugPrint('VoiceAIService: Base URL: ${_voiceDio.options.baseUrl}');
+
       final headers = await _getAuthHeaders();
+      debugPrint('VoiceAIService: Headers to send: ${headers.keys.toList()}');
+      debugPrint('VoiceAIService: Has Authorization: ${headers.containsKey("Authorization")}');
+
+      final requestUrl = '/v1/voice/session';
+      debugPrint('VoiceAIService: Making POST to: $requestUrl');
+
       final response = await _voiceDio.post(
-        '/v1/voice/session',
+        requestUrl,
         data: {
           if (inventory != null) 'inventory': inventory,
         },
         options: Options(headers: headers),
       );
-      debugPrint('VoiceAIService: Session response: ${response.data}');
+
+      debugPrint('VoiceAIService: Response status: ${response.statusCode}');
+      debugPrint('VoiceAIService: Response data: ${response.data}');
 
       if (response.data['success'] != true) {
         _setState(VoiceAIState.error);
@@ -188,11 +236,20 @@ class VoiceAIService {
       );
     } on DioException catch (e) {
       // Handle HTTP error responses with proper user-friendly messages
+      debugPrint('=== VoiceAIService: DioException caught ===');
+      debugPrint('VoiceAIService: Error type: ${e.type}');
+      debugPrint('VoiceAIService: Error message: ${e.message}');
+      debugPrint('VoiceAIService: Request URL: ${e.requestOptions.uri}');
+      debugPrint('VoiceAIService: Request headers: ${e.requestOptions.headers}');
+
       if (e.response != null) {
         final statusCode = e.response!.statusCode;
         final data = e.response!.data;
+        final responseHeaders = e.response!.headers;
 
-        debugPrint('VoiceAIService: HTTP $statusCode error: $data');
+        debugPrint('VoiceAIService: Response status: $statusCode');
+        debugPrint('VoiceAIService: Response headers: ${responseHeaders.map}');
+        debugPrint('VoiceAIService: Response data: $data');
 
         if (data is Map<String, dynamic>) {
           final error = data['error'] ?? 'unknown_error';

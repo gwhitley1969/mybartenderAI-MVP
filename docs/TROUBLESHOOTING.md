@@ -1,6 +1,6 @@
 # Azure Functions - Troubleshooting Guide
 
-**Last Updated:** 2025-10-23
+**Last Updated:** 2025-12-11
 
 ## Current Status ✅
 
@@ -651,3 +651,57 @@ az monitor app-insights query \
 ---
 
 **Remember:** When in doubt, check Application Insights logs first. Most issues show clear error messages there.
+
+---
+
+## Voice AI Issues
+
+### Issue 13: Voice AI 401 Error - "Voice AI requires authentication" ✅ RESOLVED
+
+**Date**: December 11, 2025
+
+**Symptoms:**
+- Voice AI feature returns "Voice AI requires authentication. Please sign in"
+- User is authenticated and logged in
+- Other features (chat, scanner) work correctly
+- APIM returns 401 Unauthorized
+
+**Root Cause:** Dio interceptor overwriting Authorization header with wrong token type
+
+**Detailed Analysis:**
+
+Entra External ID provides two tokens:
+- **Access Token**: `aud: https://graph.microsoft.com` - for Microsoft Graph API calls
+- **ID Token**: `aud: f9f7f159-b847-4211-98c9-18e5b8193045` - for APIM JWT validation (our client app ID)
+
+APIM JWT policy validates the `aud` claim matches the client app ID, requiring the **ID Token**.
+
+The bug flow:
+1. VoiceAIService correctly obtained the ID token (correct audience)
+2. VoiceAIService set the Authorization header with the ID token
+3. BackendService's shared Dio interceptor ran and **overwrote** the header with the Graph access token
+4. APIM received the wrong token and rejected with 401
+
+**Solution:** Create a separate Dio instance for VoiceAIService without the auth interceptor
+
+```dart
+// In voice_ai_service.dart constructor
+_voiceDio = Dio(BaseOptions(
+  baseUrl: _dio.options.baseUrl,
+  connectTimeout: _dio.options.connectTimeout,
+  receiveTimeout: _dio.options.receiveTimeout,
+));
+// No auth interceptor - we set headers manually per-request
+```
+
+**Files Modified:**
+- `mobile/app/lib/src/services/voice_ai_service.dart`
+- `mobile/app/lib/src/services/auth_service.dart`
+- `mobile/app/lib/src/providers/voice_ai_provider.dart`
+
+**Debug Tips:**
+1. Decode JWT tokens in device logs to check `aud` claim
+2. Compare token stored vs token actually sent in request
+3. Check for interceptors that may modify headers
+
+**See Also:** `docs/VOICE_AI_DEPLOYED.md` - Troubleshooting section

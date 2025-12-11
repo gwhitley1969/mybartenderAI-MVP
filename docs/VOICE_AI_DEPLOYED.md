@@ -687,4 +687,85 @@ After deployment, the following voice endpoints are available:
 
 ---
 
-**Last Updated**: December 9, 2025 (UI improvements, "Tap microphone to stop" instruction added)
+---
+
+## Troubleshooting
+
+### Issue: "Voice AI requires authentication. Please sign in" (401 Error) ✅ RESOLVED
+
+**Date Fixed**: December 11, 2025
+
+**Symptoms:**
+- Voice AI fails with "Voice AI requires authentication. Please sign in" error
+- User is authenticated and other features work correctly
+- APIM returns 401 Unauthorized despite valid JWT token being sent
+
+**Root Cause Analysis:**
+
+The issue was a **Dio interceptor overwriting the correct Authorization header**.
+
+1. **Token Types**: Entra External ID provides two tokens:
+   - **Access Token**: `aud: https://graph.microsoft.com` (for Microsoft Graph API)
+   - **ID Token**: `aud: f9f7f159-b847-4211-98c9-18e5b8193045` (our client app ID)
+
+2. **APIM JWT Validation**: APIM policy validates that `aud` claim matches client app ID, requiring the **ID Token**.
+
+3. **The Bug**: VoiceAIService was correctly obtaining and setting the ID Token in the Authorization header. However, the shared Dio instance from BackendService had an interceptor that **overwrote** the header with the Graph access token.
+
+**Code Flow (Before Fix):**
+```
+1. VoiceAIService calls getValidIdToken() → Returns correct ID token (aud: client_app_id)
+2. VoiceAIService sets: Authorization: Bearer <ID_TOKEN>
+3. BackendService Dio interceptor runs → OVERWRITES header with Graph token
+4. Request sent with: Authorization: Bearer <GRAPH_TOKEN> (aud: graph.microsoft.com)
+5. APIM rejects → 401 Unauthorized (audience mismatch)
+```
+
+**Solution:**
+
+Created a **separate Dio instance** for VoiceAIService without the auth interceptor:
+
+**File**: `mobile/app/lib/src/services/voice_ai_service.dart`
+
+```dart
+VoiceAIService(this._dio, {...}) {
+  // CRITICAL: Create a SEPARATE Dio instance for Voice AI requests
+  //
+  // Why? The shared _dio from BackendService has an interceptor that automatically
+  // sets Authorization header with the Graph access token (for Microsoft Graph API).
+  // But Voice AI endpoints require the ID token (with aud=client_app_id) for APIM
+  // JWT validation. The interceptor would OVERWRITE our correct ID token with the
+  // wrong Graph token, causing 401 errors.
+  //
+  // By creating a fresh Dio instance without interceptors, we ensure the
+  // Authorization header we set in _getAuthHeaders() is preserved.
+  _voiceDio = Dio(BaseOptions(
+    baseUrl: _dio.options.baseUrl,
+    connectTimeout: _dio.options.connectTimeout,
+    receiveTimeout: _dio.options.receiveTimeout,
+  ));
+
+  // Add logging interceptor for debugging (this one doesn't modify headers)
+  _voiceDio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+}
+```
+
+**Files Modified:**
+- `mobile/app/lib/src/services/voice_ai_service.dart` - Created dedicated `_voiceDio` instance
+- `mobile/app/lib/src/services/auth_service.dart` - Added `getValidIdToken()` method with debug logging
+- `mobile/app/lib/src/providers/voice_ai_provider.dart` - Updated to use `getValidIdToken()` instead of `getValidAccessToken()`
+
+**Key Learnings:**
+1. **Access Token vs ID Token**: For APIM JWT validation, use the ID token (audience = client app ID), not the access token (audience = Graph API)
+2. **Dio Interceptors**: Shared Dio instances with auth interceptors can overwrite headers set by specific services
+3. **Debug Strategy**: Decode JWT tokens in logs to compare `aud` claim between what's stored and what's actually sent
+
+**Verification:**
+After the fix, Voice AI works correctly:
+1. ID token with correct audience is preserved
+2. APIM JWT validation passes
+3. Voice session starts successfully
+
+---
+
+**Last Updated**: December 11, 2025 (Authentication fix documented)

@@ -6,12 +6,21 @@ import 'auth_provider.dart';
 /// Provider for Voice AI service
 final voiceAIServiceProvider = Provider<VoiceAIService>((ref) {
   final backendService = ref.watch(backendServiceProvider);
+  final authService = ref.watch(authServiceProvider);
   return VoiceAIService(
     backendService.dio,
     getUserId: () async {
       // Get current user ID from auth state
       final user = ref.read(currentUserProvider);
       return user?.id;
+    },
+    getAccessToken: () async {
+      // Get valid ID token for APIM JWT validation
+      // NOTE: We use the ID token (not access token) because:
+      // - ID token has audience = client app ID (f9f7f159-b847-4211-98c9-18e5b8193045)
+      // - Access token has audience = Microsoft Graph (not valid for our APIM)
+      // - APIM validates JWT audience against our client app ID
+      return await authService.getValidIdToken();
     },
   );
 });

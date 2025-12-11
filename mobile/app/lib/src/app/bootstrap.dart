@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../services/background_token_service.dart';
+
 class EnvConfig {
   const EnvConfig({
     this.apiBaseUrl,
@@ -28,11 +30,12 @@ class FunctionKeyInterceptor extends Interceptor {
 
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // Always add the function key to all requests if available
+    // Always add the APIM subscription key to all requests if available
     if (functionKey != null && functionKey!.isNotEmpty) {
-      options.headers['x-functions-key'] = functionKey;
+      // FIXED: Use correct header name for APIM
+      options.headers['Ocp-Apim-Subscription-Key'] = functionKey;
       if (kDebugMode) {
-        print('Added function key to request: ${options.uri}');
+        print('Added APIM subscription key to request: ${options.uri}');
       }
     }
     handler.next(options);
@@ -73,13 +76,13 @@ Dio createBaseDio({
     baseOptions.baseUrl = baseUrl;
   }
 
-  // Add function key to default headers if provided
+  // Add APIM subscription key to default headers if provided
   if (config.functionKey != null && config.functionKey!.isNotEmpty) {
     baseOptions.headers = {
-      'x-functions-key': config.functionKey,
+      'Ocp-Apim-Subscription-Key': config.functionKey,
     };
     if (kDebugMode) {
-      print('Added x-functions-key to default headers');
+      print('Added Ocp-Apim-Subscription-Key to default headers');
     }
   }
 
@@ -111,6 +114,16 @@ Future<void> bootstrap(
       'WARNING: AZURE_FUNCTION_KEY not set. Some features may not work.\n'
       'Build with: flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>',
     );
+  }
+
+  // Initialize background token refresh service
+  // This keeps the refresh token active by using it every 10 hours
+  // to avoid the 12-hour inactivity timeout in Entra External ID
+  try {
+    await BackgroundTokenService.instance.initialize();
+    debugPrint('BackgroundTokenService initialized');
+  } catch (e) {
+    debugPrint('Failed to initialize BackgroundTokenService: $e');
   }
 
   runApp(

@@ -11,11 +11,13 @@ import 'src/features/age_verification/age_verification_screen.dart';
 import 'src/features/auth/login_screen.dart';
 import 'src/features/create_studio/create_studio_screen.dart';
 import 'src/features/home/home_screen.dart';
+import 'src/features/initial_sync/initial_sync_screen.dart';
 import 'src/features/profile/profile_screen.dart';
 import 'src/features/recipe_vault/cocktail_detail_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
 import 'src/models/auth_state.dart';
 import 'src/providers/auth_provider.dart';
+import 'src/providers/cocktail_provider.dart';
 import 'src/services/notification_service.dart';
 
 /// Global navigator key for navigation from notification taps
@@ -143,6 +145,7 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authNotifierProvider);
   final isAgeVerified = ref.watch(ageVerificationProvider);
+  final initialSyncStatus = ref.watch(initialSyncStatusProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
@@ -153,6 +156,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isAuthenticating = authState is AuthStateLoading || authState is AuthStateInitial;
       final isLoginRoute = state.matchedLocation == '/login';
       final isAgeRoute = state.matchedLocation == '/age-verification';
+      final isInitialSyncRoute = state.matchedLocation == '/initial-sync';
 
       // Don't redirect while checking authentication status
       if (isAuthenticating) {
@@ -179,6 +183,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/';
       }
 
+      // Check if initial sync is needed (only for authenticated users)
+      // Don't redirect if already on initial-sync page or still checking
+      if (isAuthenticated && !isInitialSyncRoute && !initialSyncStatus.isChecking) {
+        if (initialSyncStatus.needsSync) {
+          return '/initial-sync';
+        }
+      }
+
       // No redirect needed
       return null;
     },
@@ -195,6 +207,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (BuildContext context, GoRouterState state) {
           return const LoginScreen();
+        },
+      ),
+      // Initial sync route (shown after first login when database is empty)
+      GoRoute(
+        path: '/initial-sync',
+        builder: (BuildContext context, GoRouterState state) {
+          return const InitialSyncScreen();
         },
       ),
       // Cocktail detail route (for deep linking from notifications)

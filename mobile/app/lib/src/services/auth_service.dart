@@ -5,9 +5,13 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 
 import '../config/auth_config.dart';
 import '../models/user.dart';
+import 'background_token_service.dart';
 import 'token_storage_service.dart';
 
 /// Authentication service for Entra External ID (Azure AD B2C) using MSAL
+///
+/// DIAGNOSTIC VERSION - Added detailed logging to investigate 24-hour re-login issue
+/// Date: December 2025
 class AuthService {
   SingleAccountPca? _msalAuth;
   final TokenStorageService _tokenStorage;
@@ -15,9 +19,37 @@ class AuthService {
   /// Track if we've already attempted recovery to prevent infinite loops
   bool _recoveryAttempted = false;
 
+  /// Track last successful token refresh for diagnostics
+  DateTime? _lastSuccessfulRefresh;
+
+  /// Track last authentication time for diagnostics
+  DateTime? _lastAuthTime;
+
   AuthService({
     required TokenStorageService tokenStorage,
   }) : _tokenStorage = tokenStorage;
+
+  /// Log with timestamp for diagnostic purposes
+  /// Using print() instead of developer.log() so output appears in logcat as "I flutter :"
+  void _diagLog(String message, {Object? error, StackTrace? stackTrace}) {
+    final timestamp = DateTime.now().toIso8601String();
+    final fullMessage = '[AUTH-DIAG][$timestamp] $message';
+    // Use print() for reliable logcat output
+    print(fullMessage);
+    // Also log to developer.log for debug console
+    developer.log(
+      fullMessage,
+      name: 'AuthService.DIAG',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    if (error != null) {
+      print('[AUTH-DIAG] Error: $error');
+    }
+    if (stackTrace != null) {
+      print('[AUTH-DIAG] StackTrace: $stackTrace');
+    }
+  }
 
   /// Initialize MSAL authentication
   Future<void> initialize() async {
@@ -50,13 +82,16 @@ class AuthService {
 
   /// Sign in with Entra External ID (supports Email, Google, Facebook)
   Future<User?> signIn() async {
+    _diagLog('=== INTERACTIVE SIGN IN STARTED ===');
+
     try {
       if (_msalAuth == null) {
+        _diagLog('MSAL not initialized, initializing now...');
         await initialize();
       }
 
-      developer.log('Starting sign in flow with MSAL', name: 'AuthService');
-      developer.log('Client ID: ${AuthConfig.clientId}', name: 'AuthService');
+      _diagLog('Starting interactive sign in flow with MSAL');
+      _diagLog('Client ID: ${AuthConfig.clientId}');
 
       // LAYER 1: Clear any stale accounts before attempting sign-in
       // This prevents the current_account_mismatch error
@@ -100,18 +135,27 @@ class AuthService {
       _recoveryAttempted = false;
 
       if (result == null) {
-        developer.log('Sign in cancelled by user', name: 'AuthService');
+        _diagLog('Sign in cancelled by user');
+        _diagLog('=== INTERACTIVE SIGN IN CANCELLED ===');
         return null;
       }
 
-      developer.log('Sign in successful', name: 'AuthService');
-      developer.log('Access token received: ${result.accessToken != null}', name: 'AuthService');
-      developer.log('ID token received: ${result.idToken != null}', name: 'AuthService');
+      _diagLog('Interactive sign in completed successfully!');
+      _diagLog('Access token received: ${result.accessToken != null}');
+      _diagLog('ID token received: ${result.idToken != null}');
+      _diagLog('Expires on: ${result.expiresOn?.toIso8601String() ?? "UNKNOWN"}');
 
-      return await _handleAuthResult(result);
+      final user = await _handleAuthResult(result);
+      _diagLog('=== INTERACTIVE SIGN IN SUCCEEDED ===');
+      return user;
     } catch (e, stackTrace) {
       // Reset recovery flag on error
       _recoveryAttempted = false;
+      _diagLog('!!! INTERACTIVE SIGN IN FAILED !!!');
+      _diagLog('Exception type: ${e.runtimeType}');
+      _diagLog('Exception message: ${e.toString()}');
+      _diagLog('=== INTERACTIVE SIGN IN ERROR ===');
+
       developer.log(
         'Sign in error: ${e.toString()}',
         name: 'AuthService',
@@ -196,6 +240,14 @@ class AuthService {
     try {
       developer.log('Starting sign out flow', name: 'AuthService');
 
+      // Cancel background token refresh task
+      try {
+        await BackgroundTokenService.instance.cancelTokenRefresh();
+        developer.log('Background token refresh cancelled', name: 'AuthService');
+      } catch (e) {
+        developer.log('Failed to cancel background token refresh: $e', name: 'AuthService');
+      }
+
       // LAYER 4: Clear local storage FIRST before MSAL sign out
       // This minimizes the corruption window if the user closes the app mid-signout
       await _tokenStorage.clearAll();
@@ -241,17 +293,27 @@ class AuthService {
   /// Handle the authentication result and create a User object
   Future<User?> _handleAuthResult(AuthenticationResult result) async {
     try {
+      _diagLog('Processing authentication result...');
+
       final accessToken = result.accessToken;
       final idToken = result.idToken;
 
       if (accessToken == null || idToken == null) {
-        developer.log('No tokens received', name: 'AuthService');
+        _diagLog('ERROR: No tokens received in auth result');
+        _diagLog('Access token null: ${accessToken == null}');
+        _diagLog('ID token null: ${idToken == null}');
         return null;
       }
 
       // Decode the ID token to get user information
       final decodedToken = JwtDecoder.decode(idToken);
-      developer.log('Decoded ID token: $decodedToken', name: 'AuthService');
+      _diagLog('ID token decoded successfully');
+
+      // Log token claims for diagnostics (excluding sensitive data)
+      _diagLog('Token issuer (iss): ${decodedToken['iss']}');
+      _diagLog('Token audience (aud): ${decodedToken['aud']}');
+      _diagLog('Token issued at (iat): ${decodedToken['iat']}');
+      _diagLog('Token expires (exp): ${decodedToken['exp']}');
 
       // Extract user information from the ID token
       final userId = decodedToken['sub'] ?? decodedToken['oid'] ?? '';
@@ -265,11 +327,20 @@ class AuthService {
 
       // Store tokens individually
       await _tokenStorage.saveAccessToken(accessToken);
+      _diagLog('Access token saved to FlutterSecureStorage');
+
       if (idToken != null) {
         await _tokenStorage.saveIdToken(idToken);
+        _diagLog('ID token saved to FlutterSecureStorage');
       }
+
       final expiresOn = result.expiresOn ?? DateTime.now().add(const Duration(hours: 1));
       await _tokenStorage.saveExpiresAt(expiresOn);
+      _diagLog('Token expiry saved: ${expiresOn.toIso8601String()}');
+
+      // Calculate and log token lifetime
+      final tokenLifetime = expiresOn.difference(DateTime.now());
+      _diagLog('Token will be valid for: ${tokenLifetime.inMinutes} minutes');
 
       // Create and return User object using the correct constructor
       final user = User(
@@ -281,13 +352,27 @@ class AuthService {
       );
 
       await _tokenStorage.saveUserProfile(user);
+      _diagLog('User profile saved to FlutterSecureStorage');
 
-      developer.log('User authenticated: ${user.email}', name: 'AuthService');
+      // Update tracking timestamps
+      _lastAuthTime = DateTime.now();
+      _lastSuccessfulRefresh = DateTime.now();
+      _diagLog('Authentication timestamps updated');
+
+      // Schedule background token refresh to keep refresh token active
+      // This prevents the 12-hour inactivity timeout in Entra External ID
+      try {
+        await BackgroundTokenService.instance.scheduleTokenRefresh();
+        _diagLog('Background token refresh scheduled (every 10 hours)');
+      } catch (e) {
+        _diagLog('Failed to schedule background token refresh: $e');
+      }
+
+      _diagLog('User authenticated successfully: ${user.email}');
       return user;
     } catch (e, stackTrace) {
-      developer.log(
-        'Error handling auth result: ${e.toString()}',
-        name: 'AuthService',
+      _diagLog(
+        'ERROR in _handleAuthResult: ${e.toString()}',
         error: e,
         stackTrace: stackTrace,
       );
@@ -298,24 +383,43 @@ class AuthService {
   /// Get the current user if authenticated
   Future<User?> getCurrentUser() async {
     try {
+      _diagLog('getCurrentUser() called - checking authentication state');
+
       final userProfile = await _tokenStorage.getUserProfile();
       if (userProfile == null) {
+        _diagLog('No user profile in FlutterSecureStorage - user not authenticated');
         return null;
       }
 
+      _diagLog('Found user profile in storage: ${userProfile.email}');
+
       // Check if token is still valid
       final expiresAt = await _tokenStorage.getExpiresAt();
-      if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
-        // Token expired, try to refresh silently
-        developer.log('Token expired, attempting silent refresh', name: 'AuthService');
-        return await refreshToken();
+      final now = DateTime.now();
+
+      if (expiresAt != null) {
+        final timeUntilExpiry = expiresAt.difference(now);
+        _diagLog('Access token expires at: ${expiresAt.toIso8601String()}');
+        _diagLog('Time until expiry: ${timeUntilExpiry.inMinutes} minutes (${timeUntilExpiry.inHours} hours)');
+
+        if (expiresAt.isBefore(now)) {
+          _diagLog('ACCESS TOKEN EXPIRED - attempting silent refresh');
+          _diagLog('Token was expired by: ${now.difference(expiresAt).inMinutes} minutes');
+
+          // DIAGNOSTIC: Check MSAL account state before refresh
+          await _checkMsalAccountState();
+
+          return await refreshToken();
+        }
+      } else {
+        _diagLog('WARNING: No expiry time stored - this should not happen');
       }
 
+      _diagLog('Token still valid, returning cached user profile');
       return userProfile;
     } catch (e, stackTrace) {
-      developer.log(
-        'Error getting current user: ${e.toString()}',
-        name: 'AuthService',
+      _diagLog(
+        'ERROR in getCurrentUser: ${e.toString()}',
         error: e,
         stackTrace: stackTrace,
       );
@@ -323,40 +427,150 @@ class AuthService {
     }
   }
 
+  /// DIAGNOSTIC: Check MSAL's internal account state
+  Future<void> _checkMsalAccountState() async {
+    _diagLog('--- MSAL Account State Check ---');
+
+    if (_msalAuth == null) {
+      _diagLog('MSAL not initialized yet, will initialize during refresh');
+      return;
+    }
+
+    try {
+      final currentAccount = await _msalAuth!.currentAccount;
+      _diagLog('MSAL HAS cached account: ${currentAccount.username}');
+      _diagLog('Account ID: ${currentAccount.id}');
+    } catch (e) {
+      _diagLog('MSAL has NO cached account: ${e.runtimeType}');
+      _diagLog('Exception details: ${e.toString()}');
+    }
+
+    _diagLog('--- End MSAL Account State Check ---');
+  }
+
   /// Refresh the access token silently
   Future<User?> refreshToken() async {
+    _diagLog('=== REFRESH TOKEN ATTEMPT STARTED ===');
+    _diagLog('Last successful refresh: ${_lastSuccessfulRefresh?.toIso8601String() ?? "NEVER"}');
+    _diagLog('Last auth time: ${_lastAuthTime?.toIso8601String() ?? "UNKNOWN"}');
+
+    if (_lastSuccessfulRefresh != null) {
+      final timeSinceLastRefresh = DateTime.now().difference(_lastSuccessfulRefresh!);
+      _diagLog('Time since last successful refresh: ${timeSinceLastRefresh.inHours} hours (${timeSinceLastRefresh.inMinutes} minutes)');
+    }
+
     try {
       if (_msalAuth == null) {
+        _diagLog('MSAL not initialized, initializing now...');
         await initialize();
+        _diagLog('MSAL initialization complete');
       }
 
-      developer.log('Attempting silent token refresh', name: 'AuthService');
+      // CRITICAL DIAGNOSTIC: Check if MSAL has an account BEFORE calling acquireTokenSilent
+      _diagLog('Checking MSAL account state before acquireTokenSilent...');
+      bool hasAccount = false;
+      String? accountUsername;
 
-      // Try to acquire token silently
-      final AuthenticationResult? result = await _msalAuth!.acquireTokenSilent(
-        scopes: [
-          'https://graph.microsoft.com/User.Read',  // Capital U and R
-          'openid',
-          'profile',
-          'email',
-          // 'offline_access',  // MSAL handles this automatically
-        ],
-      );
+      try {
+        final currentAccount = await _msalAuth!.currentAccount;
+        hasAccount = true;
+        accountUsername = currentAccount.username;
+        _diagLog('MSAL ACCOUNT FOUND: $accountUsername');
+        _diagLog('Account ID: ${currentAccount.id}');
+      } catch (e) {
+        _diagLog('!!! MSAL HAS NO ACCOUNT - THIS IS LIKELY THE PROBLEM !!!');
+        _diagLog('Exception type: ${e.runtimeType}');
+        _diagLog('Exception message: ${e.toString()}');
+        _diagLog('Without a cached account, acquireTokenSilent WILL FAIL');
 
-      if (result == null) {
-        developer.log('Silent refresh failed', name: 'AuthService');
+        // Return early with diagnostic info
+        _diagLog('=== REFRESH TOKEN FAILED - NO MSAL ACCOUNT ===');
         return null;
       }
 
-      developer.log('Silent refresh successful', name: 'AuthService');
+      _diagLog('Calling acquireTokenSilent...');
+      final scopes = [
+        'https://graph.microsoft.com/User.Read',
+        'openid',
+        'profile',
+        'email',
+      ];
+      _diagLog('Requested scopes: $scopes');
+
+      // Try to acquire token silently
+      final AuthenticationResult? result = await _msalAuth!.acquireTokenSilent(
+        scopes: scopes,
+      );
+
+      if (result == null) {
+        _diagLog('!!! acquireTokenSilent returned NULL !!!');
+        _diagLog('This means MSAL could not refresh the token');
+        _diagLog('=== REFRESH TOKEN FAILED - NULL RESULT ===');
+        return null;
+      }
+
+      // SUCCESS!
+      _lastSuccessfulRefresh = DateTime.now();
+      _diagLog('SUCCESS! acquireTokenSilent returned a result');
+      _diagLog('Access token received: ${result.accessToken != null}');
+      _diagLog('ID token received: ${result.idToken != null}');
+      _diagLog('Expires on: ${result.expiresOn?.toIso8601String() ?? "UNKNOWN"}');
+
+      if (result.expiresOn != null) {
+        final tokenLifetime = result.expiresOn!.difference(DateTime.now());
+        _diagLog('Token lifetime: ${tokenLifetime.inMinutes} minutes');
+      }
+
+      _diagLog('=== REFRESH TOKEN SUCCEEDED ===');
       return await _handleAuthResult(result);
+
+    } on MsalException catch (e) {
+      // Specific MSAL exception handling
+      _diagLog('!!! MSAL EXCEPTION CAUGHT !!!');
+      _diagLog('Exception type: MsalException');
+      _diagLog('Message: ${e.message}');
+
+      final errorMessage = e.message.toLowerCase();
+
+      // Check for specific error types based on message content
+      if (errorMessage.contains('interaction_required') ||
+          errorMessage.contains('interaction')) {
+        _diagLog('>>> INTERACTION REQUIRED - Refresh token may be expired or revoked');
+        _diagLog('>>> User needs to re-authenticate interactively');
+      }
+
+      if (errorMessage.contains('no_account') ||
+          errorMessage.contains('no account') ||
+          errorMessage.contains('no current account')) {
+        _diagLog('>>> NO ACCOUNT IN CACHE - MSAL native cache is empty');
+      }
+
+      if (errorMessage.contains('invalid_grant')) {
+        _diagLog('>>> INVALID GRANT - Refresh token has been revoked or expired server-side');
+      }
+
+      if (errorMessage.contains('ui_required')) {
+        _diagLog('>>> UI REQUIRED - Silent auth not possible, need interactive flow');
+      }
+
+      _diagLog('=== REFRESH TOKEN FAILED - MSAL EXCEPTION ===');
+      return null;
+
     } catch (e, stackTrace) {
+      // Generic exception handling
+      _diagLog('!!! UNEXPECTED EXCEPTION CAUGHT !!!');
+      _diagLog('Exception type: ${e.runtimeType}');
+      _diagLog('Exception message: ${e.toString()}');
+      _diagLog('Stack trace available: ${stackTrace != null}');
+
       developer.log(
         'Token refresh error: ${e.toString()}',
         name: 'AuthService',
         error: e,
         stackTrace: stackTrace,
       );
+
+      _diagLog('=== REFRESH TOKEN FAILED - UNEXPECTED ERROR ===');
       return null;
     }
   }
@@ -371,6 +585,25 @@ class AuthService {
   Future<User?> signUp() async {
     // For MSAL with Entra External ID, sign up and sign in use the same flow
     return await signIn();
+  }
+
+  /// DIAGNOSTIC TEST: Force token expiration to simulate the 24-hour issue
+  /// This sets the token expiry to 1 minute ago, forcing a refresh attempt
+  /// Call this to test what happens when the access token expires
+  Future<void> debugForceTokenExpiration() async {
+    _diagLog('=== DEBUG: FORCING TOKEN EXPIRATION ===');
+
+    // Get current expiry for logging
+    final currentExpiry = await _tokenStorage.getExpiresAt();
+    _diagLog('Current token expiry: ${currentExpiry?.toIso8601String() ?? "NONE"}');
+
+    // Set expiry to 1 minute ago
+    final expiredTime = DateTime.now().subtract(const Duration(minutes: 1));
+    await _tokenStorage.saveExpiresAt(expiredTime);
+
+    _diagLog('Token expiry set to: ${expiredTime.toIso8601String()}');
+    _diagLog('Token is now EXPIRED - next getCurrentUser() will trigger refresh');
+    _diagLog('=== DEBUG: TOKEN EXPIRATION FORCED ===');
   }
 
   /// Get valid access token (refreshes if expired)

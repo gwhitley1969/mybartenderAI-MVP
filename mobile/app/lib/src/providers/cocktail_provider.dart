@@ -71,6 +71,77 @@ final cocktailCountProvider = FutureProvider<int>((ref) async {
   return await db.getCocktailCount();
 });
 
+/// Provider to check if initial database sync is needed
+/// Returns true if database is empty (no cocktails)
+final needsInitialSyncProvider = FutureProvider<bool>((ref) async {
+  final db = ref.watch(databaseServiceProvider);
+  final count = await db.getCocktailCount();
+  return count == 0;
+});
+
+/// State notifier for tracking if initial sync is needed (for router guard)
+/// Similar pattern to ageVerificationProvider - loads async but provides sync state
+class InitialSyncStatusNotifier extends StateNotifier<InitialSyncStatus> {
+  final DatabaseService _databaseService;
+
+  InitialSyncStatusNotifier(this._databaseService)
+      : super(const InitialSyncStatus.checking()) {
+    _checkDatabase();
+  }
+
+  Future<void> _checkDatabase() async {
+    try {
+      final count = await _databaseService.getCocktailCount();
+      if (count > 0) {
+        state = const InitialSyncStatus.hasData();
+      } else {
+        state = const InitialSyncStatus.needsSync();
+      }
+    } catch (e) {
+      // If we can't check, assume needs sync to be safe
+      state = const InitialSyncStatus.needsSync();
+    }
+  }
+
+  /// Call this after sync completes to update state
+  void markSyncCompleted() {
+    state = const InitialSyncStatus.hasData();
+  }
+
+  /// Force recheck of database state
+  Future<void> recheck() async {
+    state = const InitialSyncStatus.checking();
+    await _checkDatabase();
+  }
+}
+
+/// State for initial sync status
+class InitialSyncStatus {
+  final InitialSyncState state;
+
+  const InitialSyncStatus({required this.state});
+
+  const InitialSyncStatus.checking() : this(state: InitialSyncState.checking);
+  const InitialSyncStatus.needsSync() : this(state: InitialSyncState.needsSync);
+  const InitialSyncStatus.hasData() : this(state: InitialSyncState.hasData);
+
+  bool get isChecking => state == InitialSyncState.checking;
+  bool get needsSync => state == InitialSyncState.needsSync;
+  bool get hasData => state == InitialSyncState.hasData;
+}
+
+enum InitialSyncState {
+  checking,
+  needsSync,
+  hasData,
+}
+
+/// Provider for initial sync status (used by router guard)
+final initialSyncStatusProvider =
+    StateNotifierProvider<InitialSyncStatusNotifier, InitialSyncStatus>((ref) {
+  return InitialSyncStatusNotifier(ref.watch(databaseServiceProvider));
+});
+
 /// Provider for searching by ingredient
 final cocktailsByIngredientProvider =
     FutureProvider.family<List<Cocktail>, String>((ref, ingredientName) async {

@@ -78,6 +78,9 @@ dependencies:
   # YouTube player for Academy feature
   youtube_player_iframe: ^5.1.7
 
+  # Background tasks for token refresh keepalive
+  workmanager: ^0.9.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

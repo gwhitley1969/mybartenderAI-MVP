@@ -42,21 +42,53 @@ class ProToolDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hero icon section
+              // Hero image or icon section
               Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: tierColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    _getIconData(tool.iconName),
-                    color: AppColors.textPrimary,
-                    size: 48,
-                  ),
-                ),
+                child: tool.imageAsset != null
+                    ? Container(
+                        width: double.infinity,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          color: AppColors.backgroundSecondary,
+                          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                          child: Image.asset(
+                            tool.imageAsset!,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              // Fallback to icon if image fails to load
+                              return Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  color: tierColor,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  _getIconData(tool.iconName),
+                                  color: AppColors.textPrimary,
+                                  size: 48,
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      )
+                    : Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: tierColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _getIconData(tool.iconName),
+                          color: AppColors.textPrimary,
+                          size: 48,
+                        ),
+                      ),
               ),
               SizedBox(height: AppSpacing.lg),
               // Title and subtitle

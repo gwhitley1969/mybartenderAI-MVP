@@ -2,13 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chat_message.dart';
 import '../../../services/ask_bartender_service.dart';
 import '../../../providers/inventory_provider.dart';
+import '../../../providers/auth_provider.dart';
 
 /// Provider for the AskBartenderService
 final askBartenderServiceProvider = Provider<AskBartenderService>((ref) {
-  return AskBartenderService();
+  return AskBartenderService(
+    authService: ref.watch(authServiceProvider),
+  );
 });
 
-/// State notifier for managing chat conversation state
+/// State notifier for managing chat conversation state - DEBUG VERSION
 class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   final AskBartenderService _service;
   final Ref _ref;
@@ -16,7 +19,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   ChatNotifier(this._service, this._ref) : super([
     ChatMessage(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: "Hello! I'm your AI Bartender. I can help you discover cocktails based on what you have in your bar, teach you new recipes, or answer any cocktail-related questions. What can I help you with today?",
+      content: "DEBUG MODE - I'll show you exactly what's happening with each request.",
       isUser: false,
       timestamp: DateTime.now(),
     ),
@@ -34,15 +37,14 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     );
     state = [...state, userMessage];
 
-    // Add loading message
-    final loadingMessage = ChatMessage(
-      id: '${DateTime.now().millisecondsSinceEpoch}_loading',
-      content: '',
+    // Add debug info message
+    final debugStartMessage = ChatMessage(
+      id: '${DateTime.now().millisecondsSinceEpoch}_debug',
+      content: '🔍 DEBUG: Starting API call...',
       isUser: false,
       timestamp: DateTime.now(),
-      isLoading: true,
     );
-    state = [...state, loadingMessage];
+    state = [...state, debugStartMessage];
 
     try {
       // Get user's inventory for context
@@ -51,15 +53,30 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
           ? 'User has these ingredients: ${inventory.map((i) => i.name).join(', ')}'
           : 'User has not added any ingredients to their bar yet.';
 
+      // Add debug message about what we're sending
+      final debugRequestMessage = ChatMessage(
+        id: '${DateTime.now().millisecondsSinceEpoch}_debug2',
+        content: '📤 Sending: "$message"\n📦 Context: $inventoryContext',
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+      state = [...state, debugRequestMessage];
+
       // Send message to API
       final response = await _service.askBartender(
         message: message,
         context: inventoryContext,
       );
 
-      // Remove loading message and add response
+      // Add success message with response
       state = [
-        ...state.where((m) => !m.isLoading),
+        ...state,
+        ChatMessage(
+          id: '${DateTime.now().millisecondsSinceEpoch}_success',
+          content: '✅ SUCCESS! Got response from GPT-4o-mini',
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
         ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
           content: response,
@@ -68,18 +85,36 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
         ),
       ];
     } catch (e) {
-      // Remove loading message and add error message
+      // Show DETAILED error information
+      final errorDetails = '''
+❌ ERROR DETAILS:
+Type: ${e.runtimeType}
+Message: ${e.toString()}
+
+Full error stack:
+$e
+
+This error came from the Flutter app, not the backend.
+Check the console/logcat for more details.
+''';
+
       state = [
-        ...state.where((m) => !m.isLoading),
+        ...state,
         ChatMessage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          content: 'Sorry, I encountered an error. Please try again.',
+          content: errorDetails,
           isUser: false,
           timestamp: DateTime.now(),
           isError: true,
         ),
       ];
-      print('Error sending message: $e');
+
+      print('=== FULL ERROR DUMP ===');
+      print('Error Type: ${e.runtimeType}');
+      print('Error String: ${e.toString()}');
+      print('Stack Trace:');
+      print(StackTrace.current);
+      print('=== END ERROR DUMP ===');
     }
   }
 
@@ -87,7 +122,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     state = [
       ChatMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: "Hello! I'm your AI Bartender. How can I help you today?",
+        content: "DEBUG MODE - Ready to show detailed error information.",
         isUser: false,
         timestamp: DateTime.now(),
       ),

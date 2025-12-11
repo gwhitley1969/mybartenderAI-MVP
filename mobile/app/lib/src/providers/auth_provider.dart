@@ -126,6 +126,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = const AuthState.unauthenticated();
     }
   }
+
+  /// DEBUG: Force token expiration to test refresh flow
+  /// This simulates what happens when the access token expires
+  Future<void> debugForceTokenExpiration() async {
+    developer.log('DEBUG: Forcing token expiration...', name: 'AuthNotifier');
+    await _authService.debugForceTokenExpiration();
+    developer.log('DEBUG: Token expired, now refreshing auth state...', name: 'AuthNotifier');
+    // Trigger a refresh which will now see the expired token
+    await refresh();
+  }
 }
 
 // Auth state provider

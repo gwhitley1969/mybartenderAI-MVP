@@ -41,7 +41,6 @@ class AuthConfig {
     // 'openid', // TEMPORARILY REMOVED - this might trigger automatic nonce
     'profile',
     'email',
-    'offline_access', // For refresh tokens
   ];
 
   // Additional parameters for Entra External ID

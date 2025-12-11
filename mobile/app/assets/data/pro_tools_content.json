@@ -26,7 +26,8 @@
           ],
           "iconName": "straighten",
           "sortOrder": 1,
-          "tags": ["measuring", "essential", "precision"]
+          "tags": ["measuring", "essential", "precision"],
+          "imageAsset": "assets/images/pro_tools/japanese-jigger.jpeg"
         },
         {
           "id": "boston-shaker",
@@ -46,7 +47,8 @@
           ],
           "iconName": "sports_bar",
           "sortOrder": 2,
-          "tags": ["shaking", "essential", "mixing"]
+          "tags": ["shaking", "essential", "mixing"],
+          "imageAsset": "assets/images/pro_tools/boston-shaker.jpeg"
         },
         {
           "id": "bar-spoon",
@@ -66,7 +68,8 @@
           ],
           "iconName": "sync",
           "sortOrder": 3,
-          "tags": ["stirring", "essential", "technique"]
+          "tags": ["stirring", "essential", "technique"],
+          "imageAsset": "assets/images/pro_tools/bar-spoon.jpeg"
         },
         {
           "id": "hawthorne-strainer",
@@ -86,7 +89,8 @@
           ],
           "iconName": "filter_alt",
           "sortOrder": 4,
-          "tags": ["straining", "essential", "shaking"]
+          "tags": ["straining", "essential", "shaking"],
+          "imageAsset": "assets/images/pro_tools/hawthorne-strainer.jpeg"
         },
         {
           "id": "muddler",
@@ -106,7 +110,8 @@
           ],
           "iconName": "vertical_align_bottom",
           "sortOrder": 5,
-          "tags": ["muddling", "essential", "herbs"]
+          "tags": ["muddling", "essential", "herbs"],
+          "imageAsset": "assets/images/pro_tools/muddler.jpeg"
         },
         {
           "id": "citrus-juicer",
@@ -126,7 +131,8 @@
           ],
           "iconName": "compress",
           "sortOrder": 6,
-          "tags": ["citrus", "essential", "fresh"]
+          "tags": ["citrus", "essential", "fresh"],
+          "imageAsset": "assets/images/pro_tools/citrus-juicer.jpeg"
         }
       ]
     },
@@ -157,7 +163,8 @@
           ],
           "iconName": "local_bar",
           "sortOrder": 1,
-          "tags": ["stirring", "glassware", "presentation"]
+          "tags": ["stirring", "glassware", "presentation"],
+          "imageAsset": "assets/images/pro_tools/mixing-glass.jpeg"
         },
         {
           "id": "fine-mesh-strainer",
@@ -177,7 +184,8 @@
           ],
           "iconName": "filter_list",
           "sortOrder": 2,
-          "tags": ["straining", "clarity", "technique"]
+          "tags": ["straining", "clarity", "technique"],
+          "imageAsset": "assets/images/pro_tools/fine-mesh-strainer.jpeg"
         },
         {
           "id": "channel-knife",
@@ -197,7 +205,8 @@
           ],
           "iconName": "content_cut",
           "sortOrder": 3,
-          "tags": ["garnish", "citrus", "presentation"]
+          "tags": ["garnish", "citrus", "presentation"],
+          "imageAsset": "assets/images/pro_tools/channel-knife.jpeg"
         },
         {
           "id": "julep-strainer",
@@ -217,7 +226,8 @@
           ],
           "iconName": "filter_2",
           "sortOrder": 4,
-          "tags": ["straining", "stirred", "classic"]
+          "tags": ["straining", "stirred", "classic"],
+          "imageAsset": "assets/images/pro_tools/julep-strainer.jpeg"
         },
         {
           "id": "pour-spouts",
@@ -237,7 +247,8 @@
           ],
           "iconName": "water_drop",
           "sortOrder": 5,
-          "tags": ["pouring", "speed", "efficiency"]
+          "tags": ["pouring", "speed", "efficiency"],
+          "imageAsset": "assets/images/pro_tools/pour-spouts.jpeg"
         },
         {
           "id": "ice-cube-trays",
@@ -257,7 +268,8 @@
           ],
           "iconName": "ac_unit",
           "sortOrder": 6,
-          "tags": ["ice", "dilution", "presentation"]
+          "tags": ["ice", "dilution", "presentation"],
+          "imageAsset": "assets/images/pro_tools/ice-cube-trays.jpeg"
         }
       ]
     },
@@ -287,7 +299,8 @@
           ],
           "iconName": "tune",
           "sortOrder": 1,
-          "tags": ["measuring", "precision", "professional"]
+          "tags": ["measuring", "precision", "professional"],
+          "imageAsset": "assets/images/pro_tools/japanese-jigger-set.jpeg"
         },
         {
           "id": "lewis-bag-mallet",
@@ -307,7 +320,8 @@
           ],
           "iconName": "gavel",
           "sortOrder": 2,
-          "tags": ["ice", "crushed", "julep"]
+          "tags": ["ice", "crushed", "julep"],
+          "imageAsset": "assets/images/pro_tools/lewis-bag-mallet.jpeg"
         },
         {
           "id": "smoking-gun",
@@ -327,7 +341,8 @@
           ],
           "iconName": "smoking_rooms",
           "sortOrder": 3,
-          "tags": ["smoke", "presentation", "flavor"]
+          "tags": ["smoke", "presentation", "flavor"],
+          "imageAsset": "assets/images/pro_tools/smoking-gun.jpeg"
         },
         {
           "id": "atomizer",
@@ -347,7 +362,8 @@
           ],
           "iconName": "air",
           "sortOrder": 4,
-          "tags": ["aroma", "rinse", "technique"]
+          "tags": ["aroma", "rinse", "technique"],
+          "imageAsset": "assets/images/pro_tools/atomizer.jpeg"
         },
         {
           "id": "fine-scale",
@@ -367,7 +383,8 @@
           ],
           "iconName": "scale",
           "sortOrder": 5,
-          "tags": ["measuring", "precision", "bitters"]
+          "tags": ["measuring", "precision", "bitters"],
+          "imageAsset": "assets/images/pro_tools/fine-scale.jpeg"
         },
         {
           "id": "sous-vide",
@@ -387,7 +404,8 @@
           ],
           "iconName": "thermostat",
           "sortOrder": 6,
-          "tags": ["infusion", "advanced", "technique"]
+          "tags": ["infusion", "advanced", "technique"],
+          "imageAsset": "assets/images/pro_tools/sous-vide.jpg"
         }
       ]
     }

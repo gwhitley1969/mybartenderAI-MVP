@@ -360,13 +360,8 @@ class _AddIngredientScreenState extends ConsumerState<AddIngredientScreen> {
                   SnackBar(
                     content: Text('Added $ingredient to your bar'),
                     backgroundColor: AppColors.cardBackground,
-                    action: SnackBarAction(
-                      label: 'Done',
-                      textColor: AppColors.primaryPurple,
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                    ),
+                    duration: const Duration(seconds: 2),
+                    behavior: SnackBarBehavior.floating,
                   ),
                 );
               }

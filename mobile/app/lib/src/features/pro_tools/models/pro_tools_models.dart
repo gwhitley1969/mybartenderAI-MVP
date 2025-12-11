@@ -39,6 +39,7 @@ class ProTool {
   final String iconName;
   final int sortOrder;
   final List<String> tags;
+  final String? imageAsset; // Optional path to tool image in assets
 
   const ProTool({
     required this.id,
@@ -51,6 +52,7 @@ class ProTool {
     required this.iconName,
     required this.sortOrder,
     required this.tags,
+    this.imageAsset,
   });
 
   factory ProTool.fromJson(Map<String, dynamic> json) {
@@ -67,6 +69,7 @@ class ProTool {
       iconName: json['iconName'] as String,
       sortOrder: json['sortOrder'] as int,
       tags: (json['tags'] as List<dynamic>).cast<String>(),
+      imageAsset: json['imageAsset'] as String?,
     );
   }
 }

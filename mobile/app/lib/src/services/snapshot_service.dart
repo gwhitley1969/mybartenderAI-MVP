@@ -45,13 +45,21 @@ class SnapshotService {
   }
 
   /// Download and import the latest snapshot
+  /// Uses ATOMIC sync - old database is only deleted after new one is verified
   Future<void> syncSnapshot({
     Function(int current, int total)? onProgress,
   }) async {
     try {
       // Step 1: Get snapshot metadata
+      print('SnapshotService: ========== SYNC STARTING ==========');
+      print('SnapshotService: Fetching snapshot metadata...');
+      print('SnapshotService: Backend base URL: ${_backendService.baseUrl}');
       final metadata = await _backendService.getLatestSnapshot();
-      print('Downloading snapshot version: ${metadata.snapshotVersion}');
+      print('SnapshotService: Metadata received!');
+      print('SnapshotService: Version: ${metadata.snapshotVersion}');
+      print('SnapshotService: Size: ${metadata.sizeBytes} bytes');
+      print('SnapshotService: Drinks: ${metadata.counts['drinks']}');
+      print('SnapshotService: Downloading from signed URL...');
 
       // Step 2: Download compressed SQLite file from signed URL
       final response = await _dio.get(
@@ -69,7 +77,13 @@ class SnapshotService {
 
       print('Downloaded ${response.data.length} bytes');
 
-      // Step 3: Decompress the Zstandard-compressed file
+      // Step 3: Verify download size matches expected
+      if (response.data.length != metadata.sizeBytes) {
+        throw Exception('Downloaded file size mismatch: got ${response.data.length}, expected ${metadata.sizeBytes}');
+      }
+      print('Download size verified: ${response.data.length} bytes');
+
+      // Step 4: Decompress the Zstandard-compressed file
       print('Decompressing SQLite database...');
       final Uint8List compressedData = Uint8List.fromList(response.data);
       final zstandard = Zstandard();
@@ -81,49 +95,79 @@ class SnapshotService {
 
       print('Decompressed to ${decompressedData.length} bytes');
 
-      // Step 4: Close existing database connection
-      await _databaseService.close();
-
-      // Step 5: Delete old database files (including WAL and SHM files)
+      // Step 5: Write to TEMPORARY file first (atomic approach)
       final Directory documentsDirectory = await getApplicationDocumentsDirectory();
       final String dbPath = join(documentsDirectory.path, 'mybartenderai.db');
+      final String tempDbPath = join(documentsDirectory.path, 'mybartenderai_new.db');
+      final File tempDbFile = File(tempDbPath);
+
+      print('Writing new database to temporary file: $tempDbPath');
+      await tempDbFile.writeAsBytes(decompressedData, flush: true);
+      print('Temporary database file written successfully');
+
+      // Step 6: Verify the new database is valid before replacing old one
+      print('Verifying new database integrity...');
+      final tempFileSize = await tempDbFile.length();
+      if (tempFileSize != decompressedData.length) {
+        await tempDbFile.delete();
+        throw Exception('Written file size mismatch: wrote $tempFileSize, expected ${decompressedData.length}');
+      }
+      print('New database file verified: $tempFileSize bytes');
+
+      // Step 7: NOW it's safe to swap - close existing database
+      print('Closing existing database connection...');
+      await _databaseService.close();
+
+      // Step 8: Delete old database files (including WAL and SHM files)
       final File dbFile = File(dbPath);
       final File walFile = File('$dbPath-wal');
       final File shmFile = File('$dbPath-shm');
 
-      print('Deleting old database files...');
-      if (await dbFile.exists()) {
-        await dbFile.delete();
-      }
+      print('Removing old database files...');
       if (await walFile.exists()) {
         await walFile.delete();
       }
       if (await shmFile.exists()) {
         await shmFile.delete();
       }
+      if (await dbFile.exists()) {
+        await dbFile.delete();
+      }
 
-      // Step 6: Write new decompressed database file
-      print('Writing new database to $dbPath');
-      await dbFile.writeAsBytes(decompressedData, flush: true);
-      print('Database file written successfully');
+      // Step 9: Rename temp file to final location (atomic on most filesystems)
+      print('Moving new database to final location...');
+      await tempDbFile.rename(dbPath);
+      print('Database swap complete!');
 
-      // Step 7: Re-initialize database to ensure user tables exist
+      // Step 10: Re-initialize database to ensure user tables exist
       // The snapshot only contains cocktail data, so we need to add user tables
       print('Adding user-specific tables...');
       await _databaseService.ensureUserTablesExist();
 
-      // Step 8: Update metadata with snapshot version
+      // Step 11: Update metadata with snapshot version
       await _databaseService.setCurrentSnapshotVersion(metadata.snapshotVersion);
 
       print('Snapshot sync complete!');
 
-      // Step 9: Download all cocktail images for offline use
+      // Step 12: Download all cocktail images for offline use
       print('Starting cocktail image downloads...');
       await _downloadCocktailImages(onProgress);
 
       print('All sync operations complete!');
     } catch (e) {
       print('Error syncing snapshot: $e');
+      // Clean up temp file if it exists
+      try {
+        final Directory documentsDirectory = await getApplicationDocumentsDirectory();
+        final String tempDbPath = join(documentsDirectory.path, 'mybartenderai_new.db');
+        final File tempDbFile = File(tempDbPath);
+        if (await tempDbFile.exists()) {
+          await tempDbFile.delete();
+          print('Cleaned up temporary file');
+        }
+      } catch (_) {
+        // Ignore cleanup errors
+      }
       rethrow;
     }
   }

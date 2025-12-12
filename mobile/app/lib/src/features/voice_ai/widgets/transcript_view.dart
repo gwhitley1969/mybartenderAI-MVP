@@ -65,69 +65,81 @@ class _TranscriptViewState extends State<TranscriptView> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.mic_none,
-            size: 80,
-            color: Colors.grey.shade700,
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Voice AI Bartender',
-            style: TextStyle(
-              color: Colors.grey.shade400,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 48),
-            child: Text(
-              'Tap the microphone and start talking.\nAsk me about cocktails, recipes, or bar techniques!',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 16,
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-          // How to use instructions
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 32),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade900,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade800),
-            ),
+    // Use LayoutBuilder + SingleChildScrollView to handle large fonts/small screens
+    // Content stays centered when it fits, scrolls when it overflows
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(
+                  Icons.mic_none,
+                  size: 80,
+                  color: Colors.grey.shade700,
+                ),
+                const SizedBox(height: 24),
                 Text(
-                  'How to use',
+                  'Voice AI Bartender',
                   style: TextStyle(
                     color: Colors.grey.shade400,
-                    fontSize: 14,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 12),
-                _buildInstructionRow(Icons.mic, 'Tap button to start talking'),
-                const SizedBox(height: 8),
-                _buildInstructionRow(Icons.stop_rounded, 'Tap button again to stop'),
-                const SizedBox(height: 8),
-                _buildInstructionRow(Icons.arrow_back, 'Or press back to exit'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 48),
+                  child: Text(
+                    'Tap the microphone and start talking.\nAsk me about cocktails, recipes, or bar techniques!',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // How to use instructions
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 32),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade900,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade800),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'How to use',
+                        style: TextStyle(
+                          color: Colors.grey.shade400,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildInstructionRow(Icons.mic, 'Tap button to start talking'),
+                      const SizedBox(height: 8),
+                      _buildInstructionRow(Icons.stop_rounded, 'Tap button again to stop'),
+                      const SizedBox(height: 8),
+                      _buildInstructionRow(Icons.arrow_back, 'Or press back to exit'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+                _buildSuggestionChips(),
+                const SizedBox(height: 16), // Bottom padding for scroll
               ],
             ),
           ),
-          const SizedBox(height: 24),
-          _buildSuggestionChips(),
-        ],
-      ),
+        );
+      },
     );
   }
 

@@ -10,9 +10,9 @@ staging-settings.txt
 apim-subscription-key.txt
 mobile/app/temp_key.txt
 
-# Test scripts with secrets (use templates instead)
-test-*.ps1
-!test-*.template.ps1
+# PowerShell scripts (may contain secrets/credentials)
+*.ps1
+!*.template.ps1
 
 # Policy files with embedded secrets (deploy programmatically)
 *-policy.xml
@@ -40,11 +40,8 @@ build/
 bin/
 obj/
 
-# Generated deploy folders (tweak if you actually need them)
-apps/backend/deploy-final*/
-apps/backend/deploy-final-working/
-apps/backend/deploy-correct/
-apps/backend/fix-sync/
+# Legacy backend (migrated to backend/functions in Nov 2025)
+apps/backend/
 
 # Node / Azure Functions common
 node_modules/

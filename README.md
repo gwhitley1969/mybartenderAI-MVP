@@ -2,7 +2,7 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (Updated: December 9, 2025)
+## 🚀 Current Status (Updated: December 12, 2025)
 
 - **Backend**: ✅ Azure Functions v4 Programming Model (`func-mba-fresh`) - 31 functions deployed
 - **API Gateway**: ✅ Azure API Management configured (`apim-mba-002`)
@@ -39,7 +39,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 
 ### Recent Deployments
 
-**Voice AI Feature (December 9, 2025):**
+**Voice AI Feature (December 9-12, 2025):**
 
 - ✅ Voice AI backend functions deployed (voice-session, voice-usage, voice-quota, voice-realtime-test)
 - ✅ Azure OpenAI Realtime API integration via WebRTC
@@ -47,6 +47,16 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ Flutter Voice AI screen with real-time transcription
 - ✅ Pro tier gating with 30 minutes/month quota
 - ✅ User-friendly "Tap microphone to stop" instruction
+- ✅ Consolidated transcript display (streaming deltas accumulated into single bubbles)
+- ✅ Large font/accessibility support (scrollable layout for overflow)
+
+**Database & Sync Fixes (December 12, 2025):**
+
+- ✅ Fixed SQLite snapshot schema to match mobile app expectations
+- ✅ Added missing columns: `updated_at`, `ingredient_order`, etc.
+- ✅ Created `rebuild-sqlite-snapshot.js` for proper SQLite generation
+- ✅ Atomic database sync (temp file → verify → rename)
+- ✅ Fixed incorrect "Kids" tag on alcoholic drinks (Autumn Garibaldi, Spritz Veneziano)
 
 **Azure Functions v4 Migration (November 20, 2025):**
 
@@ -255,16 +265,16 @@ The APIM is configured with JWT validation policies and tier-based quotas. See:
 curl https://func-mba-fresh.azurewebsites.net/api/health
 
 # Get latest snapshot (requires API key)
-curl https://apim-mba-001.azure-api.net/api/v1/snapshots/latest \
+curl https://apim-mba-002.azure-api.net/api/v1/snapshots/latest \
   -H "Ocp-Apim-Subscription-Key: YOUR_KEY"
 
 # Get user profile (requires JWT)
-curl https://apim-mba-001.azure-api.net/api/v1/users/me \
+curl https://apim-mba-002.azure-api.net/api/v1/users/me \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Ocp-Apim-Subscription-Key: YOUR_KEY"
 
 # Share recipe internally (requires JWT)
-curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/share-internal \
+curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/share-internal \
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \
   -H "Ocp-Apim-Subscription-Key: YOUR_KEY" \
   -H "Content-Type: application/json" \
@@ -328,7 +338,7 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/share-internal \
 - ✅ Create Studio with AI Refine
 - ✅ 25 custom recipes
 
-### Pro Tier ($8.99/month)
+### Pro Tier ($14.99/month)
 
 - ✅ Everything in Premium
 - ✅ Maximum social sharing: 5,000 requests/day
@@ -346,7 +356,7 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/share-internal \
 - ✅ **Official Azure OpenAI SDK integration (@azure/openai)**
 - ✅ APIM configuration for tier management
 - ✅ Database synchronization from TheCocktailDB
-- ✅ JSON snapshot generation and delivery
+- ✅ SQLite snapshot generation with Zstandard compression
 - ✅ GPT-4o-mini integration
 - ✅ Authentication with Entra External ID
 - ✅ Server-side age verification (21+)
@@ -405,13 +415,13 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/share-internal \
 
 ### Beta (Current Monthly Costs)
 
-- APIM Basic V2 tier: ~$70/month
+- APIM Basic V2 tier: ~$150/month
 - Azure Functions (Premium Consumption): ~$160/month
 - PostgreSQL Flexible Server: ~$30/month
 - Storage: ~$2/month
 - Azure Front Door Standard: ~$35/month
 - Application Insights: ~$3/month
-- **Total: ~$600/month**
+- **Total: ~$380/month**
 
 ### Production (Target Monthly Costs)
 
@@ -518,12 +528,12 @@ flutter run --release
 
 ```bash
 # Get user profile (auto-creates on first call)
-curl https://apim-mba-001.azure-api.net/api/v1/users/me \
+curl https://apim-mba-002.azure-api.net/api/v1/users/me \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Ocp-Apim-Subscription-Key: $APIM_KEY"
 
 # Create external invite
-curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/invite \
+curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/invite \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Ocp-Apim-Subscription-Key: $APIM_KEY" \
   -H "Content-Type: application/json" \
@@ -532,7 +542,7 @@ curl -X POST https://apim-mba-001.azure-api.net/api/v1/social/invite \
 
 **Use APIM Developer Portal:**
 
-1. Navigate to https://apim-mba-001.developer.azure-api.net
+1. Navigate to https://apim-mba-002.developer.azure-api.net
 2. Sign in with your Azure account
 3. Select an API and operation
 4. Click "Try it" to test endpoints
@@ -601,6 +611,6 @@ Proprietary - All rights reserved
 
 ---
 
-**Last Updated**: December 9, 2025
-**Version**: 0.9.1-beta
-**Status**: Early Beta - Voice AI Feature Complete, Backend Modernized, Mobile App Testing In Progress
+**Last Updated**: December 12, 2025
+**Version**: 0.9.2-beta
+**Status**: Early Beta - Voice AI Feature Complete, SQLite Snapshots Fixed, Large Font Accessibility Added

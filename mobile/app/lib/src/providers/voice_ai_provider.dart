@@ -51,15 +51,8 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
             isLoading: voiceState == VoiceAIState.connecting,
           );
         },
-        onTranscript: (role, text) {
-          final newTranscript = VoiceTranscript(
-            role: role,
-            text: text,
-            timestamp: DateTime.now(),
-          );
-          state = state.copyWith(
-            transcripts: [...state.transcripts, newTranscript],
-          );
+        onTranscript: (role, text, isFinal) {
+          _handleTranscript(role, text, isFinal);
         },
         onQuotaUpdate: (quota) {
           state = state.copyWith(quota: quota);
@@ -107,6 +100,47 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
       sessionInfo: null,
       // Keep transcripts for review if needed
     );
+  }
+
+  /// Handle incoming transcript updates
+  /// For partial updates (isFinal=false): Update the last assistant message in-place
+  /// For final updates (isFinal=true): Finalize the message
+  void _handleTranscript(String role, String text, bool isFinal) {
+    final transcripts = List<VoiceTranscript>.from(state.transcripts);
+
+    if (role == 'assistant') {
+      // Check if the last message is a partial assistant message
+      final lastIndex = transcripts.length - 1;
+      final hasPartialAssistant = transcripts.isNotEmpty &&
+          transcripts.last.role == 'assistant' &&
+          !transcripts.last.isFinal;
+
+      if (hasPartialAssistant) {
+        // Update the existing partial message
+        transcripts[lastIndex] = transcripts.last.copyWith(
+          text: text,
+          isFinal: isFinal,
+        );
+      } else {
+        // Create a new transcript entry
+        transcripts.add(VoiceTranscript(
+          role: role,
+          text: text,
+          timestamp: DateTime.now(),
+          isFinal: isFinal,
+        ));
+      }
+    } else {
+      // User transcripts are always final, just add them
+      transcripts.add(VoiceTranscript(
+        role: role,
+        text: text,
+        timestamp: DateTime.now(),
+        isFinal: true,
+      ));
+    }
+
+    state = state.copyWith(transcripts: transcripts);
   }
 
   /// Clear transcripts and reset state

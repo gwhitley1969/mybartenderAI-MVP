@@ -24,7 +24,7 @@
 **Root Cause:**
 Key Vault stored PostgreSQL connection string in **wrong format**:
 ```
-❌ WRONG: Host=pg-mybartenderdb.postgres.database.azure.com; Database=mybartender; Username=pgadmin; Password=Advocate2!; Ssl Mode=Require;
+❌ WRONG: Host=pg-mybartenderdb.postgres.database.azure.com; Database=mybartender; Username=pgadmin; Password=<PASSWORD>; Ssl Mode=Require;
 ```
 
 The `pg` library couldn't parse this named-parameter format and was trying to connect to a host called "base".
@@ -32,7 +32,7 @@ The `pg` library couldn't parse this named-parameter format and was trying to co
 **Solution:**
 1. Updated Key Vault secret to proper PostgreSQL URI format:
    ```
-   ✅ CORRECT: postgresql://pgadmin:Advocate2!@pg-mybartenderdb.postgres.database.azure.com/mybartender?sslmode=require
+   ✅ CORRECT: postgresql://pgadmin:<PASSWORD>@pg-mybartenderdb.postgres.database.azure.com/mybartender?sslmode=require
    ```
 
 2. Set `PG_CONNECTION_STRING` directly in Function App settings (bypassing Key Vault reference caching):
@@ -506,8 +506,8 @@ az monitor app-insights query \
 
 ### Check Database Connection
 ```powershell
-# Query snapshot metadata
-$env:PGPASSWORD = "Advocate2!"
+# Query snapshot metadata (get password from Key Vault)
+$env:PGPASSWORD = az keyvault secret show --vault-name kv-mybartenderai-prod --name POSTGRES-PASSWORD --query value -o tsv
 psql -h pg-mybartenderdb.postgres.database.azure.com \
   -U pgadmin \
   -d mybartender \

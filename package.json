@@ -1,0 +1,31 @@
+{
+  "name": "mybartenderai-mvp",
+  "version": "1.0.0",
+  "description": "AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.",
+  "main": "check-snapshot.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gwhitley1969/mybartenderAI-MVP.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gwhitley1969/mybartenderAI-MVP/issues"
+  },
+  "homepage": "https://github.com/gwhitley1969/mybartenderAI-MVP#readme",
+  "dependencies": {
+    "@azure/identity": "^4.13.0",
+    "@azure/keyvault-secrets": "^4.9.0",
+    "@azure/storage-blob": "^12.29.1",
+    "better-sqlite3": "^12.5.0",
+    "pg": "^8.16.3",
+    "zstd-codec": "^0.1.5"
+  }
+}

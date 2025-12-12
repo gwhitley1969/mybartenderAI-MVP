@@ -28,9 +28,37 @@ class BackendService {
       _dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) async {
-            final token = await getAccessToken!();
-            if (token != null && token.isNotEmpty) {
-              options.headers['Authorization'] = 'Bearer $token';
+            final requestPath = options.path;
+            print('BackendService: Request to $requestPath');
+
+            // Skip auth for public endpoints that don't need it
+            final publicEndpoints = ['/v1/snapshots/latest', '/health'];
+            final isPublicEndpoint = publicEndpoints.any((ep) => requestPath.contains(ep));
+
+            if (isPublicEndpoint) {
+              print('BackendService: Public endpoint, skipping auth token');
+              handler.next(options);
+              return;
+            }
+
+            try {
+              print('BackendService: Getting access token...');
+              // Add timeout to prevent hanging forever
+              final token = await getAccessToken!().timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  print('BackendService: Token retrieval TIMEOUT after 10s');
+                  return null;
+                },
+              );
+              print('BackendService: Token retrieved: ${token != null ? '${token.length} chars' : 'NULL'}');
+
+              if (token != null && token.isNotEmpty) {
+                options.headers['Authorization'] = 'Bearer $token';
+              }
+            } catch (e) {
+              print('BackendService: Error getting token: $e');
+              // Continue without token rather than failing
             }
             handler.next(options);
           },
@@ -69,13 +97,43 @@ class BackendService {
   }
 
   /// Get the latest snapshot metadata
+  /// Includes retry logic for transient network errors
   Future<SnapshotMetadata> getLatestSnapshot() async {
-    try {
-      final response = await _dio.get('/v1/snapshots/latest');
-      return SnapshotMetadata.fromJson(response.data);
-    } catch (e) {
-      throw Exception('Failed to get snapshot metadata: $e');
+    const maxRetries = 3;
+    const retryDelayMs = 1000;
+
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        print('BackendService: Getting snapshot metadata (attempt $attempt/$maxRetries)');
+        final response = await _dio.get('/v1/snapshots/latest');
+        print('BackendService: Snapshot metadata received successfully');
+        return SnapshotMetadata.fromJson(response.data);
+      } on DioException catch (e) {
+        print('BackendService: Attempt $attempt failed: ${e.type} - ${e.message}');
+
+        // Don't retry for non-transient errors
+        if (e.type == DioExceptionType.badResponse) {
+          // Server returned an error response (4xx, 5xx)
+          throw Exception('Failed to get snapshot metadata: Server error ${e.response?.statusCode}');
+        }
+
+        // Retry for connection errors, timeouts, etc.
+        if (attempt < maxRetries) {
+          print('BackendService: Retrying in ${retryDelayMs}ms...');
+          await Future.delayed(Duration(milliseconds: retryDelayMs * attempt));
+        } else {
+          throw Exception('Failed to get snapshot metadata after $maxRetries attempts: $e');
+        }
+      } catch (e) {
+        print('BackendService: Unexpected error on attempt $attempt: $e');
+        if (attempt >= maxRetries) {
+          throw Exception('Failed to get snapshot metadata: $e');
+        }
+        await Future.delayed(Duration(milliseconds: retryDelayMs * attempt));
+      }
     }
+
+    throw Exception('Failed to get snapshot metadata: Unknown error');
   }
 
   /// Download the snapshot data

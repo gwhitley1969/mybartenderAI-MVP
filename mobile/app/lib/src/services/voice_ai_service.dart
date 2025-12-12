@@ -42,8 +42,11 @@ class VoiceAIService {
 
   // Callbacks
   Function(VoiceAIState)? _onStateChange;
-  Function(String, String)? _onTranscript; // (role, text)
+  Function(String, String, bool)? _onTranscript; // (role, text, isFinal)
   Function(VoiceQuota)? _onQuotaUpdate;
+
+  // Buffer for accumulating streaming assistant response
+  StringBuffer _currentAssistantResponse = StringBuffer();
 
   VoiceAIState _state = VoiceAIState.idle;
   VoiceAIState get state => _state;
@@ -147,7 +150,7 @@ class VoiceAIService {
   Future<VoiceSessionInfo> startSession({
     Map<String, List<String>>? inventory,
     required Function(VoiceAIState) onStateChange,
-    required Function(String, String) onTranscript,
+    required Function(String, String, bool) onTranscript, // (role, text, isFinal)
     Function(VoiceQuota)? onQuotaUpdate,
   }) async {
     _onStateChange = onStateChange;
@@ -213,6 +216,7 @@ class VoiceAIService {
       _realtimeSessionId = sessionData['session']['realtimeSessionId'];
       _sessionStartTime = DateTime.now();
       _transcripts.clear();
+      _currentAssistantResponse = StringBuffer(); // Clear any pending partial response
 
       final token = sessionData['token']['value'];
       final webrtcUrl = sessionData['webrtcUrl'];
@@ -386,21 +390,35 @@ class VoiceAIService {
 
       switch (type) {
         case 'response.audio_transcript.delta':
-        case 'response.audio_transcript.done':
-          // AI response transcript
-          final transcript = data['delta'] ?? data['transcript'] ?? '';
-          if (transcript.isNotEmpty) {
-            _transcripts.add(VoiceTranscript(
-              role: 'assistant',
-              text: transcript,
-              timestamp: DateTime.now(),
-            ));
-            _onTranscript?.call('assistant', transcript);
+          // AI response transcript - streaming word-by-word
+          // Accumulate the delta into the current response buffer
+          final delta = data['delta'] ?? '';
+          if (delta.isNotEmpty) {
+            _currentAssistantResponse.write(delta);
+            // Emit partial update (isFinal=false) with accumulated text so far
+            _onTranscript?.call('assistant', _currentAssistantResponse.toString(), false);
           }
           break;
 
+        case 'response.audio_transcript.done':
+          // AI response complete - finalize the transcript
+          final finalTranscript = data['transcript'] ?? _currentAssistantResponse.toString();
+          if (finalTranscript.isNotEmpty) {
+            // Add to permanent transcripts list
+            _transcripts.add(VoiceTranscript(
+              role: 'assistant',
+              text: finalTranscript,
+              timestamp: DateTime.now(),
+            ));
+            // Emit final update (isFinal=true)
+            _onTranscript?.call('assistant', finalTranscript, true);
+          }
+          // Clear the buffer for the next response
+          _currentAssistantResponse = StringBuffer();
+          break;
+
         case 'conversation.item.input_audio_transcription.completed':
-          // User speech transcript
+          // User speech transcript - always comes as complete
           final transcript = data['transcript'] ?? '';
           if (transcript.isNotEmpty) {
             _transcripts.add(VoiceTranscript(
@@ -408,7 +426,8 @@ class VoiceAIService {
               text: transcript,
               timestamp: DateTime.now(),
             ));
-            _onTranscript?.call('user', transcript);
+            // User transcripts are always final
+            _onTranscript?.call('user', transcript, true);
           }
           break;
 
@@ -623,12 +642,24 @@ class VoiceTranscript {
   final String role; // 'user' or 'assistant'
   final String text;
   final DateTime timestamp;
+  final bool isFinal; // true if complete, false if still streaming
 
   VoiceTranscript({
     required this.role,
     required this.text,
     required this.timestamp,
+    this.isFinal = true,
   });
+
+  /// Create a copy with updated text (for streaming updates)
+  VoiceTranscript copyWith({String? text, bool? isFinal}) {
+    return VoiceTranscript(
+      role: role,
+      text: text ?? this.text,
+      timestamp: timestamp,
+      isFinal: isFinal ?? this.isFinal,
+    );
+  }
 }
 
 /// Base exception for Voice AI errors

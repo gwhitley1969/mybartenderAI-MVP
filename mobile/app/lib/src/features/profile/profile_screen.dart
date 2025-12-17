@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../services/background_token_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/token_storage_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../age_verification/age_verification_screen.dart';
 import '../home/providers/todays_special_provider.dart';
@@ -77,6 +79,12 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Notifications'),
                   SizedBox(height: AppSpacing.md),
                   _buildNotificationSettingsCard(context, ref),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Preferences Section
+                  _buildSectionTitle('Preferences'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildMeasurementUnitCard(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // Developer Tools Section
@@ -434,6 +442,131 @@ class ProfileScreen extends ConsumerWidget {
             style: AppTypography.bodyMedium.copyWith(
               color: AppColors.error,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMeasurementUnitCard(BuildContext context, WidgetRef ref) {
+    final measurementUnit = ref.watch(measurementUnitProvider);
+
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: measurementUnit.when(
+        data: (unit) => Row(
+          children: [
+            Icon(
+              Icons.straighten,
+              color: AppColors.iconCircleTeal,
+              size: 24,
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Measurement Units',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Choose how recipe measurements are displayed',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: AppSpacing.sm),
+            // Toggle buttons for Imperial/Metric
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.backgroundSecondary,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildUnitToggleButton(
+                    label: 'oz',
+                    isSelected: unit == UserSettingsService.imperial,
+                    onTap: () async {
+                      await UserSettingsService.instance.setMeasurementUnit(
+                        UserSettingsService.imperial,
+                      );
+                      ref.invalidate(measurementUnitProvider);
+                    },
+                  ),
+                  _buildUnitToggleButton(
+                    label: 'ml',
+                    isSelected: unit == UserSettingsService.metric,
+                    onTap: () async {
+                      await UserSettingsService.instance.setMeasurementUnit(
+                        UserSettingsService.metric,
+                      );
+                      ref.invalidate(measurementUnitProvider);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        loading: () => Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpacing.lg),
+            child: CircularProgressIndicator(
+              color: AppColors.primaryPurple,
+            ),
+          ),
+        ),
+        error: (error, _) => Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: Text(
+            'Unable to load measurement settings',
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.error,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUnitToggleButton({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primaryPurple : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: AppTypography.bodyMedium.copyWith(
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
           ),
         ),
       ),

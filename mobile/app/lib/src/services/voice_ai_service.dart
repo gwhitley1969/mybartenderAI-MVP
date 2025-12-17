@@ -591,7 +591,7 @@ class VoiceQuota {
       remainingSeconds: quota['remainingSeconds'] ?? 0,
       remainingMinutes: quota['remainingMinutes'] ?? 0,
       monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 1800,
+      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 7200,
       addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
       percentUsed: quota['percentUsed'] ?? 0,
       showWarning: json['showWarning'] ?? false,
@@ -607,7 +607,7 @@ class VoiceQuota {
       remainingSeconds: quota['remainingSeconds'] ?? 0,
       remainingMinutes: ((quota['remainingSeconds'] ?? 0) / 60).floor(),
       monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 1800,
+      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 7200,
       addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
       percentUsed: quota['monthlyLimitSeconds'] != null && quota['monthlyLimitSeconds'] > 0
           ? ((quota['monthlyUsedSeconds'] ?? 0) / quota['monthlyLimitSeconds'] * 100).round()

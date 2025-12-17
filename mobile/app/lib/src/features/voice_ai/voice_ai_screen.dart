@@ -216,7 +216,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           const SizedBox(height: 8),
           const Text(
             'Voice AI conversations are available exclusively for Pro members. '
-            'Upgrade to enjoy 30 minutes of voice chat per month.',
+            'Upgrade to enjoy 120 minutes of voice chat per month.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 12),
@@ -263,7 +263,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'You\'ve used all ${((quota?.monthlyLimitSeconds ?? 1800) / 60).round()} minutes '
+            'You\'ve used all ${((quota?.monthlyLimitSeconds ?? 7200) / 60).round()} minutes '
             'of voice chat this month. Your quota resets on the 1st.',
             style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),

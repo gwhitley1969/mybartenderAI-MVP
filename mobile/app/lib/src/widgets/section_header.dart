@@ -26,10 +26,14 @@ class SectionHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Title
-          Text(
-            title,
-            style: AppTypography.sectionTitle,
+          // Title - use Flexible to prevent overflow
+          Flexible(
+            child: Text(
+              title,
+              style: AppTypography.sectionTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           // Badge (if provided)
           if (badgeText != null) ...[

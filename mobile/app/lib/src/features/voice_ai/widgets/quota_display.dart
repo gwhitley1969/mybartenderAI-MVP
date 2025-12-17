@@ -160,7 +160,7 @@ class QuotaDisplay extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Upgrade to Pro for 30 min/month of voice AI',
+                  'Upgrade to Pro for 120 min/month of voice AI',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,

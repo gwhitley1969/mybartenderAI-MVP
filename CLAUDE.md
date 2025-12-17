@@ -27,7 +27,7 @@ See `docs/VOICE_AI_IMPLEMENTATION.md` for full spec.
 
 - **Free Tier**: Limited AI interactions (10,000 tokens / 30 days) (2 scans / 30 days), unlimited access to local cocktail database
 - **Premium Tier** ($4.99/month or $49.99/year): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations (300,000 tokens / 30 days) (30 scans / 30 days)
-- **Pro** ($14.99/month or $$149.99$/year): Enhanced AI features (1,000,000 tokens / 30 days) (100 scans / 30 days)
+- **Pro** ($14.99/month or $149.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (100 scans / 30 days) (120 voice minutes / 30 days)
   
   
 
@@ -195,9 +195,9 @@ Located in `kv-mybartenderai-prod`:
   - Security: Hides Function URLs, DDoS protection
   - Built-in analytics and monitoring
 - **Products Configuration**:
-  - **Free**: Local features only
-  - **Premium**: AI features with moderate limits (300,000 tokens / 30 days) (15 scans / 30 days)
-  - **Pro**: AI features with higher limits (1,000,000 tokens / 30 days) (50 scans / 30 days)
+  - **Free**: Local features only (10,000 tokens / 30 days) (2 scans / 30 days)
+  - **Premium**: AI features with moderate limits (300,000 tokens / 30 days) (30 scans / 30 days)
+  - **Pro**: AI features with higher limits (1,000,000 tokens / 30 days) (100 scans / 30 days) (120 voice minutes / 30 days)
 
 ### ## Development Environment
 

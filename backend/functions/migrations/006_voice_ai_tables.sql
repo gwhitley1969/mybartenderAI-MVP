@@ -105,9 +105,9 @@ SELECT
     COALESCE(SUM(vs.duration_seconds), 0) AS total_seconds_used,
     COALESCE(SUM(vs.input_tokens), 0) AS total_input_tokens,
     COALESCE(SUM(vs.output_tokens), 0) AS total_output_tokens,
-    -- Calculate remaining quota based on tier
+    -- Calculate remaining quota based on tier (120 min = 7200 sec for Pro)
     CASE
-        WHEN u.tier = 'pro' THEN 1800 - COALESCE(SUM(vs.duration_seconds), 0)  -- 30 min for Pro
+        WHEN u.tier = 'pro' THEN 7200 - COALESCE(SUM(vs.duration_seconds), 0)  -- 120 min for Pro
         WHEN u.tier = 'premium' THEN 0  -- No voice for Premium
         ELSE 0  -- No voice for Free
     END AS remaining_seconds,
@@ -146,9 +146,9 @@ BEGIN
     -- Get user tier
     SELECT tier INTO v_tier FROM users WHERE id = p_user_id;
 
-    -- Set monthly limit based on tier
+    -- Set monthly limit based on tier (120 minutes = 7200 seconds for Pro)
     v_monthly_limit := CASE
-        WHEN v_tier = 'pro' THEN 1800  -- 30 minutes
+        WHEN v_tier = 'pro' THEN 7200  -- 120 minutes
         ELSE 0  -- No voice for other tiers
     END;
 

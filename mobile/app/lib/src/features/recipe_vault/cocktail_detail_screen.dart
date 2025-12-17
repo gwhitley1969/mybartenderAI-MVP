@@ -6,6 +6,8 @@ import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../services/measurement_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/cached_cocktail_image.dart';
 
@@ -238,6 +240,10 @@ class CocktailDetailScreen extends ConsumerWidget {
     WidgetRef ref,
     List<DrinkIngredient> ingredients,
   ) {
+    // Get measurement unit preference
+    final measurementUnitAsync = ref.watch(measurementUnitProvider);
+    final measurementUnit = measurementUnitAsync.valueOrNull ?? 'imperial';
+
     return Container(
       padding: EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
@@ -250,6 +256,9 @@ class CocktailDetailScreen extends ConsumerWidget {
       ),
       child: Column(
         children: ingredients.map((ingredient) {
+          // Parse and format the measurement
+          final formattedMeasure = _formatMeasure(ingredient.measure, measurementUnit);
+
           final isInInventoryAsync =
               ref.watch(isInInventoryProvider(ingredient.ingredientName));
 
@@ -276,9 +285,9 @@ class CocktailDetailScreen extends ConsumerWidget {
                         style: AppTypography.bodyMedium,
                       ),
                     ),
-                    if (ingredient.measure != null) ...[
+                    if (formattedMeasure.isNotEmpty) ...[
                       Text(
-                        ingredient.measure!,
+                        formattedMeasure,
                         style: AppTypography.bodyMedium
                             .copyWith(color: AppColors.textSecondary),
                       ),
@@ -346,9 +355,9 @@ class CocktailDetailScreen extends ConsumerWidget {
                       style: AppTypography.bodyMedium,
                     ),
                   ),
-                  if (ingredient.measure != null)
+                  if (formattedMeasure.isNotEmpty)
                     Text(
-                      ingredient.measure!,
+                      formattedMeasure,
                       style: AppTypography.bodyMedium
                           .copyWith(color: AppColors.textSecondary),
                     ),
@@ -374,9 +383,9 @@ class CocktailDetailScreen extends ConsumerWidget {
                       style: AppTypography.bodyMedium,
                     ),
                   ),
-                  if (ingredient.measure != null)
+                  if (formattedMeasure.isNotEmpty)
                     Text(
-                      ingredient.measure!,
+                      formattedMeasure,
                       style: AppTypography.bodyMedium
                           .copyWith(color: AppColors.textSecondary),
                     ),
@@ -386,6 +395,22 @@ class CocktailDetailScreen extends ConsumerWidget {
           );
         }).toList(),
       ),
+    );
+  }
+
+  /// Format a measure string based on user's measurement unit preference
+  String _formatMeasure(String? measure, String preference) {
+    if (measure == null || measure.isEmpty) return '';
+
+    // Parse the measure string
+    final parsed = MeasurementService.instance.parse(measure);
+
+    // Format based on user preference
+    return MeasurementService.instance.format(
+      amountMl: parsed.amountMl,
+      unitOriginal: parsed.unitOriginal,
+      preference: preference,
+      originalText: parsed.originalText,
     );
   }
 

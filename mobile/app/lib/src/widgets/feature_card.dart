@@ -59,20 +59,26 @@ class FeatureCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.md),
-            // Title
-            Text(
-              title,
-              style: AppTypography.cardTitle,
-              textAlign: TextAlign.center,
+            // Title - use FittedBox to scale down if needed
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                style: AppTypography.cardTitle,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+              ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            // Subtitle
-            Text(
-              subtitle,
-              style: AppTypography.cardSubtitle,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            // Subtitle - flexible with ellipsis for overflow
+            Flexible(
+              child: Text(
+                subtitle,
+                style: AppTypography.cardSubtitle,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),

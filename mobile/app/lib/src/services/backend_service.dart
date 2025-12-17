@@ -3,19 +3,24 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 
+/// Backend service for API communication
+///
+/// AUTHENTICATION: Uses JWT ID tokens from Entra External ID
+/// - ID Token audience: client app ID (f9f7f159-b847-4211-98c9-18e5b8193045)
+/// - APIM validates the JWT and extracts user identity
+/// - Backend looks up user tier from database on each request
+/// - NO APIM subscription keys (removed for security)
 class BackendService {
   late final Dio _dio;
   final String baseUrl;
-  final String? functionKey;
-  final Future<String?> Function()? getAccessToken;
+  final Future<String?> Function()? getIdToken;
 
   /// Expose Dio instance for services that need direct access
   Dio get dio => _dio;
 
   BackendService({
     required this.baseUrl,
-    this.functionKey,
-    this.getAccessToken,
+    this.getIdToken,
   }) {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
@@ -23,60 +28,74 @@ class BackendService {
       receiveTimeout: const Duration(seconds: 30),
     ));
 
-    // Add JWT authorization header if token provider is available
-    if (getAccessToken != null) {
+    // Add JWT authorization header using ID token
+    // ID token has audience = client app ID, which APIM validates
+    if (getIdToken != null) {
       _dio.interceptors.add(
         InterceptorsWrapper(
           onRequest: (options, handler) async {
             final requestPath = options.path;
-            print('BackendService: Request to $requestPath');
+            final fullUrl = options.uri.toString();
+            print('BackendService: ========== REQUEST START ==========');
+            print('BackendService: Path: $requestPath');
+            print('BackendService: Full URL: $fullUrl');
+            print('BackendService: Method: ${options.method}');
 
             // Skip auth for public endpoints that don't need it
             final publicEndpoints = ['/v1/snapshots/latest', '/health'];
             final isPublicEndpoint = publicEndpoints.any((ep) => requestPath.contains(ep));
+            print('BackendService: Is public endpoint: $isPublicEndpoint');
 
             if (isPublicEndpoint) {
-              print('BackendService: Public endpoint, skipping auth token');
+              print('BackendService: PUBLIC endpoint - skipping auth token');
+              print('BackendService: ========== REQUEST END (no auth) ==========');
               handler.next(options);
               return;
             }
 
             try {
-              print('BackendService: Getting access token...');
+              print('BackendService: Getting ID token for APIM validation...');
               // Add timeout to prevent hanging forever
-              final token = await getAccessToken!().timeout(
+              final token = await getIdToken!().timeout(
                 const Duration(seconds: 10),
                 onTimeout: () {
                   print('BackendService: Token retrieval TIMEOUT after 10s');
                   return null;
                 },
               );
-              print('BackendService: Token retrieved: ${token != null ? '${token.length} chars' : 'NULL'}');
+              print('BackendService: ID token retrieved: ${token != null ? '${token.length} chars' : 'NULL'}');
 
               if (token != null && token.isNotEmpty) {
                 options.headers['Authorization'] = 'Bearer $token';
               }
             } catch (e) {
-              print('BackendService: Error getting token: $e');
+              print('BackendService: Error getting ID token: $e');
               // Continue without token rather than failing
             }
             handler.next(options);
+          },
+          onResponse: (response, handler) {
+            print('BackendService: ========== RESPONSE ==========');
+            print('BackendService: Status: ${response.statusCode}');
+            print('BackendService: Path: ${response.requestOptions.path}');
+            handler.next(response);
+          },
+          onError: (error, handler) {
+            print('BackendService: ========== ERROR ==========');
+            print('BackendService: Error type: ${error.type}');
+            print('BackendService: Error message: ${error.message}');
+            print('BackendService: Response status: ${error.response?.statusCode}');
+            print('BackendService: Response data: ${error.response?.data}');
+            print('BackendService: Path: ${error.requestOptions.path}');
+            handler.next(error);
           },
         ),
       );
     }
 
-    // Add function key if provided (for endpoints that still use it)
-    if (functionKey != null && functionKey!.isNotEmpty) {
-      _dio.interceptors.add(
-        InterceptorsWrapper(
-          onRequest: (options, handler) {
-            options.headers['Ocp-Apim-Subscription-Key'] = functionKey;
-            handler.next(options);
-          },
-        ),
-      );
-    }
+    // NOTE: APIM subscription key interceptor REMOVED
+    // Using JWT-only authentication for security
+    // APIM validates JWT, backend looks up user tier from database
 
     // Add logging interceptor for debugging
     _dio.interceptors.add(LogInterceptor(

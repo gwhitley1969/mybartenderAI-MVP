@@ -1,4 +1,7 @@
 const axios = require('axios');
+const { authenticateRequest, AuthenticationError } = require('../shared/auth/jwtMiddleware');
+const { getOrCreateUser, getTierQuotas, TIER_QUOTAS } = require('../services/userService');
+const { getPool } = require('../shared/db/postgresPool');
 
 module.exports = async function (context, req) {
     context.log('Vision Analyze - Request received (Claude Haiku 4.5)');
@@ -8,7 +11,7 @@ module.exports = async function (context, req) {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-functions-key',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key',
     };
 
     // Handle OPTIONS
@@ -17,8 +20,110 @@ module.exports = async function (context, req) {
         return;
     }
 
+    let userId = null;
+    let userTier = 'free';
+    let userDbId = null;
+
     try {
-        // Validate request
+        // ========================================
+        // STEP 1: JWT Authentication
+        // ========================================
+        context.log('[Auth] Validating JWT token...');
+
+        let authResult;
+        try {
+            authResult = await authenticateRequest(req, context);
+            userId = authResult.sub;
+            context.log(`[Auth] Token validated. User: ${userId.substring(0, 8)}...`);
+        } catch (authError) {
+            if (authError instanceof AuthenticationError) {
+                context.log.error(`[Auth] Authentication failed: ${authError.message}`);
+                context.res = {
+                    status: authError.status || 401,
+                    headers: {
+                        ...headers,
+                        'WWW-Authenticate': 'Bearer realm="mybartenderai", error="invalid_token"'
+                    },
+                    body: {
+                        error: 'Authentication required',
+                        message: authError.message,
+                        code: authError.code
+                    }
+                };
+                return;
+            }
+            throw authError;
+        }
+
+        // ========================================
+        // STEP 2: Get/Create User & Tier Lookup
+        // ========================================
+        context.log('[User] Looking up user in database...');
+
+        const user = await getOrCreateUser(userId, context);
+        userTier = user.tier;
+        userDbId = user.id;
+        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);
+
+        // ========================================
+        // STEP 3: Check Scan Quota
+        // ========================================
+        const quotas = getTierQuotas(userTier);
+        const monthlyLimit = quotas.scansPerMonth;
+
+        if (monthlyLimit === 0) {
+            context.log.warn(`[Quota] User tier ${userTier} has no scan access`);
+            context.res = {
+                status: 403,
+                headers,
+                body: {
+                    error: 'Feature not available',
+                    message: 'Smart Scanner is not available on your current plan. Please upgrade to use this feature.',
+                    tier: userTier
+                }
+            };
+            return;
+        }
+
+        // Check current month's usage
+        const pool = getPool();
+        const now = new Date();
+        const monthYear = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+
+        const usageResult = await pool.query(
+            `SELECT COALESCE(SUM(usage_count), 0) as total_scans
+             FROM usage_tracking
+             WHERE user_id = $1 AND feature_type = 'vision_scan' AND month_year = $2`,
+            [userDbId, monthYear]
+        );
+
+        const currentScans = parseInt(usageResult.rows[0]?.total_scans || 0);
+        context.log(`[Quota] Current scans: ${currentScans}/${monthlyLimit}`);
+
+        if (currentScans >= monthlyLimit) {
+            context.log.warn(`[Quota] User ${userId.substring(0, 8)}... exceeded scan quota`);
+            context.res = {
+                status: 429,
+                headers: {
+                    ...headers,
+                    'Retry-After': '86400'
+                },
+                body: {
+                    error: 'Quota exceeded',
+                    message: 'You have reached your monthly scan limit. Please upgrade your subscription or wait for the next billing cycle.',
+                    quota: {
+                        used: currentScans,
+                        limit: monthlyLimit,
+                        remaining: 0
+                    }
+                }
+            };
+            return;
+        }
+
+        // ========================================
+        // STEP 4: Validate Request
+        // ========================================
         const body = req.body || {};
         const { image, imageUrl } = body;
 
@@ -31,7 +136,9 @@ module.exports = async function (context, req) {
             return;
         }
 
-        // Get Claude credentials from environment (from Key Vault)
+        // ========================================
+        // STEP 5: Check Claude Credentials
+        // ========================================
         const claudeApiKey = process.env.CLAUDE_API_KEY;
         const claudeEndpoint = process.env.CLAUDE_ENDPOINT;
 
@@ -47,11 +154,11 @@ module.exports = async function (context, req) {
 
         context.log('Claude endpoint:', claudeEndpoint);
 
-        // Prepare the image for Claude Haiku 4.5
-        // IMPORTANT: Anthropic API requires raw base64 WITHOUT the data URI prefix
+        // ========================================
+        // STEP 6: Prepare Image for Claude
+        // ========================================
         let imageContent;
         if (imageUrl) {
-            // For URL-based images, fetch and convert to base64
             try {
                 const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
                 const base64Image = Buffer.from(imageResponse.data, 'binary').toString('base64');
@@ -73,7 +180,6 @@ module.exports = async function (context, req) {
                 return;
             }
         } else {
-            // For base64 images, use directly (remove data URI prefix if present)
             let base64Data = image;
             if (base64Data.startsWith('data:')) {
                 base64Data = base64Data.split(',')[1];
@@ -89,7 +195,9 @@ module.exports = async function (context, req) {
             };
         }
 
-        // System prompt (separate from messages in Anthropic API)
+        // ========================================
+        // STEP 7: Call Claude Haiku 4.5
+        // ========================================
         const systemPrompt = `You are an expert bartender and spirits inventory manager.
 
 Your job is to analyze a photo of a bar or a group of bottles and identify each distinct bottle of alcohol that is clearly visible.
@@ -101,7 +209,6 @@ You must:
 
 Always return a single JSON object and nothing else. Do not include explanations or prose.`;
 
-        // User prompt with structured JSON request
         const userPrompt = `Analyze this image and return a JSON object with this exact structure:
 {
   "bottles": [
@@ -115,7 +222,6 @@ Always return a single JSON object and nothing else. Do not include explanations
 
 If no bottles are visible, return: {"bottles": []}`;
 
-        // Build Anthropic Messages API request
         const requestBody = {
             model: "claude-haiku-4-5",
             max_tokens: 1024,
@@ -165,7 +271,9 @@ If no bottles are visible, return: {"bottles": []}`;
             return;
         }
 
-        // Validate response
+        // ========================================
+        // STEP 8: Process Response
+        // ========================================
         if (!claudeResponse.data?.content?.[0]?.text) {
             context.log.error('Invalid response from Claude');
             context.res = {
@@ -183,7 +291,6 @@ If no bottles are visible, return: {"bottles": []}`;
         let detectedBottles = [];
 
         try {
-            // Clean up response - remove markdown code blocks if present
             let cleanedResponse = aiResponse.trim();
             if (cleanedResponse.startsWith('```json')) {
                 cleanedResponse = cleanedResponse.replace(/^```json\s*/, '').replace(/```\s*$/, '');
@@ -233,15 +340,30 @@ If no bottles are visible, return: {"bottles": []}`;
 
         context.log(`Detected ${detectedBottles.length} bottles:`, detectedBottles);
 
-        // Match to database
+        // ========================================
+        // STEP 9: Record Scan Usage
+        // ========================================
+        try {
+            await pool.query(
+                `INSERT INTO usage_tracking (user_id, feature_type, usage_count, month_year, metadata)
+                 VALUES ($1, 'vision_scan', 1, $2, $3)`,
+                [userDbId, monthYear, JSON.stringify({ bottles_detected: detectedBottles.length })]
+            );
+            context.log('[Quota] Scan usage recorded');
+        } catch (usageError) {
+            context.log.error('[Quota] Failed to record usage:', usageError.message);
+            // Don't fail the request for usage tracking errors
+        }
+
+        // ========================================
+        // STEP 10: Match to Database & Return
+        // ========================================
         const matchedIngredients = matchBottlesToDatabase(context, detectedBottles);
 
-        // Calculate average confidence
         const avgConfidence = detectedBottles.length > 0
             ? detectedBottles.reduce((sum, b) => sum + b.confidence, 0) / detectedBottles.length
             : 0;
 
-        // Return response
         context.res = {
             status: 200,
             headers,
@@ -265,6 +387,14 @@ If no bottles are visible, return: {"bottles": []}`;
                         name: b.brand,
                         confidence: b.confidence
                     }))
+                },
+                user: {
+                    tier: userTier
+                },
+                quota: {
+                    used: currentScans + 1,
+                    limit: monthlyLimit,
+                    remaining: Math.max(monthlyLimit - currentScans - 1, 0)
                 }
             }
         };
@@ -277,7 +407,7 @@ If no bottles are visible, return: {"bottles": []}`;
             body: {
                 error: 'Failed to analyze image',
                 message: error.message,
-                stack: error.stack
+                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
             }
         };
     }

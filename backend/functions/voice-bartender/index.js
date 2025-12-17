@@ -1,8 +1,11 @@
 // Voice Bartender Function - Uses AZURE SPEECH SERVICES (NOT OpenAI Realtime API)
 // Cost-optimized implementation: ~$0.10 per 5-minute session vs $1.50 for OpenAI
+// PRO TIER ONLY - Voice AI is a premium feature
 
 const sdk = require('microsoft-cognitiveservices-speech-sdk');
 const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
+const { authenticateRequest, AuthenticationError } = require('../shared/auth/jwtMiddleware');
+const { getOrCreateUser, getTierQuotas, hasFeatureAccess } = require('../services/userService');
 
 module.exports = async function (context, req) {
     context.log('Voice Bartender - Request received');
@@ -13,7 +16,7 @@ module.exports = async function (context, req) {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-functions-key',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key',
     };
 
     // Handle OPTIONS request
@@ -26,7 +29,66 @@ module.exports = async function (context, req) {
         return;
     }
 
+    let userId = null;
+    let userTier = 'free';
+
     try {
+        // ========================================
+        // STEP 1: JWT Authentication
+        // ========================================
+        context.log('[Auth] Validating JWT token...');
+
+        let authResult;
+        try {
+            authResult = await authenticateRequest(req, context);
+            userId = authResult.sub;
+            context.log(`[Auth] Token validated. User: ${userId.substring(0, 8)}...`);
+        } catch (authError) {
+            if (authError instanceof AuthenticationError) {
+                context.log.error(`[Auth] Authentication failed: ${authError.message}`);
+                context.res = {
+                    status: authError.status || 401,
+                    headers: {
+                        ...headers,
+                        'WWW-Authenticate': 'Bearer realm="mybartenderai", error="invalid_token"'
+                    },
+                    body: {
+                        error: 'Authentication required',
+                        message: authError.message,
+                        code: authError.code
+                    }
+                };
+                return;
+            }
+            throw authError;
+        }
+
+        // ========================================
+        // STEP 2: Get/Create User & Check Pro Tier
+        // ========================================
+        context.log('[User] Looking up user in database...');
+
+        const user = await getOrCreateUser(userId, context);
+        userTier = user.tier;
+        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);
+
+        // Voice AI is PRO tier only
+        if (!hasFeatureAccess(userTier, 'voice')) {
+            context.log.warn(`[Auth] User tier ${userTier} does not have voice access`);
+            context.res = {
+                status: 403,
+                headers,
+                body: {
+                    error: 'Pro subscription required',
+                    message: 'Voice AI is available exclusively for Pro subscribers. Please upgrade your subscription to access this feature.',
+                    tier: userTier,
+                    requiredTier: 'pro'
+                }
+            };
+            return;
+        }
+
+        context.log('[Auth] Pro tier verified - voice access granted');
         // Check for required Azure Speech Services configuration
         const speechKey = process.env.AZURE_SPEECH_KEY;
         const speechRegion = process.env.AZURE_SPEECH_REGION;
@@ -116,7 +178,10 @@ module.exports = async function (context, req) {
                 conversationId: aiResponse.conversationId,
                 usage: usage,
                 technology: 'Azure Speech Services', // Explicitly indicate NOT OpenAI
-                voiceUsed: voicePreference
+                voiceUsed: voicePreference,
+                user: {
+                    tier: userTier
+                }
             }
         };
 

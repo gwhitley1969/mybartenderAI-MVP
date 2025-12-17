@@ -5,6 +5,8 @@ import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
+import '../../providers/settings_provider.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import 'cocktail_detail_screen.dart';
@@ -78,6 +80,8 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
           style: AppTypography.appTitle,
         ),
         actions: [
+          // Measurement unit toggle (oz/ml)
+          _buildMeasurementToggle(ref),
           // Sync button
           IconButton(
             icon: Icon(
@@ -223,6 +227,59 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
         SizedBox(height: AppSpacing.xs),
         Text(label, style: AppTypography.caption),
       ],
+    );
+  }
+
+  /// Build the measurement unit toggle button (oz/ml) for the app bar
+  Widget _buildMeasurementToggle(WidgetRef ref) {
+    final measurementUnitAsync = ref.watch(measurementUnitProvider);
+
+    return measurementUnitAsync.when(
+      data: (unit) {
+        final isImperial = unit == UserSettingsService.imperial;
+        return GestureDetector(
+          onTap: () async {
+            // Toggle the measurement unit
+            final newUnit = isImperial
+                ? UserSettingsService.metric
+                : UserSettingsService.imperial;
+            await UserSettingsService.instance.setMeasurementUnit(newUnit);
+            ref.invalidate(measurementUnitProvider);
+          },
+          child: Container(
+            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            margin: EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: AppColors.primaryPurple.withOpacity(0.5),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  isImperial ? 'oz' : 'ml',
+                  style: AppTypography.buttonSmall.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(
+                  Icons.swap_horiz,
+                  size: 16,
+                  color: AppColors.textPrimary,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+      loading: () => SizedBox(width: 48),
+      error: (_, __) => SizedBox(width: 48),
     );
   }
 

@@ -25,16 +25,23 @@ class DifficultyBadge extends StatelessWidget {
         horizontal: AppSpacing.sm,
         vertical: AppSpacing.xs,
       ),
+      constraints: const BoxConstraints(
+        maxWidth: 100, // Prevent badge from growing too wide
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(AppSpacing.xs),
         border: Border.all(color: color, width: 1),
       ),
-      child: Text(
-        label,
-        style: AppTypography.caption.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          label,
+          style: AppTypography.caption.copyWith(
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+          maxLines: 1,
         ),
       ),
     );

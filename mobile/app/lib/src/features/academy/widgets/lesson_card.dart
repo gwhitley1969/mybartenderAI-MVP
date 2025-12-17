@@ -101,8 +101,10 @@ class LessonCard extends StatelessWidget {
                           lesson.duration,
                           style: AppTypography.caption,
                         ),
-                        SizedBox(width: AppSpacing.md),
-                        DifficultyBadge(difficulty: lesson.difficulty),
+                        SizedBox(width: AppSpacing.sm),
+                        Flexible(
+                          child: DifficultyBadge(difficulty: lesson.difficulty),
+                        ),
                       ],
                     ),
                   ],

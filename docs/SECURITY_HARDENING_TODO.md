@@ -80,13 +80,56 @@ For Front Door specifically, also validate the `X-Azure-FDID` header matches you
 
 ---
 
-## 2. Additional Security Items to Consider
+## 2. Hardcoded APIM Subscription Key in Mobile App
+
+### Current State (MVP/Beta)
+
+- APIM subscription key is **hardcoded** in `mobile/app/lib/src/config/app_config.dart`:
+  ```dart
+  static const String? functionKey = 'f23ebc87cecc4f909e94ecfa2d85d856';
+  ```
+- This key is compiled into the APK
+- **Risk**: Anyone who decompiles the APK can extract the key and make API calls directly
+
+### Recommended Change
+
+Implement **runtime token exchange** - user authenticates with Entra ID, then exchanges JWT for a per-user APIM subscription key.
+
+### Implementation Options
+
+1. **Build-time injection** (Quick fix):
+   ```bash
+   flutter build apk --dart-define=AZURE_FUNCTION_KEY=$KEY
+   ```
+   Then in code: `String.fromEnvironment('AZURE_FUNCTION_KEY')`
+
+2. **Runtime token exchange** (Recommended for production):
+   - User logs in → Gets JWT from Entra ID
+   - App calls `/api/v1/auth/exchange` with JWT
+   - Backend returns per-user APIM subscription key
+   - Key stored securely in Flutter Secure Storage
+   - Key can be rotated/revoked per user
+
+3. **Remove key requirement** (If JWT is sufficient):
+   - APIM already validates JWT tokens
+   - Subscription key may be redundant if JWT provides identity/tier info
+   - Simplifies architecture but reduces defense-in-depth
+
+### File to Modify
+
+- `mobile/app/lib/src/config/app_config.dart` - Remove hardcoded key
+- `mobile/app/lib/src/services/backend_service.dart` - Implement key retrieval
+
+---
+
+## 3. Additional Security Items to Consider
 
 ### Before Production
 
 | Item | Priority | Status | Notes |
 |------|----------|--------|-------|
 | Function App ingress restrictions | High | TODO | See Section 1 above |
+| APIM key in mobile app | High | TODO | See Section 2 above |
 | Key Vault network restrictions | Medium | TODO | Restrict to VNet/trusted services |
 | PostgreSQL firewall rules | Medium | Review | Currently allows Azure services |
 | Storage account public access | Medium | Review | Disable anonymous blob access |
@@ -121,7 +164,7 @@ These are working and should be maintained:
 
 ---
 
-## 4. Action Items Checklist
+## 5. Action Items Checklist
 
 Before production launch, complete these items:
 
@@ -129,6 +172,8 @@ Before production launch, complete these items:
 - [ ] Test all endpoints work through APIM after restrictions
 - [ ] Test Front Door endpoints work after restrictions
 - [ ] Verify direct Function URL returns 403
+- [ ] Remove hardcoded APIM key from mobile app (Section 2)
+- [ ] Implement runtime token exchange or build-time injection
 - [ ] Review PostgreSQL firewall rules
 - [ ] Review Storage account public access settings
 - [ ] Audit Key Vault access policies/RBAC

@@ -1,17 +1,20 @@
 const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
+const { authenticateRequest, AuthenticationError } = require('../shared/auth/jwtMiddleware');
+const { getOrCreateUser } = require('../services/userService');
+const { incrementAndCheck, QuotaExceededError } = require('../services/pgTokenQuotaService');
 
 module.exports = async function (context, req) {
     context.log('Ask Bartender Simple - Request received');
 
-    // Simple CORS headers
+    // CORS headers
     const headers = {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, x-functions-key',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key',
     };
 
-    // Handle OPTIONS request
+    // Handle OPTIONS preflight request
     if (req.method === 'OPTIONS') {
         context.res = {
             status: 200,
@@ -21,8 +24,52 @@ module.exports = async function (context, req) {
         return;
     }
 
+    let userId = null;
+    let userTier = 'free';
+
     try {
-        // Check for API key
+        // ========================================
+        // STEP 1: JWT Authentication
+        // ========================================
+        context.log('[Auth] Validating JWT token...');
+
+        let authResult;
+        try {
+            authResult = await authenticateRequest(req, context);
+            userId = authResult.sub;
+            context.log(`[Auth] Token validated. User: ${userId.substring(0, 8)}...`);
+        } catch (authError) {
+            if (authError instanceof AuthenticationError) {
+                context.log.error(`[Auth] Authentication failed: ${authError.message}`);
+                context.res = {
+                    status: authError.status || 401,
+                    headers: {
+                        ...headers,
+                        'WWW-Authenticate': 'Bearer realm="mybartenderai", error="invalid_token"'
+                    },
+                    body: {
+                        error: 'Authentication required',
+                        message: authError.message,
+                        code: authError.code
+                    }
+                };
+                return;
+            }
+            throw authError;
+        }
+
+        // ========================================
+        // STEP 2: Get/Create User & Tier Lookup
+        // ========================================
+        context.log('[User] Looking up user in database...');
+
+        const user = await getOrCreateUser(userId, context);
+        userTier = user.tier;
+        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);
+
+        // ========================================
+        // STEP 3: Check API Configuration
+        // ========================================
         const apiKey = process.env.OPENAI_API_KEY;
         if (!apiKey) {
             context.log.error('OPENAI_API_KEY not found in environment');
@@ -30,28 +77,28 @@ module.exports = async function (context, req) {
                 status: 500,
                 headers: headers,
                 body: {
-                    error: 'OpenAI API key not configured',
+                    error: 'Service configuration error',
                     message: 'The server is not properly configured. Please contact support.'
                 }
             };
             return;
         }
 
-        // Parse request body
+        // ========================================
+        // STEP 4: Parse Request
+        // ========================================
         const body = req.body || {};
         const message = body.message || 'Hello';
         const existingConversationId = body.context?.conversationId;
         const inventory = body.context?.inventory;
 
-        context.log('Message received:', message);
+        context.log('Message received:', message.substring(0, 100) + (message.length > 100 ? '...' : ''));
         context.log('Conversation ID:', existingConversationId || 'new conversation');
         context.log('Inventory received:', inventory ? 'Yes' : 'No');
-        if (inventory) {
-            context.log('Spirits:', inventory.spirits);
-            context.log('Mixers:', inventory.mixers);
-        }
 
-        // Create Azure OpenAI client
+        // ========================================
+        // STEP 5: Call Azure OpenAI
+        // ========================================
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
         const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
 
@@ -59,12 +106,6 @@ module.exports = async function (context, req) {
             azureEndpoint,
             new AzureKeyCredential(apiKey)
         );
-
-        context.log('Azure OpenAI config:', {
-            endpoint: azureEndpoint,
-            deployment: deployment,
-            hasKey: !!apiKey
-        });
 
         // Build system prompt with inventory context if available
         let systemPrompt = 'You are a sophisticated AI bartender for MyBartenderAI. Be helpful, friendly, and knowledgeable about cocktails.';
@@ -86,9 +127,6 @@ module.exports = async function (context, req) {
             }
         }
 
-        context.log('System prompt length:', systemPrompt.length);
-
-        // Call Azure OpenAI
         const messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: message }
@@ -100,14 +138,35 @@ module.exports = async function (context, req) {
         });
 
         const responseText = result.choices[0]?.message?.content || 'I apologize, but I could not process your request.';
+        const totalTokens = result.usage?.totalTokens || 0;
 
-        // Generate or use existing conversation ID
+        // ========================================
+        // STEP 6: Track Token Usage & Enforce Quota
+        // ========================================
+        context.log(`[Quota] Recording ${totalTokens} tokens for user ${userId.substring(0, 8)}...`);
+
+        try {
+            await incrementAndCheck(userId, totalTokens);
+            context.log('[Quota] Token usage recorded successfully');
+        } catch (quotaError) {
+            if (quotaError instanceof QuotaExceededError) {
+                context.log.warn(`[Quota] User ${userId.substring(0, 8)}... exceeded quota`);
+                // Still return the response since we already generated it,
+                // but include quota warning in the response
+                // Future requests will be blocked
+            } else {
+                // Log but don't fail the request for quota tracking errors
+                context.log.error(`[Quota] Error tracking usage: ${quotaError.message}`);
+            }
+        }
+
+        // ========================================
+        // STEP 7: Return Success Response
+        // ========================================
         const conversationId = existingConversationId || `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         context.log('Response generated successfully');
-        context.log('Using conversation ID:', conversationId);
 
-        // Return success response
         context.res = {
             status: 200,
             headers: headers,
@@ -117,7 +176,10 @@ module.exports = async function (context, req) {
                 usage: {
                     promptTokens: result.usage?.promptTokens || 0,
                     completionTokens: result.usage?.completionTokens || 0,
-                    totalTokens: result.usage?.totalTokens || 0,
+                    totalTokens: totalTokens,
+                },
+                user: {
+                    tier: userTier
                 }
             }
         };
@@ -125,6 +187,27 @@ module.exports = async function (context, req) {
     } catch (error) {
         context.log.error('Error in ask-bartender-simple:', error.message);
         context.log.error('Stack trace:', error.stack);
+
+        // Handle quota exceeded error (pre-check)
+        if (error instanceof QuotaExceededError) {
+            context.res = {
+                status: 429,
+                headers: {
+                    ...headers,
+                    'Retry-After': '86400' // 24 hours until quota resets (roughly)
+                },
+                body: {
+                    error: 'Quota exceeded',
+                    message: 'You have exceeded your monthly token quota. Please upgrade your subscription or wait for the next billing cycle.',
+                    quota: {
+                        remaining: error.remaining,
+                        limit: error.limit,
+                        used: error.used
+                    }
+                }
+            };
+            return;
+        }
 
         context.res = {
             status: 500,

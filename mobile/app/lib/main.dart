@@ -32,9 +32,8 @@ Future<void> main() async {
     config: const EnvConfig(
       // Azure Front Door → APIM → Functions
       apiBaseUrl: 'https://share.mybartenderai.com/api',
-      // Runtime token exchange replaces build-time key injection
-      // APIM keys are now obtained per-user via /v1/auth/exchange endpoint
-      functionKey: null, // No longer using build-time keys
+      // NOTE: Using JWT-only authentication (no APIM subscription keys)
+      // APIM validates ID token, backend looks up user tier from database
     ),
   );
 }
@@ -137,6 +136,19 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
           elevation: 0,
         ),
       ),
+      // Limit text scaling to prevent layout overflow with accessibility fonts
+      // Max 1.3x still provides accessibility while preventing UI breakage
+      builder: (context, child) {
+        final mediaQuery = MediaQuery.of(context);
+        final constrainedTextScaler = mediaQuery.textScaler.clamp(
+          minScaleFactor: 1.0,
+          maxScaleFactor: 1.3,
+        );
+        return MediaQuery(
+          data: mediaQuery.copyWith(textScaler: constrainedTextScaler),
+          child: child!,
+        );
+      },
     );
   }
 }

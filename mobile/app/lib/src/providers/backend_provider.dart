@@ -4,14 +4,19 @@ import '../services/backend_service.dart';
 import 'auth_provider.dart';
 
 /// Provider for the BackendService singleton with JWT authentication
+///
+/// AUTHENTICATION: Uses ID token (not access token) for APIM validation
+/// - ID Token audience: client app ID (correct for APIM)
+/// - Access Token audience: Microsoft Graph (wrong for APIM)
+/// - Backend looks up user tier from database on each request
 final backendServiceProvider = Provider<BackendService>((ref) {
   return BackendService(
     baseUrl: AppConfig.backendBaseUrl,
-    functionKey: AppConfig.functionKey,
-    getAccessToken: () async {
-      // Get valid access token (auto-refreshes if expired)
+    getIdToken: () async {
+      // Get valid ID token (auto-refreshes if expired)
+      // ID token has correct audience for APIM JWT validation
       final authService = ref.read(authServiceProvider);
-      return await authService.getValidAccessToken();
+      return await authService.getValidIdToken();
     },
   );
 });

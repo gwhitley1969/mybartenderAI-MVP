@@ -5,17 +5,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../services/background_token_service.dart';
 
+/// Environment configuration for the app
+///
+/// NOTE: APIM subscription key has been REMOVED for security.
+/// Authentication now uses JWT tokens from Entra External ID.
+/// APIM validates the JWT and extracts user identity.
+/// Backend looks up user tier from database on each request.
 class EnvConfig {
   const EnvConfig({
     this.apiBaseUrl,
-    this.functionKey,
     this.connectTimeout = const Duration(seconds: 10),
     this.receiveTimeout = const Duration(seconds: 30),
     this.sendTimeout = const Duration(seconds: 10),
   });
 
   final String? apiBaseUrl;
-  final String? functionKey;
   final Duration connectTimeout;
   final Duration receiveTimeout;
   final Duration sendTimeout;
@@ -23,42 +27,27 @@ class EnvConfig {
 
 final envConfigProvider = Provider<EnvConfig>((ref) => const EnvConfig());
 
-class FunctionKeyInterceptor extends Interceptor {
-  FunctionKeyInterceptor(this.functionKey);
-
-  final String? functionKey;
-
-  @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    // Always add the APIM subscription key to all requests if available
-    if (functionKey != null && functionKey!.isNotEmpty) {
-      // FIXED: Use correct header name for APIM
-      options.headers['Ocp-Apim-Subscription-Key'] = functionKey;
-      if (kDebugMode) {
-        print('Added APIM subscription key to request: ${options.uri}');
-      }
-    }
-    handler.next(options);
-  }
-}
-
+/// Dio interceptors provider
+///
+/// NOTE: FunctionKeyInterceptor has been REMOVED.
+/// JWT authentication is now handled by individual services
+/// (BackendService, VoiceAIService) which add the Authorization header.
 final dioInterceptorsProvider = Provider<List<Interceptor>>((ref) {
-  final config = ref.watch(envConfigProvider);
-  if (kDebugMode) {
-    print('Creating interceptors - functionKey: ${config.functionKey != null ? "***" : "null"}');
-  }
   return <Interceptor>[
-    if (config.functionKey != null) FunctionKeyInterceptor(config.functionKey),
     if (kDebugMode)
       LogInterceptor(
         requestBody: true,
         responseBody: true,
-        requestHeader: true,  // Enable header logging to see if function key is added
+        requestHeader: true,
         responseHeader: false,
       ),
   ];
 });
 
+/// Create a base Dio instance with standard configuration
+///
+/// NOTE: No APIM subscription key in headers.
+/// JWT authentication is handled by services that need it.
 Dio createBaseDio({
   required EnvConfig config,
   Iterable<Interceptor> interceptors = const [],
@@ -76,15 +65,8 @@ Dio createBaseDio({
     baseOptions.baseUrl = baseUrl;
   }
 
-  // Add APIM subscription key to default headers if provided
-  if (config.functionKey != null && config.functionKey!.isNotEmpty) {
-    baseOptions.headers = {
-      'Ocp-Apim-Subscription-Key': config.functionKey,
-    };
-    if (kDebugMode) {
-      print('Added Ocp-Apim-Subscription-Key to default headers');
-    }
-  }
+  // NOTE: No APIM subscription key in headers
+  // JWT authentication handled by individual services
 
   final dio = Dio(baseOptions);
   dio.interceptors.addAll(interceptors);
@@ -95,8 +77,9 @@ final dioProvider = Provider<Dio>((ref) {
   final config = ref.watch(envConfigProvider);
   final interceptors = ref.watch(dioInterceptorsProvider);
   if (kDebugMode) {
-    print('Creating Dio with config: apiBaseUrl=${config.apiBaseUrl}, functionKey=${config.functionKey != null ? "***" : "null"}');
+    print('Creating Dio with config: apiBaseUrl=${config.apiBaseUrl}');
     print('Number of interceptors: ${interceptors.length}');
+    print('NOTE: Using JWT-only authentication (no APIM subscription key)');
   }
   return createBaseDio(config: config, interceptors: interceptors);
 });
@@ -108,13 +91,9 @@ Future<void> bootstrap(
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Validate that function key is provided (warning only for now)
-  if (config.functionKey == null || config.functionKey!.isEmpty) {
-    debugPrint(
-      'WARNING: AZURE_FUNCTION_KEY not set. Some features may not work.\n'
-      'Build with: flutter build apk --dart-define=AZURE_FUNCTION_KEY=<your_key>',
-    );
-  }
+  // NOTE: APIM subscription key validation REMOVED
+  // Using JWT-only authentication - APIM validates JWT token
+  // Backend looks up user tier from database
 
   // Initialize background token refresh service
   // This keeps the refresh token active by using it every 10 hours

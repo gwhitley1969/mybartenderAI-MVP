@@ -3,18 +3,18 @@
 /// Central configuration for API endpoints, keys, and app settings
 ///
 /// SECURITY NOTE:
-/// - Function keys are retrieved from Azure Key Vault at build time
-/// - Pass key via: --dart-define=AZURE_FUNCTION_KEY=<key>
-/// - See build-secure.ps1 for automated secure build process
+/// - Authentication uses JWT tokens from Entra External ID
+/// - APIM validates JWT and extracts user identity
+/// - Backend looks up user tier from database
+/// - No subscription keys stored on device
 
 class AppConfig {
   // Backend API Configuration - Azure Front Door → APIM → Functions
   static const String backendBaseUrl = 'https://share.mybartenderai.com/api';
 
-  // APIM Subscription Key - Currently using master key for all requests
-  // TODO: Implement runtime token exchange via ApimSubscriptionService for per-user keys
-  // For now, using master subscription key for development/testing
-  static const String? functionKey = 'f23ebc87cecc4f909e94ecfa2d85d856';
+  // NOTE: APIM subscription key REMOVED for security
+  // Using JWT-only authentication - APIM validates JWT token
+  // Backend looks up user tier from database on each request
 
   // API Endpoints
   static const String healthEndpoint = '/health';

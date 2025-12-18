@@ -2264,26 +2264,32 @@ app.timer('rotate-keys-timer', {
 });
 
 // =============================================================================
-// 26. Sync CocktailDB - Timer Trigger (daily at 03:30 UTC)
+// 26. Sync CocktailDB - DISABLED (Dec 2025)
+// TheCocktailDB sync is permanently disabled. PostgreSQL is now the master.
+// Use rebuild-sqlite-snapshot.js to generate snapshots manually.
 // =============================================================================
-app.timer('sync-cocktaildb', {
-    schedule: '0 30 3 * * *', // Daily at 03:30 UTC
-    handler: async (myTimer, context) => {
-        const syncCocktaildbModule = require('./sync-cocktaildb');
-        return await syncCocktaildbModule(context, myTimer);
-    }
-});
+// DISABLED - DO NOT RE-ENABLE
+// app.timer('sync-cocktaildb', {
+//     schedule: '0 30 3 * * *', // Daily at 03:30 UTC
+//     handler: async (myTimer, context) => {
+//         const syncCocktaildbModule = require('./sync-cocktaildb');
+//         return await syncCocktaildbModule(context, myTimer);
+//     }
+// });
 
 // =============================================================================
-// 27. Sync CocktailDB MI - Timer Trigger (daily at 03:30 UTC)
+// 27. Sync CocktailDB MI - DISABLED (Dec 2025)
+// TheCocktailDB sync is permanently disabled. PostgreSQL is now the master.
+// Use rebuild-sqlite-snapshot.js to generate snapshots manually.
 // =============================================================================
-app.timer('sync-cocktaildb-mi', {
-    schedule: '0 30 3 * * *', // Daily at 03:30 UTC
-    handler: async (myTimer, context) => {
-        const syncCocktaildbMiModule = require('./sync-cocktaildb-mi');
-        return await syncCocktaildbMiModule(context, myTimer);
-    }
-});
+// DISABLED - DO NOT RE-ENABLE
+// app.timer('sync-cocktaildb-mi', {
+//     schedule: '0 30 3 * * *', // Daily at 03:30 UTC
+//     handler: async (myTimer, context) => {
+//         const syncCocktaildbMiModule = require('./sync-cocktaildb-mi');
+//         return await syncCocktaildbMiModule(context, myTimer);
+//     }
+// });
 
 // =============================================================================
 // 28. Cocktail Preview - GET /cocktail/{id}
@@ -2591,8 +2597,11 @@ EXPERTISE AREAS (respond helpfully to these topics):
 ${inventoryContext}
 
 VOICE INTERACTION STYLE:
+- Speak at a relaxed, moderate pace - not rushed or hurried
+- Pause briefly between sentences to let information sink in
 - Speak naturally and conversationally, as if talking across a bar
 - Keep responses concise for voice (aim for under 30 seconds of speech)
+- When giving recipe instructions, speak slowly and clearly, pausing between steps
 - Use clear step-by-step instructions for recipes
 - Offer follow-up suggestions ("Would you like to know about a variation?")
 

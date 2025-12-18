@@ -252,7 +252,7 @@ The mobile app adds these tables to the downloaded snapshot:
 
 ## Historical Issues
 
-### JSON vs SQLite Snapshot Bug (Dec 2025)
+### JSON vs SQLite Snapshot Bug (Dec 17, 2025)
 
 **Problem**: The timer-triggered `sync-cocktaildb` Azure Function was producing JSON snapshots instead of SQLite databases, causing mobile app sync failures.
 
@@ -263,10 +263,30 @@ The mobile app adds these tables to the downloaded snapshot:
 
 **Root Cause**: The Azure Function uses `sql.js` (pure JavaScript SQLite) which has different behavior than `better-sqlite3` (native). The function was inadvertently producing JSON output.
 
-**Solution**:
-1. Disabled the timer-triggered sync function
-2. Use `rebuild-sqlite-snapshot.js` (which uses `better-sqlite3`) for manual snapshot generation
+**Initial Solution** (Dec 17):
+1. Changed `function.json` schedule to Feb 31 (impossible date)
+2. Use `rebuild-sqlite-snapshot.js` for manual snapshot generation
 3. PostgreSQL is now the master database (no external API sync)
+
+### Timer Function Recurrence (Dec 18, 2025)
+
+**Problem**: The broken timer function ran again at 03:30 UTC on Dec 18, overwriting the good SQLite snapshot with broken JSON.
+
+**Root Cause**: The timer was registered in **two places**:
+1. `sync-cocktaildb/function.json` - schedule was changed but timer still active
+2. `backend/functions/index.js` line 2269 - **`app.timer()` call was still active** with `schedule: '0 30 3 * * *'`
+
+The `app.timer()` registration in `index.js` **overrides** the `function.json` settings in the Azure Functions v4 programming model.
+
+**Permanent Solution** (Dec 18):
+1. **Commented out** both timer registrations in `index.js` (lines 2266-2292)
+2. Added `"disabled": true` to both `function.json` files
+3. Changed schedules to Feb 31 as backup safety
+4. Added explicit "DO NOT RE-ENABLE" comments in the code
+
+**Lesson Learned**: When disabling Azure Functions v4 timer triggers, you must disable them in **both**:
+- The `function.json` file (add `"disabled": true`)
+- The `index.js` registration (comment out or remove the `app.timer()` call)
 
 ### Snapshot Size Reference
 
@@ -336,7 +356,7 @@ LIMIT 5;
 
 ---
 
-**Last Updated**: December 17, 2025
+**Last Updated**: December 18, 2025
 **Author**: Claude Code
 **Related Docs**:
 - `SQLITE_SNAPSHOT_FIX.md` - Historical fix documentation

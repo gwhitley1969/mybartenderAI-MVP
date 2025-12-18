@@ -226,6 +226,32 @@ class NotificationService {
 
     final scheduledDate = await _nextNotificationTime();
 
+    // Determine the best schedule mode for accuracy
+    // Android 12+ requires SCHEDULE_EXACT_ALARM permission for exact timing
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+    if (Platform.isAndroid) {
+      final canUseExact = await canScheduleExactAlarms();
+      if (canUseExact) {
+        scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+        if (kDebugMode) {
+          print('Using exact alarm scheduling for precise notification timing');
+        }
+      } else {
+        // Try to request the permission
+        final granted = await requestExactAlarmPermission();
+        if (granted) {
+          scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+          if (kDebugMode) {
+            print('Exact alarm permission granted, using precise timing');
+          }
+        } else {
+          if (kDebugMode) {
+            print('Exact alarm permission not granted, using inexact scheduling (may be delayed)');
+          }
+        }
+      }
+    }
+
     final androidDetails = AndroidNotificationDetails(
       _todaysSpecialChannelId,
       _todaysSpecialChannelName,
@@ -260,7 +286,7 @@ class NotificationService {
         _buildNotificationBody(cocktail),
         scheduledDate,
         notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
@@ -273,6 +299,7 @@ class NotificationService {
         print('Current time: $now');
         print('Scheduled for: $scheduledDate');
         print('Cocktail: ${cocktail.name} (${cocktail.id})');
+        print('Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT (on-time)" : "INEXACT (may be delayed)"}');
         print('Time until notification: ${scheduledDate.difference(tz.TZDateTime.now(tz.local))}');
         print('==============================');
       }
@@ -290,6 +317,15 @@ class NotificationService {
     await _plugin.cancel(_todaysSpecialNotificationId + 2);
 
     final scheduledDate = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
+
+    // Use exact scheduling for test notifications to verify timing accuracy
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+    if (Platform.isAndroid) {
+      final canUseExact = await canScheduleExactAlarms();
+      if (canUseExact) {
+        scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+      }
+    }
 
     final androidDetails = AndroidNotificationDetails(
       _todaysSpecialChannelId,
@@ -312,7 +348,7 @@ class NotificationService {
         'Scheduled test - this should appear in $seconds seconds!',
         scheduledDate,
         notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: scheduleMode,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: cocktail.id,

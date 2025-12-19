@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/cocktail.dart';
+import '../../providers/backend_provider.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../favorites/favorites_screen.dart';
@@ -28,7 +29,7 @@ class HomeScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // App Header
-              _buildAppHeader(context),
+              _buildAppHeader(context, ref),
               SizedBox(height: AppSpacing.xxl),
 
               // AI Cocktail Concierge Section
@@ -53,65 +54,105 @@ class HomeScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppHeader(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildAppHeader(BuildContext context, WidgetRef ref) {
+    // Watch backend health status for profile icon indicator
+    final healthCheck = ref.watch(healthCheckProvider);
+
+    return Row(
       children: [
-        // App Logo Icon (optional - can add circular icon here)
-        Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: AppColors.cardBackground,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.cardBorder,
+              width: 1,
+            ),
+          ),
+          child: Icon(
+            Icons.local_bar,
+            color: AppColors.iconCircleBlue,
+            size: 32,
+          ),
+        ),
+        SizedBox(width: AppSpacing.lg),
+        // Title and Subtitle
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'My AI Bartender',
+                style: AppTypography.appTitle,
+              ),
+              SizedBox(height: AppSpacing.xs),
+              Text(
+                'Premium mixology experience',
+                style: AppTypography.appSubtitle,
+              ),
+            ],
+          ),
+        ),
+        // Profile Button with connection status indicator
+        _buildProfileButtonWithStatus(context, healthCheck),
+      ],
+    );
+  }
+
+  /// Build profile button with backend connection status indicator
+  Widget _buildProfileButtonWithStatus(
+    BuildContext context,
+    AsyncValue<bool> healthCheck,
+  ) {
+    // Determine indicator color based on backend status
+    Color indicatorColor = healthCheck.when(
+      data: (isHealthy) => isHealthy ? AppColors.success : AppColors.error,
+      loading: () => AppColors.textTertiary,
+      error: (_, __) => AppColors.error,
+    );
+
+    return GestureDetector(
+      onTap: () => context.go('/profile'),
+      child: Stack(
+        children: [
+          // Profile icon with colored border
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: indicatorColor,
+                width: 2.5,
+              ),
+            ),
+            child: Icon(
+              Icons.person_outline,
+              color: AppColors.textSecondary,
+              size: 24,
+            ),
+          ),
+          // Small status dot in bottom-right corner
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 12,
+              height: 12,
               decoration: BoxDecoration(
-                color: AppColors.cardBackground,
-                borderRadius: BorderRadius.circular(16),
+                color: indicatorColor,
+                shape: BoxShape.circle,
                 border: Border.all(
-                  color: AppColors.cardBorder,
-                  width: 1,
+                  color: AppColors.backgroundPrimary,
+                  width: 2,
                 ),
               ),
-              child: Icon(
-                Icons.local_bar,
-                color: AppColors.iconCircleBlue,
-                size: 32,
-              ),
             ),
-            SizedBox(width: AppSpacing.lg),
-            // Title and Subtitle
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'My AI Bartender',
-                    style: AppTypography.appTitle,
-                  ),
-                  SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Premium mixology experience',
-                    style: AppTypography.appSubtitle,
-                  ),
-                ],
-              ),
-            ),
-            // Profile Button
-            IconButton(
-              onPressed: () => context.go('/profile'),
-              icon: Icon(
-                Icons.person_outline,
-                color: AppColors.textSecondary,
-                size: 28,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: AppSpacing.lg),
-        // Backend Connectivity Status
-        Center(
-          child: BackendStatus(),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 

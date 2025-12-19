@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -30,6 +29,10 @@ class NotificationService {
   static const String _todaysSpecialChannelName = 'Today\'s Special';
   static const String _todaysSpecialChannelDescription =
       'Daily reminder featuring the bartender\'s special cocktail.';
+
+  // Number of days ahead to schedule notifications
+  // This ensures notifications fire even if user doesn't open app for a week
+  static const int _daysToScheduleAhead = 7;
 
   // SharedPreferences keys for notification settings
   static const String _notificationEnabledKey = 'notification_enabled';
@@ -209,7 +212,12 @@ class NotificationService {
     await prefs.setInt(_notificationMinuteKey, minute);
   }
 
-  /// Schedule the Today's Special notification
+  /// Schedule the Today's Special notification for the next 7 days
+  ///
+  /// Instead of using unreliable repeating notifications, we schedule
+  /// individual one-time notifications for each of the next 7 days.
+  /// This ensures notifications fire reliably even if the app is killed
+  /// or the user doesn't open the app for a week.
   Future<void> scheduleTodaysSpecialNotification(Cocktail cocktail) async {
     await initialize();
 
@@ -222,9 +230,8 @@ class NotificationService {
       return;
     }
 
+    // Cancel all existing scheduled notifications first
     await cancelTodaysSpecialNotification();
-
-    final scheduledDate = await _nextNotificationTime();
 
     // Determine the best schedule mode for accuracy
     // Android 12+ requires SCHEDULE_EXACT_ALARM permission for exact timing
@@ -279,42 +286,75 @@ class NotificationService {
       android: androidDetails,
     );
 
-    try {
-      await _plugin.zonedSchedule(
-        _todaysSpecialNotificationId,
-        "Today's Special: ${cocktail.name}",
-        _buildNotificationBody(cocktail),
-        scheduledDate,
-        notificationDetails,
-        androidScheduleMode: scheduleMode,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
-        matchDateTimeComponents: DateTimeComponents.time, // Repeat daily
-        payload: cocktail.id, // Used for deep linking to cocktail detail
+    // Get the notification time settings
+    final time = await getNotificationTime();
+    final now = tz.TZDateTime.now(tz.local);
+
+    int scheduledCount = 0;
+
+    // Schedule notifications for the next 7 days
+    for (int dayOffset = 0; dayOffset < _daysToScheduleAhead; dayOffset++) {
+      // Calculate the scheduled date for this day
+      tz.TZDateTime scheduledDate = tz.TZDateTime(
+        tz.local,
+        now.year,
+        now.month,
+        now.day + dayOffset,
+        time.hour,
+        time.minute,
       );
 
-      if (kDebugMode) {
-        final now = DateTime.now();
-        print('=== Notification Scheduled ===');
-        print('Current time: $now');
-        print('Scheduled for: $scheduledDate');
-        print('Cocktail: ${cocktail.name} (${cocktail.id})');
-        print('Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT (on-time)" : "INEXACT (may be delayed)"}');
-        print('Time until notification: ${scheduledDate.difference(tz.TZDateTime.now(tz.local))}');
-        print('==============================');
+      // Skip if this time has already passed
+      if (scheduledDate.isBefore(now)) {
+        continue;
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error scheduling notification: $e');
+
+      // Unique notification ID for each day (base ID + day offset)
+      final notificationId = _todaysSpecialNotificationId + dayOffset;
+
+      try {
+        await _plugin.zonedSchedule(
+          notificationId,
+          "Today's Special: ${cocktail.name}",
+          _buildNotificationBody(cocktail),
+          scheduledDate,
+          notificationDetails,
+          androidScheduleMode: scheduleMode,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          // NO matchDateTimeComponents - each is a one-time exact alarm
+          payload: cocktail.id, // Used for deep linking to cocktail detail
+        );
+        scheduledCount++;
+
+        if (kDebugMode) {
+          print('Scheduled notification #$notificationId for: $scheduledDate');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error scheduling notification #$notificationId: $e');
+        }
       }
     }
+
+    if (kDebugMode) {
+      print('=== Notifications Scheduled ===');
+      print('Cocktail: ${cocktail.name} (${cocktail.id})');
+      print('Total scheduled: $scheduledCount notifications');
+      print('Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT (on-time)" : "INEXACT (may be delayed)"}');
+      print('Time: ${formatTime(time.hour, time.minute)}');
+      print('================================');
+    }
   }
+
+  // Offset for test notification IDs (outside the multi-day range)
+  static const int _testNotificationIdOffset = 100;
 
   /// Schedule notification for a specific number of seconds from now (for testing)
   Future<void> scheduleTestNotificationInSeconds(Cocktail cocktail, int seconds) async {
     await initialize();
 
-    await _plugin.cancel(_todaysSpecialNotificationId + 2);
+    await _plugin.cancel(_todaysSpecialNotificationId + _testNotificationIdOffset);
 
     final scheduledDate = tz.TZDateTime.now(tz.local).add(Duration(seconds: seconds));
 
@@ -343,7 +383,7 @@ class NotificationService {
 
     try {
       await _plugin.zonedSchedule(
-        _todaysSpecialNotificationId + 2,
+        _todaysSpecialNotificationId + _testNotificationIdOffset,
         "Today's Special: ${cocktail.name}",
         'Scheduled test - this should appear in $seconds seconds!',
         scheduledDate,
@@ -365,31 +405,21 @@ class NotificationService {
     }
   }
 
+  /// Cancel all scheduled Today's Special notifications
+  ///
+  /// Cancels all notification IDs in the range used for multi-day scheduling.
   Future<void> cancelTodaysSpecialNotification() async {
     await initialize();
-    await _plugin.cancel(_todaysSpecialNotificationId);
-  }
 
-  /// Calculate the next notification time based on user settings
-  Future<tz.TZDateTime> _nextNotificationTime() async {
-    final time = await getNotificationTime();
-    final now = tz.TZDateTime.now(tz.local);
-
-    tz.TZDateTime scheduled = tz.TZDateTime(
-      tz.local,
-      now.year,
-      now.month,
-      now.day,
-      time.hour,
-      time.minute,
-    );
-
-    // If the time has already passed today, schedule for tomorrow
-    if (scheduled.isBefore(now)) {
-      scheduled = scheduled.add(const Duration(days: 1));
+    // Cancel all notification IDs used for multi-day scheduling
+    for (int dayOffset = 0; dayOffset < _daysToScheduleAhead; dayOffset++) {
+      final notificationId = _todaysSpecialNotificationId + dayOffset;
+      await _plugin.cancel(notificationId);
     }
 
-    return scheduled;
+    if (kDebugMode) {
+      print('Cancelled $_daysToScheduleAhead scheduled notifications');
+    }
   }
 
   String _buildNotificationBody(Cocktail cocktail) {
@@ -441,7 +471,7 @@ class NotificationService {
     );
 
     await _plugin.show(
-      _todaysSpecialNotificationId + 1, // Different ID for test
+      _todaysSpecialNotificationId + _testNotificationIdOffset + 1, // Different ID for immediate test
       "Today's Special: ${cocktail.name}",
       _buildNotificationBody(cocktail),
       notificationDetails,

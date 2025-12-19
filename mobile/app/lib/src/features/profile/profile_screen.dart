@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
-import '../../services/background_token_service.dart';
 import '../../services/notification_service.dart';
-import '../../services/token_storage_service.dart';
 import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../age_verification/age_verification_screen.dart';
@@ -54,11 +51,6 @@ class ProfileScreen extends ConsumerWidget {
                       'Name',
                       user.displayName ?? 'Not provided',
                     ),
-                    _buildInfoRow(
-                      Icons.email_outlined,
-                      'Email',
-                      user.email,
-                    ),
                     if (user.givenName != null || user.familyName != null)
                       _buildInfoRow(
                         Icons.badge_outlined,
@@ -85,12 +77,6 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Preferences'),
                   SizedBox(height: AppSpacing.md),
                   _buildMeasurementUnitCard(context, ref),
-                  SizedBox(height: AppSpacing.xl),
-
-                  // Developer Tools Section
-                  _buildSectionTitle('Developer Tools'),
-                  SizedBox(height: AppSpacing.md),
-                  _buildJwtTokenCard(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // Sign Out Button
@@ -729,261 +715,6 @@ class ProfileScreen extends ConsumerWidget {
             'Sign Out',
             style: AppTypography.bodyMedium.copyWith(
               fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildJwtTokenCard(BuildContext context, WidgetRef ref) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
-        border: Border.all(
-          color: AppColors.cardBorder,
-          width: AppSpacing.borderWidthThin,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.code, color: AppColors.iconCirclePurple, size: 20),
-              SizedBox(width: AppSpacing.sm),
-              Text(
-                'JWT Token',
-                style: AppTypography.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.sm),
-          Text(
-            'Copy your JWT token for API testing',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          ElevatedButton.icon(
-            onPressed: () async {
-              try {
-                // Get token from storage
-                final tokenStorage = ref.read(tokenStorageServiceProvider);
-                final token = await tokenStorage.getAccessToken();
-
-                if (token != null) {
-                  // Copy to clipboard
-                  await Clipboard.setData(ClipboardData(text: token));
-
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('JWT token copied to clipboard'),
-                        backgroundColor: AppColors.success,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                } else {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('No JWT token available. Please sign in.'),
-                        backgroundColor: AppColors.error,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: ${e.toString()}'),
-                      backgroundColor: AppColors.error,
-                      duration: Duration(seconds: 3),
-                    ),
-                  );
-                }
-              }
-            },
-            icon: Icon(Icons.copy, size: 18),
-            label: Text('Copy JWT Token'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryPurple,
-              foregroundColor: AppColors.textPrimary,
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          SizedBox(height: AppSpacing.lg),
-          // DEBUG: Token expiration test button
-          Divider(color: AppColors.cardBorder),
-          SizedBox(height: AppSpacing.md),
-          Row(
-            children: [
-              Icon(Icons.bug_report, color: AppColors.warning, size: 20),
-              SizedBox(width: AppSpacing.sm),
-              Text(
-                'Auth Debug',
-                style: AppTypography.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.sm),
-          Text(
-            'Simulate token expiration to test silent refresh',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          ElevatedButton.icon(
-            onPressed: () async {
-              // Show confirmation dialog
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  backgroundColor: AppColors.backgroundSecondary,
-                  title: Text('Force Token Expiration?', style: AppTypography.heading3),
-                  content: Text(
-                    'This will mark your access token as expired, triggering a silent refresh attempt. '
-                    'Check logcat for [AUTH-DIAG] logs to see what happens.',
-                    style: AppTypography.bodyMedium,
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(false),
-                      child: Text(
-                        'Cancel',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(true),
-                      child: Text(
-                        'Force Expire',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.warning,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirmed == true && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Forcing token expiration... Check logcat for results.'),
-                    backgroundColor: AppColors.warning,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-
-                // Call the debug method
-                await ref.read(authNotifierProvider.notifier).debugForceTokenExpiration();
-
-                if (context.mounted) {
-                  // Check auth state after refresh attempt
-                  final authState = ref.read(authNotifierProvider);
-                  final message = authState.maybeWhen(
-                    authenticated: (_) => 'SUCCESS: Token refreshed silently!',
-                    unauthenticated: () => 'FAILED: Silent refresh failed - user logged out',
-                    error: (e) => 'ERROR: $e',
-                    orElse: () => 'Unknown state',
-                  );
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(message),
-                      backgroundColor: authState.maybeWhen(
-                        authenticated: (_) => AppColors.success,
-                        orElse: () => AppColors.error,
-                      ),
-                      duration: Duration(seconds: 4),
-                    ),
-                  );
-                }
-              }
-            },
-            icon: Icon(Icons.timer_off, size: 18),
-            label: Text('Force Token Expiration'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.warning,
-              foregroundColor: AppColors.backgroundPrimary,
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          // Background refresh test button
-          ElevatedButton.icon(
-            onPressed: () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Triggering background token refresh...'),
-                  backgroundColor: AppColors.primaryPurple,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-
-              try {
-                await BackgroundTokenService.instance.runImmediateRefresh();
-
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Background refresh task scheduled! Check logcat for [BG-TOKEN] logs.'),
-                      backgroundColor: AppColors.success,
-                      duration: Duration(seconds: 4),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: AppColors.error,
-                      duration: Duration(seconds: 4),
-                    ),
-                  );
-                }
-              }
-            },
-            icon: Icon(Icons.refresh, size: 18),
-            label: Text('Test Background Refresh'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryPurple,
-              foregroundColor: AppColors.textPrimary,
-              padding: EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.sm,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
             ),
           ),
         ],

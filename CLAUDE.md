@@ -19,15 +19,15 @@ You have both the Microsoft Documentation and Azure MCP Servers installed.  Use 
 - **Phase 1**: Android (initial launch)
 - **Phase 2**: iOS (post-Android launch)
 
-## Current Task: Voice AI Feature
+## Current Status: Release Candidate
 
-See `docs/VOICE_AI_IMPLEMENTATION.md` for full spec.
+All core features implemented and tested. Ready for Play Store deployment.
 
 ### Business Model
 
 - **Free Tier**: Limited AI interactions (10,000 tokens / 30 days) (2 scans / 30 days), unlimited access to local cocktail database
-- **Premium Tier** ($4.99/month or $49.99/year): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations (300,000 tokens / 30 days) (30 scans / 30 days)
-- **Pro** ($14.99/month or $149.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (100 scans / 30 days) (120 voice minutes / 30 days)
+- **Premium Tier** ($4.99/month or $39.99/year): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations (300,000 tokens / 30 days) (15 scans / 30 days)
+- **Pro** ($14.99/month or $99.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (50 scans / 30 days) (90 voice minutes / 30 days)
   
   
 
@@ -53,7 +53,7 @@ See `docs/VOICE_AI_IMPLEMENTATION.md` for full spec.
 
 - **AI Services**: 
   
-  - Azure OpenAI Service (GPT-4o-mini for text-based recommendations)
+  - Azure OpenAI Service (GPT-4o-mini for text-based recommendations) (Claude Haiku for Smart Scanner)
 
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
 
@@ -125,10 +125,10 @@ Located in `kv-mybartenderai-prod`:
 17. **META-FACEBOOK-APP-SECRET**
 
 18. **SOCIAL-ENCRYPTION-KEY**
-
-
-
-
+    
+    
+    
+    
 
 ## Architecture Highlights
 
@@ -147,35 +147,28 @@ Located in `kv-mybartenderai-prod`:
 
 ### Data Flow
 
-1. **TheCocktailDB API**: Nightly sync at 03:30 UTC with throttling (doesn't seem to be happening anymore, no syncs since 11/15/2025)
+1. **TheCocktailDB API**: Timer sync DISABLED - using static database copy
 2. **PostgreSQL**: Authoritative source of truth
-3. **JSON Snapshots**: Compressed (gzip) snapshots for mobile consumption
+3. **JSON Snapshots**: Compressed (Zstandard) snapshots for mobile consumption (~172KB)
 4. **Blob Storage**: Static assets and snapshot distribution
 
 ### Security & Authentication
 
-- **Current (Early Beta)**: Mixed approach based on service capabilities
-  
-  - **Storage Access**: Using Managed Identity
-    - Managed Identity for storage (`func-cocktaildb2-uami`and `func-mba-fresh`)
+- **Authentication**: JWT-only via Entra External ID
+  - Mobile app authenticates with Entra External ID
+  - APIM validates JWT via `validate-jwt` policy
+  - Backend functions receive validated user ID in headers
+  - No APIM subscription keys sent from mobile client
 
-- **Key Vault Access**: ✅ Managed Identity with RBAC
-  
-  - Function App uses System-Assigned Managed Identity
+- **Storage Access**: Managed Identity
+  - Function App (`func-mba-fresh`) uses System-Assigned Managed Identity
+
+- **Key Vault Access**: Managed Identity with RBAC
   - Granted "Key Vault Secrets User" role on `kv-mybartenderai-prod`
   - Key Vault uses RBAC authorization (not access policies)
-  - Secrets accessed via `@Microsoft.KeyVault()` references in Function App settings
-  - **Future State**: Migrate storage to Managed Identity when moving to Premium or Linux plans
-  - **PII Policy**: Minimal collection, clearly defined retention
-  - **Key Vault**: `kv-mybartenderai-prod` stores sensitive configuration
+  - Secrets accessed via `@Microsoft.KeyVault()` references
 
-- API keys (TheCocktailDB, Azure OpenAI)
-
-- Database connection strings
-
-- Azure OpenAI endpoint and deployment configuration
-
-- SAS tokens (temporary, for blob storage access)
+- **PII Policy**: Minimal collection, clearly defined retention
 
 ### Azure Resource Organization
 
@@ -187,17 +180,18 @@ Located in `kv-mybartenderai-prod`:
 
 ### API Management (APIM) Strategy
 
-- **Current Tier**: Basic V2 - ~$150/month 
-- **Purpose**: 
-- - Tier-based rate limiting (Free/Premium/Pro products)
-  - API key management per mobile app installation
+- **Current Tier**: Basic V2 - ~$150/month
+- **Authentication**: JWT-only (no subscription keys sent from mobile client)
+- **Purpose**:
+  - JWT validation via `validate-jwt` policy
   - API versioning for mobile app updates
   - Security: Hides Function URLs, DDoS protection
   - Built-in analytics and monitoring
-- **Products Configuration**:
-  - **Free**: Local features only (10,000 tokens / 30 days) (2 scans / 30 days)
-  - **Premium**: AI features with moderate limits (300,000 tokens / 30 days) (30 scans / 30 days)
-  - **Pro**: AI features with higher limits (1,000,000 tokens / 30 days) (100 scans / 30 days) (120 voice minutes / 30 days)
+- **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
+- **Quotas** (enforced by backend):
+  - **Free**: 10,000 tokens / 30 days, 2 scans / 30 days
+  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days
+  - **Pro**: 1,000,000 tokens / 30 days, 50 scans / 30 days, 90 voice minutes / 30 days
 
 ### ## Development Environment
 
@@ -236,29 +230,20 @@ Located in `kv-mybartenderai-prod`:
 - `recommend`: AI-powered cocktail suggestions
 - `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
 - `download-images`, `download-images-mi`: Image asset management
-- `sync-cocktaildb`: Timer-triggered nightly sync (03:30 UTC)
+- `sync-cocktaildb`, `sync-cocktaildb-mi`: Database sync (TIMERS DISABLED)
 - `health`: Health check endpoint
-- `refine-cocktail`:
-- `rotate-keys-timer`:
-- `snapshots-latest`:
-- `snapshots-latest-mi`:
-- `social-inbox`:
-- `social-invite`:
-- `social-outbox`:
-- `social-share-internal`:
-- `speech-token`:
-- `sync-cocktaildb`:
-- `sync-cocktaildb-mi`:
-- `test-keyvault`:
-- `test-mi-access`:
-- `test-write`:
-- `users-me`:
-- `validate-age`:
-- `vision-analyze`:
-- `voice-bartender`:
-- `auth-exchange:`
-- `auth-rotate:`
-- `cocktail-preview:`
+- `refine-cocktail`: AI recipe refinement for Create Studio
+- `rotate-keys-timer`: Automated key rotation
+- `social-inbox`, `social-invite`, `social-outbox`, `social-share-internal`: Social features
+- `speech-token`: Speech service token exchange
+- `users-me`: User profile endpoint
+- `validate-age`: Age verification for Entra External ID
+- `vision-analyze`: Smart Scanner using Claude Haiku
+- `voice-bartender`: Legacy voice (Azure Speech Services)
+- `voice-session`: Voice AI using Azure OpenAI Realtime API (Pro tier)
+- `auth-exchange`, `auth-rotate`: Token management
+- `cocktail-preview`: Public cocktail preview for sharing
+- `test-keyvault`, `test-mi-access`, `test-write`: Diagnostic endpoints
   
   
 
@@ -269,35 +254,46 @@ Located in `kv-mybartenderai-prod`:
 
 ## Current Status & Known Issues
 
-### Completed (2025-10-31)
+### Completed (December 2025)
 
-- ✅ Core architecture design
-- ✅ Azure infrastructure setup (all resources in South Central US)
-- ✅ SAS token implementation for blob storage (**PAST**)
-- ✅ Cost optimization strategy
+**Infrastructure:**
+- ✅ Azure infrastructure (South Central US)
 - ✅ PostgreSQL as authoritative source
 - ✅ Key Vault integration with Managed Identity + RBAC
-- ✅ Azure OpenAI service deployment (mybartenderai-scus)
-- ✅ AI Bartender chat backend (ask-bartender-simple endpoint)
-- ✅ AI Bartender chat UI with conversation tracking
-- ✅ Mobile app Recipe Vault with snapshot sync
-- ✅ Mobile app Inventory Management (My Bar)
-- ✅ Mobile app Favorites/Bookmarks
-- ✅ TheCocktailDB API integration (nightly sync)
-- ✅ Offline-first SQLite database with Zstandard compression
+- ✅ Azure OpenAI service (mybartenderai-scus)
+- ✅ APIM Basic V2 with JWT validation
+- ✅ Azure Front Door (share.mybartenderai.com)
+
+**Authentication:**
+- ✅ Entra External ID (Email, Google, Facebook)
+- ✅ Age verification (21+) with Custom Authentication Extension
+- ✅ JWT-only authentication flow
+- ✅ Token refresh and secure storage
+
+**Mobile App Features:**
+- ✅ AI Bartender Chat (GPT-4o-mini)
+- ✅ Recipe Vault with offline SQLite database
+- ✅ My Bar inventory management
+- ✅ Smart Scanner (Claude Haiku)
+- ✅ Voice AI (Azure OpenAI Realtime API, Pro tier)
+- ✅ Create Studio with AI refinement
+- ✅ Today's Special with notifications
+- ✅ Social sharing (Instagram/Facebook)
+- ✅ Friends via Code sharing
+- ✅ User profile with settings
+
+**Backend:**
+- ✅ All API endpoints deployed and operational
+- ✅ Tier-based quota enforcement in PostgreSQL
 
 ### In Progress
 
-- 🔄 Entra External ID authentication (Google/Facebook/Email)
-- 🔄 Mobile app Taste Profile feature
+- 🔄 Taste Profile feature (UI design)
 
 ### Upcoming
 
-- 📋 Camera-based inventory feature (Smart Scanner) **(Finished, used Azure's Anthropic Haiku offering)**
-- 📋 Advanced AI cocktail recommendations (recommend endpoint with JWT)**** (Seems to be working as of 12/08/2025)****
-- 📋 Free/Premium/Pro tier implementation via APIM
-- 📋 Create Studio cocktail creation feature
 - 📋 Android Play Store deployment
+- 📋 iOS configuration and TestFlight
 
 ## Developer Background
 
@@ -319,14 +315,6 @@ Located in `kv-mybartenderai-prod`:
 5. **Pragmatic Approach**: Production uses Managed Identity
 6. **Cross-Platform**: Remember Flutter targets both Android and iOS
 7. **Windows Expertise**: Developer has strong Windows/Azure background
-
-### Current Authentication Limitations
-
-**
-
-- **Migration Path**: Document in MANAGED_IDENTITY_MIGRATION.md for future reference
-  
-  
 
 ### Preferred Patterns
 
@@ -401,6 +389,8 @@ flutter test
 
 ---
 
-**Last Updated**: December 2025  
-**Project Phase**: Early Development / Beta  
-**Primary Focus**: Infrastructure stability and mobile app foundation
+**Last Updated**: December 2025
+**Project Phase**: Release Candidate
+**Primary Focus**: Play Store deployment preparation
+
+

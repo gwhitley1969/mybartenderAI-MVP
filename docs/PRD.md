@@ -381,7 +381,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 - **Service**: Azure Functions (`func-mba-fresh`)
 - **Plan**: Premium Consumption (Elastic Premium)
-- **Runtime**: Node.js 20
+- **Runtime**: Node.js 22
 - **URL**: https://func-mba-fresh.azurewebsites.net (behind APIM)
 
 #### Database

@@ -5,7 +5,7 @@
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
 - Azure API Management (`apim-mba-002`) as API gateway for tier management and security
 - **Azure Functions v4 Programming Model** - 30 functions with code-centric registration
-- **Node.js 18+ runtime** on Windows Premium Consumption plan
+- **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
 - Azure Blob for cocktail images (US-hosted) and JSON snapshots
@@ -568,7 +568,7 @@ flutter build apk --release
 
 - **Azure Functions**: ZIP deployment to Windows Premium Consumption plan (`func-mba-fresh`)
 - **Programming Model**: Azure Functions v4 with code-centric registration
-- **Runtime**: Node.js 18+ on Windows
+- **Runtime**: Node.js 22 on Windows
 - **Dependencies**: All declared in package.json, including:
   - `@azure/functions` - v4 runtime
   - `@azure/openai` - Official Azure OpenAI SDK

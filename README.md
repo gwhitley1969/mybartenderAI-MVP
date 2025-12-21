@@ -80,7 +80,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 ```
 mybartenderAI-MVP/
 ├── backend/
-│   └── functions/            # Azure Functions v4 (30 functions, Node.js 18+)
+│   └── functions/            # Azure Functions v4 (30 functions, Node.js 22)
 │       ├── index.js          # Root file with all v4 function registrations
 │       ├── ask-bartender*/   # AI chat endpoint modules
 │       ├── auth-*/           # Authentication & token management
@@ -121,7 +121,7 @@ mybartenderAI-MVP/
   - Tier quotas enforced by backend functions (PostgreSQL lookup)
 - **Backend**: Azure Functions (`func-mba-fresh`)
   - Hosting Plan: Premium Consumption (Windows)
-  - Runtime: Node.js 18+
+  - Runtime: Node.js 22
   - Programming Model: v4 (code-centric registration)
   - Functions: 30 total (29 HTTP triggers + 1 timer trigger)
   - AI SDK: Official @azure/openai package
@@ -222,7 +222,7 @@ mybartenderAI-MVP/
 
 ### Prerequisites
 
-- Node.js 18+ (for Azure Functions)
+- Node.js 22 (for Azure Functions)
 - Flutter SDK 3.0+ (for mobile app)
 - Azure CLI (for deployment)
 - Azure subscription with proper permissions

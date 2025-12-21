@@ -1,6 +1,6 @@
 # Authentication Implementation - MyBartenderAI Mobile App
 
-**Status**: Foundation Complete - Ready for Testing (2025-11-03)
+**Status**: Fully Operational (December 2025)
 
 ## Overview
 
@@ -135,162 +135,54 @@ This allows the app to receive the OAuth callback from Entra External ID after a
 - Age restriction notice (21+ requirement)
 - Responsive to authentication state changes
 
-## What Still Needs to Be Done
+## Implementation Status (All Complete)
 
-### 1. Routing Integration 🔄
+### 1. Routing Integration ✅
 
-**File to Update**: `mobile/app/lib/src/main.dart`
+- GoRouter with authentication guards implemented
+- `/login` route for LoginScreen
+- Automatic redirect to `/login` when unauthenticated
+- Redirect to home when authenticated user visits login
 
-**Changes Needed:**
-- Add `/login` route for LoginScreen
-- Add redirect logic in GoRouter:
-  - If unauthenticated → redirect to `/login`
-  - If authenticated → allow access to app
-- Implement route guards for protected screens
+### 2. API Client Updates ✅
 
-**Example**:
-```dart
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authNotifierProvider);
+- JWT access token added to all authenticated API requests
+- APIM subscription key added (dual authentication)
+- `Authorization: Bearer <token>` header on all requests
+- `Ocp-Apim-Subscription-Key` header for APIM validation
 
-  return GoRouter(
-    initialLocation: '/',
-    redirect: (context, state) {
-      final isAuthenticated = authState is AuthStateAuthenticated;
-      final isLoginRoute = state.location == '/login';
+### 3. User Profile Screen ✅
 
-      // Redirect to login if not authenticated
-      if (!isAuthenticated && !isLoginRoute) {
-        return '/login';
-      }
-
-      // Redirect to home if authenticated and on login page
-      if (isAuthenticated && isLoginRoute) {
-        return '/';
-      }
-
-      return null; // No redirect needed
-    },
-    routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const HomeScreen(),
-        routes: [
-          // ... existing routes
-        ],
-      ),
-    ],
-  );
-});
-```
-
-### 2. API Client Updates 🔄
-
-**Files to Update**:
-- `mobile/app/lib/src/api/ask_bartender_api.dart`
-- `mobile/app/lib/src/services/backend_service.dart`
-- Any other API clients
-
-**Changes Needed:**
-- Add JWT access token to all authenticated API requests
-- Use `accessTokenProvider` to get current token
-- Add `Authorization: Bearer <token>` header
-
-**Example**:
-```dart
-final accessToken = await ref.read(accessTokenProvider.future);
-if (accessToken != null) {
-  _dio.options.headers['Authorization'] = 'Bearer $accessToken';
-}
-```
-
-### 3. User Profile Screen 🔄
-
-**File to Create**: `mobile/app/lib/src/features/profile/profile_screen.dart`
-
-**Features Needed:**
-- Display user information (name, email)
+- Displays user information (name)
 - Age verification status badge
-- Account created date
-- Sign out button
-- Navigation from home screen
+- Sign out button with confirmation dialog
+- Notification settings (Today's Special Reminder)
+- Measurement unit preferences (oz/ml)
 
-### 4. Testing 🔄
+### 4. Testing ✅
 
-**Test Scenarios:**
+All test scenarios have been validated:
+- Email sign-up/sign-in
+- Google sign-in
+- Facebook sign-in
+- Under-21 blocking (age verification)
+- Token persistence across app restarts
+- Token refresh (automatic)
+- Sign out flow
 
-1. **New User Sign-Up (Email)**:
-   - Tap "Sign In / Sign Up"
-   - Select "Sign up now"
-   - Enter email, password, name, birthdate (21+)
-   - Verify age verification passes
-   - Verify redirect to home screen
-   - Verify user is authenticated
+### 5. Error Handling ✅
 
-2. **New User Sign-Up (Google)**:
-   - Tap "Sign In / Sign Up"
-   - Select "Continue with Google"
-   - Authenticate with Google
-   - Enter birthdate (21+)
-   - Verify age verification passes
-   - Verify user is authenticated
-
-3. **New User Sign-Up (Facebook)**:
-   - Same as Google flow
-
-4. **Under-21 Sign-Up (Should Fail)**:
-   - Attempt signup with birthdate < 21 years ago
-   - Verify account creation is blocked
-   - Verify error message displayed
-
-5. **Existing User Sign-In**:
-   - Tap "Sign In / Sign Up"
-   - Enter credentials
-   - Verify redirect to home screen
-   - Verify user data loaded from token
-
-6. **Token Persistence**:
-   - Sign in
-   - Close app completely
-   - Reopen app
-   - Verify still authenticated (no login required)
-
-7. **Token Refresh**:
-   - Sign in
-   - Wait for token to expire (~1 hour)
-   - Make API call
-   - Verify token auto-refreshes
-   - Verify API call succeeds
-
-8. **Sign Out**:
-   - While authenticated, tap sign out
-   - Verify redirect to login screen
-   - Verify tokens cleared
-   - Verify cannot access protected screens
-
-### 5. Error Handling Improvements 🔄
-
-**Areas to Enhance:**
-- Network connectivity errors
-- Token refresh failures (redirect to login)
-- Entra External ID service errors
+- Network connectivity error handling
+- Token refresh failures trigger re-authentication
 - User-friendly error messages
-- Retry mechanisms
+- Retry mechanisms implemented
 
-### 6. Optional Enhancements 📋
+### 6. Future Enhancements 📋
 
-**Future Improvements:**
-- Biometric authentication (fingerprint/face ID) for quick re-authentication
-- Remember device option
-- Multi-device session management
+**Planned Improvements:**
+- Biometric authentication (fingerprint/face ID)
 - Account deletion flow
-- Password reset flow (handled by Entra, just need to link to it)
 - Profile picture from social providers
-- Link/unlink social accounts
 
 ## Architecture Flow
 
@@ -384,7 +276,9 @@ if (accessToken != null) {
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## API Integration Flow
+## API Integration Flow (JWT-Only Authentication)
+
+The mobile app uses JWT-only authentication. No APIM subscription keys are sent from the client.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -395,13 +289,14 @@ if (accessToken != null) {
                     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │    Get Access Token from accessTokenProvider                 │
-│    (Auto-refreshes if expired)                               │
+│    (Auto-refreshes via silent refresh if expired)           │
 └───────────────────┬─────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │      Add Authorization Header                                │
-│   Authorization: Bearer eyJ0eXAiOiJKV1Q...                  │
+│   Authorization: Bearer <JWT>                                │
+│   (No APIM subscription key - removed for security)         │
 └───────────────────┬─────────────────────────────────────────┘
                     │
                     ▼
@@ -412,18 +307,45 @@ if (accessToken != null) {
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────┐
-│      APIM Validates JWT Token                                │
-│      - Signature verification                                │
+│      APIM Validates JWT (validate-jwt policy)               │
+│      - Signature verification via OpenID Connect            │
 │      - Expiration check                                      │
-│      - Audience validation                                   │
-│      - age_verified claim check                              │
+│      - Audience validation (client ID)                      │
+│      - Extracts X-User-Id header for backend                │
 └───────────────────┬─────────────────────────────────────────┘
                     │
                     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │      Request Forwarded to Azure Function                     │
-│      Function Processes Request                              │
+│      Function receives X-User-Id from APIM                  │
+│      Function checks user tier in PostgreSQL                │
 │      Response Returned to Mobile App                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### On 401 Response (Token Expired)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│      API Returns 401 Unauthorized                            │
+└───────────────────┬─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│      AuthInterceptor Catches 401                             │
+│      Triggers silent token refresh                          │
+└───────────────────┬─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Refresh Token sent to Entra External ID                │
+│      New Access Token obtained                               │
+└───────────────────┬─────────────────────────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Original Request Retried with New Token                │
+│      (Automatic, transparent to user)                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -449,37 +371,23 @@ if (accessToken != null) {
 ### Azure Resources Created (1):
 1. App Registration: "MyBartenderAI Mobile" (Client ID: 0a9decfb-ba92-400d-8d8d-8d86f0f86a0b)
 
-## Next Steps (Priority Order)
+## Background Token Refresh
 
-1. **Update GoRouter with auth guards** (30 minutes)
-   - Add redirect logic based on auth state
-   - Add `/login` route
-   - Test navigation flow
+The app includes a background token refresh service to maintain authentication.
 
-2. **Update API clients with JWT tokens** (20 minutes)
-   - Modify `ask_bartender_api.dart`
-   - Modify `backend_service.dart`
-   - Add authorization headers
+### How It Works
 
-3. **Test authentication flows** (1-2 hours)
-   - Email sign-up/sign-in
-   - Google sign-in
-   - Facebook sign-in
-   - Under-21 blocking
-   - Token persistence
-   - Token refresh
-   - Sign out
+- **BackgroundTokenService**: Monitors token expiration
+- **Silent Refresh**: Automatically refreshes tokens before expiration
+- **401 Handling**: AuthInterceptor catches 401 responses and triggers refresh
+- **Retry Logic**: Failed requests are retried with fresh token (max 1 retry)
+- **Logout on Failure**: If refresh fails, user is logged out gracefully
 
-4. **Create user profile screen** (45 minutes)
-   - Display user info
-   - Sign out button
-   - Navigate from home
+### Token Lifecycle
 
-5. **Production polish** (ongoing)
-   - Error handling improvements
-   - Loading states
-   - User feedback
-   - Edge case handling
+1. **Access Token**: Short-lived (~1 hour), used for API calls
+2. **Refresh Token**: Long-lived, used to obtain new access tokens
+3. **ID Token**: Contains user claims, decoded for profile info
 
 ## Security Notes
 
@@ -505,6 +413,5 @@ if (accessToken != null) {
 
 ---
 
-**Status**: Foundation Complete ✅
-**Next Milestone**: Integration & Testing 🔄
-**Estimated Completion**: 2-3 hours additional work
+**Status**: Fully Operational ✅
+**Last Updated**: December 2025

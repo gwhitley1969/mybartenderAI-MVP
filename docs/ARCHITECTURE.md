@@ -22,12 +22,12 @@
 - ✅ My Bar (inventory management)
 - ✅ Favorites/bookmarks
 - ✅ User authentication (Entra External ID with JWT)
-- ✅ Runtime token exchange (JWT → APIM subscription key)
+- ✅ JWT-only authentication (APIM validates JWT, no subscription keys on client)
 - ✅ AI Bartender Chat (all tiers, including Free with limited quota)
 - ✅ Smart Scanner (Claude Haiku for bottle detection - Premium/Pro)
 - ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 90 min/month)
-- ✅ APIM dual authentication (JWT + subscription key)
-- ✅ Rate limiting per user (10 req/min on auth exchange)
+- ✅ User tier validation (backend checks tier in PostgreSQL)
+- ✅ Rate limiting per user
 - ✅ Monitoring and alerting (Application Insights)
 - ✅ **Azure Functions v4 Migration Complete** - All functions migrated and deployed
 - ✅ **Official Azure OpenAI SDK** - All AI functions using @azure/openai package
@@ -46,12 +46,11 @@
 - ✅ **Comprehensive Testing**: PowerShell test scripts created and validated
 
 **Security Improvements:**
-- ✅ **Runtime Token Exchange**: Per-user APIM keys obtained at runtime
-- ✅ **No Hardcoded Keys**: All subscription keys removed from source/APK
-- ✅ **Dual Authentication**: JWT (identity) + APIM key (authorization/quota)
+- ✅ **JWT-Only Authentication**: Mobile sends JWT, APIM validates via policy
+- ✅ **No Hardcoded Keys**: No API keys stored in source or APK
+- ✅ **Server-Side Tier Validation**: Backend checks user tier in PostgreSQL
 - ✅ **Rate Limiting**: Azure Table Storage based per-user limits
 - ✅ **Attack Detection**: High failure rate monitoring (>50 failures/5 min)
-- ✅ **Key Rotation**: Monthly automatic rotation with instant revocation
 - ✅ **Managed Identity**: RBAC-based access to Key Vault and Storage
 
 ## Core Features
@@ -63,7 +62,7 @@
 - **27 Backend Functions**: 24 HTTP triggers + 3 timer triggers
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication via Entra External ID (fully operational)
-- APIM-based rate limiting per tier using per-user subscription keys
+- APIM-based rate limiting per tier (backend validates tier in PostgreSQL)
 - **Managed Identity**: Full RBAC-based access to Key Vault and Storage
 - **Age Verification**: 21+ requirement enforced at signup via Entra External ID Custom Authentication Extension
 - **Runtime Security**: No build-time keys, all credentials obtained at runtime
@@ -79,30 +78,22 @@
 sequenceDiagram
   participant M as Mobile (Flutter)
   participant APIM as API Management
-  participant AE as Auth Exchange Function
   participant F as Azure Functions (HTTP)
   participant DB as PostgreSQL
-  participant B as Blob Storage (US)
   participant AI as Azure OpenAI (GPT-4o-mini)
-  participant Speech as Azure Speech Services
 
-  Note over M,AE: Runtime Token Exchange Flow
-  M->>APIM: POST /v1/auth/exchange (JWT only)
-  APIM->>AE: Forward with validated JWT
-  AE->>AE: Verify JWT, check rate limit
-  AE->>APIM: Create/retrieve user subscription
-  AE-->>M: Return subscription key + quotas
-
-  Note over M,AI: AI Chat Flow (All Tiers)
-  M->>APIM: HTTPS /v1/ask-bartender (JWT + APIM Key)
-  APIM->>F: Forward with dual auth validation
+  Note over M,AI: AI Chat Flow (JWT-Only Authentication)
+  M->>APIM: HTTPS /v1/ask-bartender (JWT only)
+  APIM->>APIM: Validate JWT (signature, expiration, audience)
+  APIM->>F: Forward request with X-User-Id header
+  F->>DB: Lookup user tier
   F->>AI: GPT-4o-mini processing
   F-->>M: AI response
 
   Note over M,AI: Voice Flow (Pro Tier)
-  M->>APIM: POST /v1/voice/session (JWT + APIM Key)
+  M->>APIM: POST /v1/voice/session (JWT only)
   APIM->>F: Forward to voice-session function
-  F->>F: Validate JWT, verify Pro tier, create session
+  F->>DB: Verify user has Pro tier
   F->>AI: Request ephemeral WebRTC token from Realtime API
   AI-->>F: Return ephemeral token
   F-->>M: Return WebRTC token + session info
@@ -232,38 +223,38 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 **Key Change**: Free tier now includes 10,000 AI tokens per month to enable a freemium model and drive conversion.
 
-## Runtime Token Exchange Architecture
+## Authentication Architecture (JWT-Only)
 
 ### Overview
-Instead of build-time API key injection, the app obtains per-user APIM subscription keys at runtime by exchanging JWT tokens.
+The mobile app uses JWT-only authentication. APIM validates the JWT token via policy, and the backend functions check user tier in PostgreSQL.
 
-### Components
+### Flow
+1. User authenticates with Entra External ID
+2. Mobile app receives JWT (access token, refresh token, ID token)
+3. All API requests include `Authorization: Bearer <JWT>` header
+4. APIM validates JWT (signature, expiration, audience) via `validate-jwt` policy
+5. APIM extracts user ID and passes to backend via `X-User-Id` header
+6. Backend function looks up user tier in PostgreSQL
+7. Request processed based on user's tier and quotas
 
-**Auth Exchange Function** (`/v1/auth/exchange`):
-- Validates Entra External ID JWT
-- Checks user rate limit (10 req/min via Azure Table Storage)
-- Creates/retrieves user-specific APIM subscription
-- Returns subscription key with tier and quotas
-- Tracks success/failure metrics in Application Insights
+### Key Components
 
-**Auth Rotate Function** (`/v1/auth/rotate`):
-- Manual key rotation for compromised accounts
-- Instant revocation capability
-- Monitoring integration for audit trail
+**APIM JWT Validation Policy**:
+- Validates JWT signature via OpenID Connect discovery
+- Checks token expiration and audience
+- Extracts user ID for backend
 
-**Rotate Keys Timer** (`rotate-keys-timer`):
-- Monthly automatic key rotation (1st of each month)
-- Bulk rotation with progress tracking
-- Skips new subscriptions (<7 days old)
-- Comprehensive monitoring and alerting
+**Backend Tier Validation**:
+- Functions query PostgreSQL for user tier (free/premium/pro)
+- Quotas enforced server-side based on tier
+- Usage tracked in database
 
 ### Security Benefits
-- **No hardcoded keys** in source or APK
-- **Per-user revocable** access
-- **Automatic monthly rotation**
-- **Rate limiting** prevents token exchange abuse
-- **Attack detection** via failure rate monitoring
-- **Audit trail** for all authentication events
+- **No API keys on client** - only JWT token
+- **Server-side tier validation** - cannot be bypassed
+- **Token expiration** - short-lived access tokens (~1 hour)
+- **Silent refresh** - automatic token renewal
+- **Audit trail** - all requests logged with user ID
 
 ## API Management (APIM) Configuration
 
@@ -299,12 +290,12 @@ Instead of build-time API key injection, the app obtains per-user APIM subscript
 ### Backend Integration
 
 - APIM forwards requests to Function App: `func-mba-fresh.azurewebsites.net`
-- **Authentication**: Dual JWT + APIM subscription key validation
-- Rate limiting policies per product
+- **Authentication**: JWT validation via APIM policy (subscriptionRequired: false)
+- Rate limiting based on user tier (checked in backend)
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
-- **Public Endpoints**: snapshots-latest, download-images, health (subscription key only)
-- **AI Endpoints**: ask-bartender, ask-bartender-simple, recommend (dual auth required)
-- **Auth Endpoints**: auth/exchange, auth/rotate (JWT required)
+- **Public Endpoints**: snapshots-latest, download-images, health (no auth required)
+- **AI Endpoints**: ask-bartender, ask-bartender-simple, recommend (JWT required)
+- **Voice Endpoints**: voice-session, voice-complete (JWT required, Pro tier only)
 
 ## Monitoring & Alerting
 
@@ -316,9 +307,8 @@ All authentication and key management functions include comprehensive monitoring
 - AuthenticationSuccess/Failure
 - RateLimitExceeded
 - JwtValidationFailure
-- KeyRotationSuccess/Failure
+- TierValidationFailure
 - SuspiciousActivity
-- BulkKeyRotation
 
 **Metrics for Alerting**:
 - High authentication failure rate (>50 in 5 min)
@@ -390,7 +380,7 @@ sequenceDiagram
   T->>T: Build SQLite binary, zstd compress
   T->>BL: Upload snapshot.db.zst (Managed Identity)
   T->>PG: Record metadata (snapshot_version, size, sha256, counts)
-  M->>APIM: GET /v1/snapshots/latest (API Key + Tier validation)
+  M->>APIM: GET /v1/snapshots/latest (public endpoint)
   APIM->>M: { version, signedUrl, sha256, counts }
   M->>BL: Download SQLite snapshot (signed URL)
   M->>BL: Download ALL images during install/update (signed URL)
@@ -457,10 +447,9 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 
 - **Current Status (November 20, 2025)**:
   - JWT authentication via Microsoft Entra External ID (fully operational)
-  - Runtime token exchange for per-user APIM subscription keys
-  - Dual authentication: JWT (identity) + APIM key (authorization/quota)
-  - Rate limiting on token exchange (10 req/min per user)
-  - Monthly automatic key rotation with instant revocation
+  - JWT-only authentication (APIM validates JWT via policy)
+  - Server-side tier validation in PostgreSQL
+  - Rate limiting based on user tier
   - **Azure Functions v4 Programming Model**: All 27 functions migrated
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role
@@ -496,19 +485,19 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
   - No hardcoded keys in code or configuration
 - **Mobile App**:
   - JWT tokens stored in secure device storage
-  - APIM subscription keys obtained at runtime, cached securely
-  - No build-time API keys
+  - No API keys on client (JWT-only authentication)
+  - Silent token refresh on expiration
 
 ## Mobile App Updates
 
-### Runtime Token Management
+### JWT Token Management
 
 1. User authenticates with Entra External ID
-2. Exchange JWT for APIM subscription key via `/v1/auth/exchange`
-3. Cache subscription key with expiry in secure storage
-4. Include both JWT and APIM key in all API requests
-5. On 401/403, attempt re-exchange (max 1 retry)
-6. Clear cached keys on logout
+2. Store JWT tokens (access, refresh, ID) in secure storage
+3. Include `Authorization: Bearer <JWT>` header in all API requests
+4. On 401 response, trigger silent token refresh
+5. Retry original request with new token (max 1 retry)
+6. Clear all tokens on logout
 
 ### Snapshot Download Strategy
 
@@ -525,7 +514,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 - **Source**: TheCocktailDB images re-hosted in Azure Blob Storage (US region)
 - **Local Storage**: All images stored on device for instant offline access
 - **No Network**: Free features (browse, search, view recipes) work 100% offline
-- **Premium Features**: AI recommendations, vision, voice require network + APIM validation
+- **Premium Features**: AI recommendations, vision, voice require network + JWT authentication
 
 ## Future Enhancements
 
@@ -572,7 +561,7 @@ flutter run
 flutter build apk --release
 
 # APIM local testing
-# Use APIM test console or Postman with runtime-obtained keys
+# Use APIM test console or Postman with valid JWT token
 ```
 
 ### Deployment

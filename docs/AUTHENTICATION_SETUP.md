@@ -2,7 +2,7 @@
 
 ## Current Status
 
-✅ **Authentication System: FULLY OPERATIONAL** (as of 2025-10-27)
+✅ **Authentication System: FULLY OPERATIONAL** (December 2025)
 
 ### Supported Authentication Methods
 
@@ -38,81 +38,18 @@
 
 ## Backend Authentication Status
 
-The backend functions are deployed and working, but the authenticated endpoints (`ask-bartender`, `recommend`, `realtime-token`) require JWT tokens from Entra External ID.
+All backend functions are deployed and fully operational. Authentication flow:
 
-## Temporary Solution
+1. Mobile app authenticates with Entra External ID
+2. JWT token included in API requests (`Authorization: Bearer <token>`)
+3. APIM validates JWT via `validate-jwt` policy
+4. Backend functions receive validated requests with user ID
 
-We've created a test endpoint `/v1/ask-bartender-test` that bypasses JWT authentication for testing purposes.
+### API Gateway
 
-## Azure AD B2C Setup Required
-
-To enable proper authentication, you need to:
-
-### 1. Configure Azure Functions with B2C Settings
-
-Add these environment variables to your Function App (`func-mba-fresh`):
-
-```bash
-# Your B2C tenant name (e.g., "mybartenderai")
-ENTRA_TENANT_ID=<your-b2c-tenant-name>.onmicrosoft.com
-
-# The Application (client) ID from your B2C app registration
-ENTRA_EXPECTED_AUDIENCE=<your-b2c-app-client-id>
-
-# The B2C issuer URL
-ENTRA_ISSUER=https://<your-b2c-tenant-name>.b2clogin.com/<your-b2c-tenant-name>.onmicrosoft.com/<your-sign-in-policy>/v2.0
-```
-
-Example:
-```bash
-az functionapp config appsettings set \
-  -n func-mba-fresh \
-  -g rg-mba-prod \
-  --settings \
-    "ENTRA_TENANT_ID=mybartenderai.onmicrosoft.com" \
-    "ENTRA_EXPECTED_AUDIENCE=12345678-1234-1234-1234-123456789012" \
-    "ENTRA_ISSUER=https://mybartenderai.b2clogin.com/mybartenderai.onmicrosoft.com/B2C_1_signupsignin/v2.0"
-```
-
-### 2. Flutter App Authentication Flow
-
-The Flutter app needs to:
-
-1. **Add B2C authentication package**:
-   ```yaml
-   dependencies:
-     flutter_appauth: ^6.0.2
-   ```
-
-2. **Configure B2C settings**:
-   ```dart
-   const b2cConfig = {
-     'tenant': 'mybartenderai',
-     'clientId': '<your-b2c-app-client-id>',
-     'redirectUri': 'com.mybartenderai.app://auth',
-     'signInPolicy': 'B2C_1_signupsignin',
-   };
-   ```
-
-3. **Implement authentication flow**:
-   - Login with Microsoft/Google
-   - Get ID token
-   - Include token in API requests as `Authorization: Bearer <token>`
-
-### 3. Update API Calls
-
-Once authentication is set up, the Flutter app should include the JWT token:
-
-```dart
-dio.options.headers['Authorization'] = 'Bearer $idToken';
-```
-
-## Testing Without Authentication
-
-For now, the Flutter app is configured to use:
-- Base URL: `https://func-mba-fresh.azurewebsites.net/api`
-- Function Key: Included in headers
-- Test endpoint: `/v1/ask-bartender-test` (no JWT required)
+- **Gateway URL**: `https://apim-mba-002.azure-api.net`
+- **Authentication**: JWT-only (no subscription keys on client)
+- **JWT Validation**: APIM policy validates signature, expiration, audience
 
 ## Age Verification (21+ Requirement)
 
@@ -125,7 +62,7 @@ The app implements server-side age verification during signup using Entra Extern
 - **Purpose**: Validates users are 21+ during signup
 - **Event Type**: OnAttributeCollectionSubmit
 - **Authentication**: ✅ OAuth 2.0 Bearer tokens ENABLED AND WORKING
-- **Status**: ✅ Deployed, Tested, and FULLY OPERATIONAL (as of 2025-10-26)
+- **Status**: ✅ Deployed, Tested, and FULLY OPERATIONAL
 - **Test Results**:
   - ✅ OAuth token validation successful (ciamlogin.com JWKS)
   - ✅ Under-21 users successfully BLOCKED
@@ -201,7 +138,7 @@ For detailed setup instructions, see:
 
 ## Social Identity Providers (Google & Facebook)
 
-### Status: ✅ Configured and Working (as of 2025-10-27)
+### Status: ✅ Configured and Working
 
 Both Google and Facebook are configured as identity providers, allowing users to sign up and sign in with their existing social accounts. Age verification works seamlessly with both providers.
 
@@ -325,22 +262,6 @@ See `docs/TROUBLESHOOTING.md` for detailed troubleshooting of social login issue
 - Domain not whitelisted errors
 - Permission configuration issues
 
-## Next Steps
+---
 
-1. Get your B2C configuration details:
-   - Tenant name
-   - Client ID
-   - Sign-in policy name
-
-2. Configure the Function App with B2C settings
-
-3. **Configure Age Verification**:
-   - Create custom user attributes (birthdate, age_verified)
-   - Create Custom Authentication Extension
-   - Add extension to user flow
-   - Update JWT token configuration
-   - Test signup flow with under-21 and 21+ users
-
-4. Implement authentication in the Flutter app
-
-5. Switch back to the authenticated endpoints
+**Last Updated**: December 2025

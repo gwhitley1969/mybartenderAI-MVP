@@ -3,7 +3,7 @@
 ## System Overview
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
-- Azure API Management (`apim-mba-001`) as API gateway for tier management and security
+- Azure API Management (`apim-mba-002`) as API gateway for tier management and security
 - **Azure Functions v4 Programming Model** - 27 functions with code-centric registration
 - **Node.js 18+ runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
@@ -13,8 +13,9 @@
 - **Managed Identity** for Key Vault and Storage access
 - All free features run locally on device (offline-first)
 - Mobile → APIM → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
+- Azure Front Door (`fd-mba-share`) for external sharing with custom domain `share.mybartenderai.com`
 
-## Current Operational Status (November 20, 2025)
+## Current Operational Status (December 2025)
 
 ### Working Features
 - ✅ Recipe Vault (database download and sync via APIM)
@@ -23,10 +24,12 @@
 - ✅ User authentication (Entra External ID with JWT)
 - ✅ Runtime token exchange (JWT → APIM subscription key)
 - ✅ AI Bartender Chat (all tiers, including Free with limited quota)
+- ✅ Smart Scanner (Claude Haiku for bottle detection - Premium/Pro)
+- ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 90 min/month)
 - ✅ APIM dual authentication (JWT + subscription key)
 - ✅ Rate limiting per user (10 req/min on auth exchange)
 - ✅ Monitoring and alerting (Application Insights)
-- ✅ **Azure Functions v4 Migration Complete** - All 27 functions migrated and deployed
+- ✅ **Azure Functions v4 Migration Complete** - All functions migrated and deployed
 - ✅ **Official Azure OpenAI SDK** - All AI functions using @azure/openai package
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
 
@@ -65,10 +68,10 @@
 - **Age Verification**: 21+ requirement enforced at signup via Entra External ID Custom Authentication Extension
 - **Runtime Security**: No build-time keys, all credentials obtained at runtime
 
-### Planned (Premium/Pro)
+### Planned (Future)
 
-- **Vision AI**: Photograph home bar for automatic inventory
-- **Custom Recipes**: User-created cocktails with AI enhancement
+- **Custom Recipes**: User-created cocktails with AI enhancement (Create Studio)
+- **Social Features**: Share cocktails with friends
 
 ## Data Flow (Mermaid)
 
@@ -96,13 +99,16 @@ sequenceDiagram
   F->>AI: GPT-4o-mini processing
   F-->>M: AI response
 
-  Note over M,Speech: Voice Flow (Premium/Pro - Future)
-  M->>Speech: Speech-to-Text (user speaks)
-  M->>APIM: Text query to /ask-bartender
-  APIM->>F: Forward request
-  F->>AI: GPT-4o-mini processing
-  F-->>M: Text response
-  M->>Speech: Text-to-Speech (AI speaks)
+  Note over M,AI: Voice Flow (Pro Tier)
+  M->>APIM: POST /v1/voice/session (JWT + APIM Key)
+  APIM->>F: Forward to voice-session function
+  F->>F: Validate JWT, verify Pro tier, create session
+  F->>AI: Request ephemeral WebRTC token from Realtime API
+  AI-->>F: Return ephemeral token
+  F-->>M: Return WebRTC token + session info
+  M->>AI: Direct WebRTC connection to Azure OpenAI Realtime API
+  AI-->>M: Bidirectional voice streaming
+  M->>APIM: POST /v1/voice/complete (record usage)
 
   Note over M: All images stored locally on device
   Note over M: All free features run offline
@@ -126,7 +132,7 @@ All 27 functions use the Azure Functions v4 programming model with code-centric 
 - `ask-bartender-test` - AI bartender test endpoint (POST /api/v1/ask-bartender-test)
 - `recommend` - AI recommendations with JWT (POST /api/v1/recommend)
 - `refine-cocktail` - Create Studio AI refinement (POST /api/v1/create-studio/refine)
-- `vision-analyze` - Computer Vision bottle detection (POST /api/v1/vision/analyze)
+- `vision-analyze` - Smart Scanner bottle detection using Claude Haiku (POST /api/v1/vision/analyze)
 - `voice-bartender` - Voice-guided cocktail making (POST /api/v1/voice-bartender)
 - `speech-token` - Azure Speech token generation (GET /api/speech-token)
 
@@ -141,8 +147,8 @@ All 27 functions use the Azure Functions v4 programming model with code-centric 
 - `snapshots-latest-mi` - Snapshot with managed identity (GET /api/v1/snapshots/latest-mi)
 - `download-images` - Download cocktail images (POST /api/v1/admin/download-images)
 - `download-images-mi` - Images with managed identity (POST /api/v1/admin/download-images-mi)
-- `sync-cocktaildb` - Daily cocktail DB sync (timer: 03:30 UTC)
-- `sync-cocktaildb-mi` - Cocktail sync with managed identity (timer)
+- `sync-cocktaildb` - CocktailDB sync (DISABLED - using local PostgreSQL as master)
+- `sync-cocktaildb-mi` - CocktailDB sync with managed identity (DISABLED)
 
 **Social Features (4)**
 - `social-inbox` - Social inbox (GET /api/v1/social/inbox)
@@ -206,11 +212,10 @@ const result = await client.getChatCompletions(deployment, messages, options);
   - Output: $0.60 per 1M tokens
   - ~$0.007 per cocktail conversation
   - **SDK**: Official Azure package for better integration and support
-- **Voice**: Azure Speech Services (93% cheaper than OpenAI Realtime API)
-  - Speech-to-Text: $1 per audio hour (~$0.017/minute)
-  - Neural Text-to-Speech: $16 per 1M characters (~$0.00005 per response)
-  - Total voice session cost: ~$0.10 per 5-minute interaction
-- **Vision**: Azure Computer Vision (70% confidence threshold) - Future
+- **Voice**: Azure OpenAI Realtime API (direct voice-to-voice)
+  - Pro tier only: 90 minutes/month included
+  - WebRTC-based low-latency streaming
+- **Vision/Smart Scanner**: Claude Haiku (Anthropic) via Azure - bottle detection for inventory
 - **Prompt Optimization**: Structured prompts for GPT-4o-mini efficiency
 
 ## Tier Quotas (Monthly) - UPDATED
@@ -218,11 +223,12 @@ const result = await client.getChatCompletions(deployment, messages, options);
 | Feature            | Free      | Premium        | Pro            |
 | ------------------ | --------- | -------------- | -------------- |
 | AI Tokens          | 10,000    | 300,000        | 1,000,000      |
-| Scanner (Vision)   | 2         | 30 scans       | 100 scans      |
-| Voice Assistant    | 0         | Future Feature | Future Feature |
+| Scanner (Vision)   | 2 scans   | 15 scans       | 50 scans       |
+| Voice Assistant    | 0         | 0              | 90 minutes     |
 | Custom Recipes     | 3         | 25             | Unlimited      |
 | Snapshot Downloads | Unlimited | Unlimited      | Unlimited      |
-| Price              | Free      | $4.99/mo       | $8.99/mo       |
+| Price              | Free      | $4.99/mo       | $14.99/mo      |
+| Annual (Upfront)   | Free      | $39.99/yr      | $99.99/yr      |
 
 **Key Change**: Free tier now includes 10,000 AI tokens per month to enable a freemium model and drive conversion.
 
@@ -263,11 +269,10 @@ Instead of build-time API key injection, the app obtains per-user APIM subscript
 
 ### Instance Details
 
-- **Name**: `apim-mba-001`
-- **Gateway URL**: https://apim-mba-001.azure-api.net
-- **Developer Portal**: https://apim-mba-001.developer.azure-api.net
-- **Current Tier**: Developer (No SLA) for development
-- **Production Plan**: Consumption tier for cost optimization
+- **Name**: `apim-mba-002`
+- **Gateway URL**: https://apim-mba-002.azure-api.net
+- **Developer Portal**: https://apim-mba-002.developer.azure-api.net
+- **Current Tier**: Basic V2 (~$150/month)
 
 ### Products (Subscription Tiers)
 
@@ -280,15 +285,15 @@ Instead of build-time API key injection, the app obtains per-user APIM subscript
 **Premium Tier Product:**
 
 - Rate limit: 1,000 calls/day
-- Features: AI recommendations (300,000 tokens/30 days), Scanner (30 scans/30 days)
-- Price: $4.99/month or $49.99/year
+- Features: AI recommendations (300,000 tokens/30 days), Scanner (15 scans/30 days)
+- Price: $4.99/month or $39.99/year (paid upfront)
 - Priority routing
 
 **Pro Tier Product:**
 
 - Rate limit: Unlimited
-- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (100 scans/30 days)
-- Price: $8.99/month or $89.99/year
+- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (50 scans/30 days), Voice AI (90 minutes/30 days)
+- Price: $14.99/month or $99.99/year (paid upfront)
 - Highest priority, dedicated support
 
 ### Backend Integration
@@ -327,11 +332,11 @@ All authentication and key management functions include comprehensive monitoring
 - JWT validation failure patterns
 - Comprehensive audit trail
 
-## Feature: CocktailDB Mirror & JSON Snapshot Service
+## Feature: Recipe Database & Snapshot Service
 
-**Status:** ✅ **OPERATIONAL** (as of 2025-10-23)
+**Status:** ✅ **OPERATIONAL** (PostgreSQL is authoritative master)
 
-**Goal:** Nightly sync from TheCocktailDB V2 API into PostgreSQL, download all images to Azure Blob Storage (US), build compressed snapshots for mobile offline use.
+**Note:** TheCocktailDB sync timers are DISABLED as of December 2025. The PostgreSQL database (`mybartender`) is now the authoritative master copy with custom modifications. Snapshots are generated manually when needed.
 
 ### Architecture Changes (Current State)
 
@@ -342,16 +347,15 @@ All authentication and key management functions include comprehensive monitoring
 - **Distribution**: Via APIM-integrated endpoints
 - **Azure Functions**: v4 programming model with code-centric registration
 - **AI Integration**: Official @azure/openai SDK for all AI features
-- **Current Metrics** (v20251023.033020):
+- **Current Metrics** (December 2025):
   - 621 drinks, 2491 ingredients, 40 glass types, 11 categories, 67 tags
-  - Snapshot size: 71KB compressed
-  - Sync duration: ~16 seconds
+  - Snapshot size: ~172KB (SQLite binary with zstd compression)
   - Response time: <100ms
 
 ### Components
 
-- **Timer Function** `sync-cocktaildb` (v4, nightly @ 03:30 UTC)
-- **Timer Function** `sync-cocktaildb-mi` (v4, Managed Identity variant)
+- **Timer Function** `sync-cocktaildb` (v4, DISABLED)
+- **Timer Function** `sync-cocktaildb-mi` (v4, DISABLED)
 - **HTTP Function** `GET /api/snapshots/latest` (v4, operational)
 - **HTTP Function** `GET /api/v1/snapshots/latest-mi` (v4, Managed Identity variant)
 - **HTTP Function** `POST /api/v1/admin/download-images` (v4, image management)
@@ -400,32 +404,29 @@ sequenceDiagram
 - Metadata tracks version, size, drink count
 - Mobile app caches and checks for updates
 
-## Voice Interaction Architecture (Premium/Pro)
+## Voice Interaction Architecture (Pro Tier)
 
-### Why Azure Speech Services vs OpenAI Realtime API
+### Implementation: Azure OpenAI Realtime API
 
-**Cost Comparison (5-minute cocktail session):**
-
-- OpenAI Realtime API: ~$1.50/session
-- Azure Speech + GPT-4o-mini: ~$0.10/session
-- **93% cost savings**
+Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-voice interactions via WebSocket connections. This provides a natural, conversational experience for guided cocktail making.
 
 ### Implementation Flow
 
 ```
-1. User speaks → Azure Speech SDK (client-side)
-2. Speech-to-Text → Text transcription
-3. Text → APIM → Function → GPT-4o-mini
-4. Response text → Azure Text-to-Speech SDK (client-side)
-5. Audio playback to user
+1. User initiates voice session → WebSocket connection to Azure OpenAI
+2. User speaks → Audio streamed directly to Azure OpenAI Realtime API
+3. Azure OpenAI processes speech and generates voice response
+4. AI voice response streamed back to user
+5. Real-time, bidirectional voice conversation
 ```
 
-### Azure Speech Services Features
+### Azure OpenAI Realtime API Features
 
-- **Speech-to-Text**: Real-time recognition with custom vocabulary (bartending terms)
-- **Neural Text-to-Speech**: Natural voice with SSML control
-- **Custom Models**: Train on cocktail-specific terminology
-- **Offline Capability**: Download voices for offline TTS
+- **Direct Voice-to-Voice**: No separate STT/TTS steps - seamless conversation
+- **Low Latency**: Real-time streaming via WebSocket
+- **Natural Conversation**: AI bartender with cocktail expertise
+- **Pacing Control**: System prompt instructions for relaxed, clear speech
+- **Pro Tier Only**: 90 minutes/month included
 
 ### Voice Assistant Functions (v4)
 
@@ -638,7 +639,7 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: November 20, 2025
-**Architecture Version**: 3.0 (v4 Functions + Managed Identity + Azure OpenAI SDK)
+**Last Updated**: December 21, 2025
+**Architecture Version**: 3.1 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice)
 **Programming Model**: Azure Functions v4
 **Security Level**: Production-ready with Managed Identity

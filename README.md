@@ -55,13 +55,13 @@ AI-powered bartender app that helps users discover and create cocktails based on
 
 **Azure Functions v4 Migration (November 20, 2025):**
 
-- ✅ All 27 functions migrated from v3 to v4 programming model
+- ✅ All 30 functions deployed using v4 programming model
 - ✅ Code-centric function registration in single `index.js` file
 - ✅ Migrated all AI functions to official Azure OpenAI SDK (@azure/openai)
 - ✅ Updated request/response handling to v4 APIs
 - ✅ Fixed logging API (context.error() instead of context.log.error())
 - ✅ Added missing Azure SDK dependencies
-- ✅ 26/27 functions verified working (96% success rate)
+- ✅ All functions operational
 - ✅ Comprehensive migration documentation created
 
 **Friends via Code Feature (November 15, 2025):**
@@ -80,7 +80,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 ```
 mybartenderAI-MVP/
 ├── backend/
-│   └── functions/            # Azure Functions v4 (27 functions, Node.js 18+)
+│   └── functions/            # Azure Functions v4 (30 functions, Node.js 18+)
 │       ├── index.js          # Root file with all v4 function registrations
 │       ├── ask-bartender*/   # AI chat endpoint modules
 │       ├── auth-*/           # Authentication & token management
@@ -123,7 +123,7 @@ mybartenderAI-MVP/
   - Hosting Plan: Premium Consumption (Windows)
   - Runtime: Node.js 18+
   - Programming Model: v4 (code-centric registration)
-  - Functions: 27 total (24 HTTP triggers + 3 timer triggers)
+  - Functions: 30 total (29 HTTP triggers + 1 timer trigger)
   - AI SDK: Official @azure/openai package
   - Authentication: Managed Identity for Key Vault & Storage
 - **Database**: PostgreSQL Flexible Server (`pg-mybartenderdb`)
@@ -152,7 +152,7 @@ mybartenderAI-MVP/
 - **Tier Detection**: Backend lookup in PostgreSQL (not JWT claims)
 - **Age Verification**: Server-side validation (21+) via Custom Auth Extension
 
-### Azure Functions (31 Total)
+### Azure Functions (30 Total)
 
 **Core & Health (1)**
 

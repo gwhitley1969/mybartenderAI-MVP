@@ -4,7 +4,7 @@
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
 - Azure API Management (`apim-mba-002`) as API gateway for tier management and security
-- **Azure Functions v4 Programming Model** - 27 functions with code-centric registration
+- **Azure Functions v4 Programming Model** - 30 functions with code-centric registration
 - **Node.js 18+ runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
@@ -37,7 +37,7 @@
 
 **Azure Functions v4 Migration (November 20, 2025):**
 - ✅ **v4 Programming Model**: Code-centric registration in single `index.js` file
-- ✅ **27 Functions Migrated**: 24 HTTP triggers + 3 timer triggers
+- ✅ **30 Functions Deployed**: 29 HTTP triggers + 1 timer trigger
 - ✅ **Azure OpenAI SDK**: Migrated from `openai` to official `@azure/openai` package
 - ✅ **API Updates**: Modern request/response handling (await request.json(), return jsonBody)
 - ✅ **Logging Updates**: Fixed context.error() vs context.log.error() patterns
@@ -59,7 +59,7 @@
 
 - AI-powered cocktail recommendations based on inventory (GPT-4o-mini via @azure/openai SDK)
 - **Azure Functions v4 Programming Model** with code-centric registration
-- **27 Backend Functions**: 24 HTTP triggers + 3 timer triggers
+- **30 Backend Functions**: 29 HTTP triggers + 1 timer trigger
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication via Entra External ID (fully operational)
 - APIM-based rate limiting per tier (backend validates tier in PostgreSQL)
@@ -109,9 +109,9 @@ sequenceDiagram
 
 ### Overview
 
-All 27 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
+All 30 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
 
-### Function Catalog (27 Total)
+### Function Catalog (30 Total)
 
 **Core & Health (1)**
 - `health` - Health check endpoint (GET /api/health)
@@ -192,8 +192,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 ```
 
 **Migration Status:**
-- ✅ 27/27 functions migrated to v4
-- ✅ 26/27 functions verified working (96% success rate)
+- ✅ 30 functions deployed and operational
 - ⚠️ 1 function (speech-token) has configuration issue unrelated to migration
 
 ## AI Model & Cost Strategy
@@ -451,7 +450,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
   - JWT-only authentication (APIM validates JWT via policy)
   - Server-side tier validation in PostgreSQL
   - Rate limiting based on user tier
-  - **Azure Functions v4 Programming Model**: All 27 functions migrated
+  - **Azure Functions v4 Programming Model**: All 30 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role
 - **Key Vault Access**: Managed Identity with Key Vault Secrets User role (RBAC)

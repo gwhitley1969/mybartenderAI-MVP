@@ -2,10 +2,10 @@
 
 ## MyBartenderAI
 
-**Document Version**: 1.0  
-**Last Updated**: October 22, 2025  
-**Product Owner**: Gene Whitley  
-**Status**: MVP Development
+**Document Version**: 2.0
+**Last Updated**: December 21, 2025
+**Product Owner**: Gene Whitley
+**Status**: Release Candidate
 
 ---
 
@@ -20,10 +20,10 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 ### Key Differentiators
 
 1. **Offline-First Design**: Full cocktail database (~621 drinks) available without internet
-2. **Cost-Optimized AI**: GPT-4o-mini + Azure Speech Services (93% cheaper than alternatives)
-3. **Tiered Monetization**: Free, Premium ($4.99/mo), Pro ($9.99/mo) with clear value proposition
-4. **Voice Guidance**: Step-by-step cocktail making with natural voice interaction
-5. **Privacy-Focused**: No PII collection for free tier users
+2. **Cost-Optimized AI**: GPT-4o-mini for text, Claude Haiku for vision, Azure OpenAI Realtime for voice
+3. **Tiered Monetization**: Free, Premium ($4.99/mo or $39.99/yr), Pro ($14.99/mo or $99.99/yr)
+4. **Voice Guidance**: Real-time voice conversation with AI bartender via WebRTC (Pro tier)
+5. **Privacy-Focused**: JWT-only authentication, minimal PII collection
 
 ---
 
@@ -53,21 +53,21 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 **Monthly Revenue Projections (1,000 users):**
 
 - Premium (100 @ $4.99): $499
-- Pro (10 @ $9.99): $100
-- **Total Revenue**: $599/month
+- Pro (10 @ $14.99): $150
+- **Total Revenue**: $649/month
 
 **Monthly Costs:**
 
-- Infrastructure (APIM + Functions + DB): ~$60
-- AI Services (GPT-4o-mini + Speech): ~$55
-- **Total Costs**: ~$115/month
-- **Profit**: ~$484/month (81% margin)
+- Infrastructure (APIM Basic V2 + Functions + DB): ~$200
+- AI Services (GPT-4o-mini + Claude Haiku + Realtime API): ~$80
+- **Total Costs**: ~$280/month
+- **Profit**: ~$369/month (57% margin)
 
 **At Scale (10,000 users):**
 
-- Revenue: ~$6,000/month
-- Costs: ~$600/month
-- **Profit**: ~$5,400/month (90% margin)
+- Revenue: ~$7,000/month
+- Costs: ~$800/month
+- **Profit**: ~$6,200/month (89% margin)
 
 ---
 
@@ -236,49 +236,17 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - Conversation history saved for session
 - Preferences learned and applied
 
-#### 5. Voice-Guided Cocktail Making (30 min/month)
+#### 5. Smart Scanner (15 scans/month)
 
-**Description**: Step-by-step voice instructions for making cocktails.
-
-**Functional Requirements**:
-
-- FR5.1: Activate voice mode with button press
-- FR5.2: Speak naturally to ask questions
-- FR5.3: AI responds with voice instructions
-- FR5.4: Hands-free operation during cocktail making
-- FR5.5: Track usage against 30-minute monthly limit
-- FR5.6: Support interruptions and corrections
-
-**User Stories**:
-
-- As Emma, I want to hear step-by-step instructions while making drinks so my hands stay clean
-- As Mark, I want to ask "what's next?" without touching my phone
-
-**Acceptance Criteria**:
-
-- Speech recognition accuracy >95%
-- End-to-end latency <2 seconds p95
-- Voice includes bartending vocabulary
-- Clear indication of remaining minutes
-- Works with screen off
-
-**Technical Implementation**:
-
-- Client-side Azure Speech SDK (STT/TTS)
-- Text processing via GPT-4o-mini
-- ~$0.10 cost per 5-minute session
-
-#### 6. Vision Scanning (5 scans/month)
-
-**Description**: Photograph home bar to automatically inventory bottles.
+**Description**: AI-powered bar inventory scanning using Claude Haiku vision model.
 
 **Functional Requirements**:
 
-- FR6.1: Capture photo of bar or bottles
-- FR6.2: AI identifies bottles with >70% confidence
-- FR6.3: Add detected items to inventory
-- FR6.4: Manual correction/addition of missed items
-- FR6.5: Track scan usage against monthly limit
+- FR5.1: Capture photo of bar or bottles
+- FR5.2: Claude Haiku analyzes image and identifies bottles
+- FR5.3: Add detected items to inventory with confidence scores
+- FR5.4: Manual correction/addition of missed items
+- FR5.5: Track scan usage against monthly limit
 
 **User Stories**:
 
@@ -292,7 +260,13 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - Allows manual editing of results
 - Provides confidence scores
 
-#### 7. Custom Recipes (25 recipes)
+**Technical Implementation**:
+
+- Claude Haiku (Anthropic) for vision analysis
+- Base64 image encoding for API call
+- Cost: ~$0.01 per scan
+
+#### 6. Custom Recipes (25 recipes)
 
 **Description**: Extended custom recipe storage.
 
@@ -308,66 +282,81 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - As Emma, I want to organize recipes by season or occasion
 - As Sarah, I want AI to help improve my recipe ratios
 
-### Pro Features ($9.99/month)
+### Pro Features ($14.99/month or $99.99/year)
 
-#### 8. Unlimited AI Recommendations
+#### 7. Enhanced AI Recommendations (1,000,000 tokens/month)
 
-**Description**: No limits on AI interactions.
+**Description**: Higher AI quota for power users.
 
 **Functional Requirements**:
 
-- FR8.1: Unlimited AI chat interactions
-- FR8.2: Advanced recipe generation
-- FR8.3: Batch recommendations for events
-- FR8.4: Cocktail pairing suggestions
+- FR7.1: 1,000,000 AI tokens per month
+- FR7.2: Advanced recipe generation
+- FR7.3: Batch recommendations for events
+- FR7.4: Cocktail pairing suggestions
 
 **User Stories**:
 
 - As Sarah, I want to generate multiple custom cocktails for my menu
 - As Emma, I want AI to plan all drinks for my dinner party
 
-#### 9. Extended Voice Assistant (5 hours/month)
+#### 8. Voice AI Bartender (90 minutes/month)
 
-**Description**: More voice interaction time for serious users.
+**Description**: Real-time voice conversation with AI bartender using Azure OpenAI Realtime API.
 
 **Functional Requirements**:
 
-- FR9.1: 5 hours of voice guidance per month
-- FR9.2: Multi-cocktail session support
-- FR9.3: Voice recipe dictation
-- FR9.4: Priority processing
+- FR8.1: Press button to start voice session
+- FR8.2: Natural voice conversation with AI bartender
+- FR8.3: Real-time responses via WebRTC
+- FR8.4: Hands-free cocktail guidance
+- FR8.5: Track usage against 90-minute monthly limit
 
 **User Stories**:
 
 - As Sarah, I want to use voice mode during my cocktail classes
 - As Emma, I want voice guidance for my monthly dinner parties
 
-#### 10. Advanced Vision (50 scans/month)
+**Acceptance Criteria**:
+
+- Sub-second latency via WebRTC
+- Natural conversational flow
+- Clear indication of remaining minutes
+- Works with screen off
+
+**Technical Implementation**:
+
+- Azure OpenAI Realtime API with gpt-4o-realtime-preview
+- WebRTC for low-latency audio streaming
+- Ephemeral session tokens from `voice-session` function
+- Cost: ~$0.06/min input, ~$0.24/min output
+
+#### 9. Advanced Smart Scanner (50 scans/month)
 
 **Description**: Frequent inventory updates for active users.
 
 **Functional Requirements**:
 
-- FR10.1: 50 scans per month
-- FR10.2: Automatic inventory updates
-- FR10.3: Shopping list generation
-- FR10.4: Price comparisons (future)
+- FR9.1: 50 scans per month
+- FR9.2: Automatic inventory updates
+- FR9.3: Shopping list generation
+- FR9.4: Price comparisons (future)
 
 **User Stories**:
 
 - As Sarah, I want to track professional bar inventory changes
 - As Emma, I want to scan after each shopping trip
 
-#### 11. Unlimited Custom Recipes
+#### 10. Unlimited Custom Recipes
 
 **Description**: No limits on recipe storage.
 
 **Functional Requirements**:
 
-- FR11.1: Unlimited recipe storage
-- FR11.2: Advanced organization and tagging
-- FR11.3: Recipe collaboration (future)
-- FR11.4: Export to PDF/print
+- FR10.1: Unlimited recipe storage
+- FR10.2: Advanced organization and tagging
+- FR10.3: Recipe collaboration (future)
+- FR10.4: Export to PDF/print
 
 **User Stories**:
 
@@ -382,16 +371,16 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 #### API Gateway
 
-- **Service**: Azure API Management (`apim-mba-001`)
+- **Service**: Azure API Management (`apim-mba-002`)
 - **Location**: South Central US
-- **Gateway URL**: https://apim-mba-001.azure-api.net
-- **Tier**: Developer (MVP) → Consumption (Production)
-- **Purpose**: Tier-based access control, rate limiting, API key management
+- **Gateway URL**: https://apim-mba-002.azure-api.net
+- **Tier**: Basic V2 (~$150/month)
+- **Purpose**: JWT validation, rate limiting, backend routing
 
 #### Backend Compute
 
 - **Service**: Azure Functions (`func-mba-fresh`)
-- **Plan**: Windows Consumption
+- **Plan**: Premium Consumption (Elastic Premium)
 - **Runtime**: Node.js 20
 - **URL**: https://func-mba-fresh.azurewebsites.net (behind APIM)
 
@@ -407,32 +396,36 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - **Service**: Azure Blob Storage
 - **Account**: `mbacocktaildb3`
 - **Containers**:
-  - `/snapshots` - Compressed JSON database snapshots
+  - `/snapshots` - Zstandard-compressed JSON database snapshots (~172KB)
   - `/drink-images` - Cocktail images (~621 images)
-- **Access**: SAS tokens (MVP) → Managed Identity (future)
+- **Access**: Managed Identity (RBAC)
 
 #### Secrets Management
 
 - **Service**: Azure Key Vault
 - **Instance**: `kv-mybartenderai-prod`
 - **Location**: `rg-mba-dev` resource group
+- **Access**: Managed Identity with RBAC (Key Vault Secrets User role)
 - **Contents**:
-  - `COCKTAILDB-API-KEY` - TheCocktailDB API key
-  - `OpenAI` - Azure OpenAI API key (GPT-4o-mini)
+  - `AZURE-OPENAI-API-KEY` - Azure OpenAI API key
+  - `AZURE-OPENAI-ENDPOINT` - Azure OpenAI endpoint
+  - `CLAUDE-API-KEY` - Anthropic Claude API key (Smart Scanner)
   - `POSTGRES-CONNECTION-STRING` - Database connection
-  - `AZURE-SPEECH-KEY` - Azure Speech Services (future)
+  - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
 
 #### AI Services
 
 - **Text AI**: Azure OpenAI Service (GPT-4o-mini)
-  - Cost: ~$0.007 per conversation
+  - Instance: `mybartenderai-scus` (South Central US)
+  - Cost: ~$0.15/1M input tokens, ~$0.60/1M output tokens
   - Purpose: Recommendations, chat, recipe generation
-- **Voice**: Azure Speech Services (planned)
-  - Cost: ~$0.10 per 5-minute session
-  - Components: Speech-to-Text + Neural Text-to-Speech
-- **Vision**: Azure Computer Vision (planned)
-  - Cost: ~$1 per 1,000 images
-  - Purpose: Bottle detection and classification
+- **Voice AI**: Azure OpenAI Realtime API (gpt-4o-realtime-preview)
+  - Technology: WebRTC with ephemeral session tokens
+  - Cost: ~$0.06/min input, ~$0.24/min output
+  - Purpose: Real-time voice bartender conversation (Pro tier)
+- **Vision AI**: Claude Haiku (Anthropic)
+  - Purpose: Smart Scanner - bottle/ingredient detection
+  - Cost: ~$0.01 per scan
 
 ### Mobile Application
 
@@ -451,71 +444,63 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 #### Key Packages
 
-- `dio` - HTTP client with APIM integration
-- `flutter_secure_storage` - Secure key storage
-- `flutter_appauth` - Azure AD B2C authentication
-- `speech_to_text` - Azure Speech SDK integration
-- `flutter_tts` - Text-to-speech
-- `camera` - Photo capture for vision features
+- `dio` - HTTP client with JWT interceptors
+- `flutter_secure_storage` - Secure token storage
+- `flutter_appauth` - Entra External ID OAuth 2.0 + PKCE
+- `jwt_decoder` - JWT token decoding
+- `flutter_webrtc` - WebRTC for Voice AI
+- `camera` - Photo capture for Smart Scanner
 
 ### Data Flow
 
 #### Cocktail Database Sync
 
 ```
-1. Timer Function (nightly 03:30 UTC)
+1. PostgreSQL (authoritative source)
    ↓
-2. Fetch from TheCocktailDB V2 API
+2. Generate JSON snapshot (Zstandard compressed, ~172KB)
    ↓
-3. Normalize and store in PostgreSQL
+3. Upload snapshot to Azure Blob Storage
    ↓
-4. Download all drink images to Blob Storage
+4. Mobile requests snapshot via APIM (JWT authenticated)
    ↓
-5. Generate compressed JSON snapshot (gzip)
-   ↓
-6. Upload snapshot to Blob Storage
-   ↓
-7. Mobile requests snapshot via APIM
-   ↓
-8. Download, verify SHA256, store locally
+5. Download, verify SHA256, store in local SQLite
 ```
 
-#### AI Recommendation Flow
+**Note**: Timer-triggered sync from TheCocktailDB is DISABLED. Using static database copy.
+
+#### AI Recommendation Flow (JWT-Only Authentication)
 
 ```
 1. User query in mobile app
    ↓
-2. Mobile → APIM (subscription key + JWT)
+2. Mobile → APIM (Authorization: Bearer <JWT>)
    ↓
-3. APIM validates tier and rate limits
+3. APIM validate-jwt policy verifies token
    ↓
-4. Forward to Function App
+4. Forward to Function App with X-User-Id header
    ↓
-5. Function → GPT-4o-mini (Azure OpenAI)
+5. Function checks user tier in PostgreSQL
    ↓
-6. Response → Function → APIM → Mobile
+6. Function → GPT-4o-mini (Azure OpenAI)
    ↓
-7. Update usage quota in PostgreSQL
+7. Response → Function → APIM → Mobile
 ```
 
-#### Voice Interaction Flow
+#### Voice AI Flow (Pro Tier Only)
 
 ```
-1. User presses mic button
+1. User presses Voice Bartender button
    ↓
-2. Azure Speech SDK (client): Record audio
+2. Mobile → voice-session function (JWT authenticated)
    ↓
-3. Speech-to-Text (client): Transcribe
+3. Function validates Pro tier, returns ephemeral WebRTC token
    ↓
-4. Text → APIM → Function App
+4. Mobile connects directly to Azure OpenAI Realtime API
    ↓
-5. Function → GPT-4o-mini
+5. Real-time voice conversation via WebRTC
    ↓
-6. Text response → Mobile
-   ↓
-7. Text-to-Speech (client): Play audio
-   ↓
-8. Update voice minutes in PostgreSQL
+6. Session ends, usage tracked in PostgreSQL
 ```
 
 ---
@@ -687,12 +672,12 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 #### Competitive Analysis
 
-| Competitor        | Price           | Features                     |
-| ----------------- | --------------- | ---------------------------- |
-| Cocktail Flow     | $4.99/mo        | AI recommendations, no voice |
-| Mixel             | Free + $9.99/mo | Large database, basic AI     |
-| Highball          | $2.99/mo        | Simple recipes, no AI        |
-| **MyBartenderAI** | **$4.99/mo**    | **AI + Voice + Vision**      |
+| Competitor        | Price                  | Features                          |
+| ----------------- | ---------------------- | --------------------------------- |
+| Cocktail Flow     | $4.99/mo               | AI recommendations, no voice      |
+| Mixel             | Free + $9.99/mo        | Large database, basic AI          |
+| Highball          | $2.99/mo               | Simple recipes, no AI             |
+| **MyBartenderAI** | **$4.99-14.99/mo**     | **AI + Voice AI + Smart Scanner** |
 
 #### Value Proposition
 
@@ -802,27 +787,26 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 ### Launch Timeline
 
-#### Q4 2025: MVP Development
+#### Q4 2025: Development Complete ✅
 
-- **Week 1-4**: Core infrastructure (APIM, Functions, Database)
-- **Week 5-8**: Flutter app development (offline database, search)
-- **Week 9-12**: AI integration (GPT-4o-mini recommendations)
-- **Week 13**: Beta testing with 10 users
-- **Week 14**: Bug fixes and polish
-- **Week 15**: Soft launch on Google Play
-- **Week 16**: Public launch
+- ✅ Core infrastructure (APIM Basic V2, Functions, Database)
+- ✅ Flutter app development (offline database, search)
+- ✅ AI integration (GPT-4o-mini recommendations)
+- ✅ Voice AI (Azure OpenAI Realtime API)
+- ✅ Smart Scanner (Claude Haiku)
+- ✅ Authentication (Entra External ID with age verification)
+- ✅ Release candidate ready
 
-#### Q1 2026: Growth & Voice
+#### Q1 2026: Launch & Growth
 
-- **Month 1**: User acquisition, feedback collection
-- **Month 2**: Azure Speech Services integration
-- **Month 3**: Voice feature beta, marketing push
+- **Month 1**: Android public launch on Google Play
+- **Month 2**: User acquisition, feedback collection
+- **Month 3**: iOS development begins
 
-#### Q2 2026: Vision & iOS
+#### Q2 2026: iOS Launch
 
-- **Month 4**: Azure Computer Vision integration
-- **Month 5**: Vision feature beta
-- **Month 6**: iOS app development and launch
+- **Month 4-5**: iOS app development
+- **Month 6**: iOS app launch on App Store
 
 ### Success Criteria
 
@@ -906,10 +890,12 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 #### Authentication
 
-- Azure AD B2C (Entra External ID)
-- JWT tokens with <15 minute expiry
-- Automatic token refresh
-- Social login (Google, Microsoft)
+- Entra External ID (mybartenderai.ciamlogin.com)
+- JWT-only authentication (no APIM subscription keys on client)
+- APIM validate-jwt policy validates signature, expiration, audience
+- Social login (Google, Facebook) + Email/Password
+- Age verification (21+) via Custom Authentication Extension
+- OAuth 2.0 + PKCE for mobile security
 
 #### Data Protection
 
@@ -1052,40 +1038,40 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 ## Roadmap
 
-### Phase 1: MVP (Q4 2025) - CURRENT
+### Phase 1: MVP (Q4 2025) ✅ COMPLETE
 
-- ✅ Core infrastructure (APIM, Functions, PostgreSQL, Storage)
-- ✅ Cocktail database sync from TheCocktailDB
-- ✅ GPT-4o-mini integration
-- 🚧 Flutter mobile app (offline database, search, browse)
-- 🚧 Basic AI recommendations (Free: 10/month)
-- 🚧 APIM tier configuration (Free/Premium/Pro)
-- 🚧 Authentication (Azure AD B2C)
-- 🚧 Android beta launch
+- ✅ Core infrastructure (APIM Basic V2, Functions, PostgreSQL, Storage)
+- ✅ Cocktail database with offline SQLite
+- ✅ GPT-4o-mini integration for AI Bartender
+- ✅ Flutter mobile app (offline database, search, browse)
+- ✅ AI recommendations with tier-based quotas
+- ✅ JWT-only authentication via Entra External ID
+- ✅ Age verification (21+) with Custom Authentication Extension
+- ✅ Android release candidate
 
-### Phase 2: Voice Features (Q1 2026)
+### Phase 2: Voice Features (Q4 2025) ✅ COMPLETE
 
-- Azure Speech Services integration
-- Voice-guided cocktail making (Premium: 30 min/month)
-- Custom bartending vocabulary
-- Hands-free operation
-- Voice UI polish
+- ✅ Azure OpenAI Realtime API integration
+- ✅ Voice AI Bartender via WebRTC (Pro: 90 min/month)
+- ✅ Real-time conversational voice interface
+- ✅ Ephemeral session token architecture
+- ✅ Voice UI implementation
 
-### Phase 3: Vision Features (Q2 2026)
+### Phase 3: Vision Features (Q4 2025) ✅ COMPLETE
 
-- Azure Computer Vision integration
-- Bar inventory scanning (Premium: 5 scans/month)
-- Bottle detection and classification
-- Auto inventory updates
-- Shopping list generation
+- ✅ Claude Haiku integration for Smart Scanner
+- ✅ Bar inventory scanning (Premium: 15/month, Pro: 50/month)
+- ✅ Bottle detection and classification
+- ✅ Auto inventory updates
+- ✅ My Bar inventory management
 
-### Phase 4: iOS Launch (Q2 2026)
+### Phase 4: iOS Launch (Q1 2026) - UPCOMING
 
-- iOS app development
-- Cross-platform sync
-- Apple Sign-In
-- iOS-specific UI polish
-- App Store optimization
+- 🚧 iOS app development
+- 🚧 URL scheme configuration in Info.plist
+- 🚧 Apple Sign-In integration
+- 🚧 iOS-specific UI polish
+- 🚧 App Store optimization
 
 ### Phase 5: Social Features (Q3 2026)
 
@@ -1149,58 +1135,72 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 **Public (No Auth)**:
 
+- `GET /api/v1/cocktails/preview/{id}` - Public cocktail preview (for sharing)
 - `GET /api/health` - Health check
 
-**Free Tier**:
+**Authenticated (JWT Required)**:
 
-- `GET /api/v1/snapshots/latest` - Download cocktail database
-- `POST /api/v1/ask-bartender` - AI recommendations (10/month)
+- `GET /api/v1/snapshots/latest` - Download cocktail database snapshot
+- `POST /api/v1/ask-bartender-simple` - AI Bartender chat
+- `POST /api/v1/recommend` - AI cocktail recommendations
+- `POST /api/v1/create-studio/refine` - Refine custom cocktails
+- `GET /api/v1/users/me` - Get current user profile and tier
 
-**Premium Tier**:
+**Premium/Pro Features**:
 
-- `POST /api/v1/ask-bartender` - AI recommendations (100/month)
-- `GET /api/v1/speech/token` - Voice assistant token (30 min/month)
-- `POST /api/v1/vision/scan` - Bottle scanning (5/month)
+- `POST /api/v1/vision/analyze` - Smart Scanner (Premium: 15/month, Pro: 50/month)
 
-**Pro Tier**:
+**Pro Only**:
 
-- All Premium endpoints with higher/unlimited quotas
+- `POST /api/v1/voice/session` - Voice AI session token (90 min/month)
 
-**Admin**:
+**Social Features**:
 
-- `POST /api/v1/admin/sync` - Trigger database sync
+- `POST /api/v1/social/share` - Share cocktail with friend
+- `POST /api/v1/social/invite` - Send friend invitation
+- `GET /api/v1/social/inbox` - Received shares
+- `GET /api/v1/social/outbox` - Sent shares
+
+**Authentication**:
+
+- `POST /api/v1/auth/exchange` - Token exchange
+- `POST /api/v1/auth/rotate` - Token rotation
 
 ### Appendix D: Cost Breakdown (Per 1,000 Users)
 
-**Infrastructure**:
+**Infrastructure (Fixed)**:
 
-- APIM Developer: $50/month
-- Azure Functions: $0.20/month
-- PostgreSQL: $30/month
-- Blob Storage: $1/month
-- Key Vault: $0.03/month
-- **Subtotal**: $81.23/month
+- APIM Basic V2: ~$150/month
+- Azure Functions (Premium Consumption): ~$20/month
+- PostgreSQL Flexible Server: ~$30/month
+- Blob Storage: ~$2/month
+- Key Vault: ~$1/month
+- Azure Front Door: ~$5/month
+- **Subtotal**: ~$208/month
 
-**Variable Costs (100 Premium users)**:
+**Variable Costs (100 Premium, 10 Pro users)**:
 
-- GPT-4o-mini: $40/month (100 users × $0.40)
-- Azure Speech: $10/month (100 users × $0.10)
-- Vision (future): $5/month
-- **Subtotal**: $55/month
+- GPT-4o-mini: ~$30/month
+- Claude Haiku (Smart Scanner): ~$5/month
+- Azure OpenAI Realtime (Pro users): ~$40/month
+- **Subtotal**: ~$75/month
 
-**Total Cost**: $136/month  
-**Revenue** (100 Premium @ $4.99, 10 Pro @ $9.99): $599/month  
-**Profit**: $463/month (77% margin)
+**Total Cost**: ~$283/month
+**Revenue** (100 Premium @ $4.99, 10 Pro @ $14.99): ~$649/month
+**Profit**: ~$366/month (56% margin)
+
+**Note**: Margins improve significantly at scale as infrastructure costs are largely fixed.
 
 ---
 
 ## Document History
 
-| Version | Date         | Author      | Changes              |
-| ------- | ------------ | ----------- | -------------------- |
-| 1.0     | Oct 22, 2025 | [Your Name] | Initial PRD creation |
+| Version | Date         | Author       | Changes                                      |
+| ------- | ------------ | ------------ | -------------------------------------------- |
+| 1.0     | Oct 22, 2025 | Gene Whitley | Initial PRD creation                         |
+| 2.0     | Dec 21, 2025 | Gene Whitley | Updated for Release Candidate status: corrected pricing, tier quotas, technical architecture (JWT-only auth, Claude Haiku for vision, Azure OpenAI Realtime for voice), marked Phases 1-3 complete |
 
 ---
 
-**Document Status**: APPROVED FOR DEVELOPMENT  
-**Next Review**: November 22, 2025
+**Document Status**: RELEASE CANDIDATE
+**Last Updated**: December 21, 2025

@@ -398,22 +398,23 @@ sequenceDiagram
 
 ### Implementation: Azure OpenAI Realtime API
 
-Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-voice interactions via WebSocket connections. This provides a natural, conversational experience for guided cocktail making.
+Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-voice interactions via WebRTC. This provides a natural, conversational experience for guided cocktail making with sub-100ms latency.
 
 ### Implementation Flow
 
 ```
-1. User initiates voice session → WebSocket connection to Azure OpenAI
-2. User speaks → Audio streamed directly to Azure OpenAI Realtime API
-3. Azure OpenAI processes speech and generates voice response
-4. AI voice response streamed back to user
-5. Real-time, bidirectional voice conversation
+1. User initiates voice session → Backend returns ephemeral WebRTC token
+2. Mobile app establishes WebRTC connection to Azure OpenAI Realtime API
+3. User speaks → Audio streamed directly via WebRTC
+4. Azure OpenAI processes speech and generates voice response
+5. AI voice response streamed back in real-time
+6. Bidirectional voice conversation continues until session ends
 ```
 
 ### Azure OpenAI Realtime API Features
 
 - **Direct Voice-to-Voice**: No separate STT/TTS steps - seamless conversation
-- **Low Latency**: Real-time streaming via WebSocket
+- **Low Latency**: Real-time streaming via WebRTC (UDP-based)
 - **Natural Conversation**: AI bartender with cocktail expertise
 - **Pacing Control**: System prompt instructions for relaxed, clear speech
 - **Pro Tier Only**: 90 minutes/month included

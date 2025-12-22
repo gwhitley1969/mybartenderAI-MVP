@@ -261,9 +261,8 @@ The APIM is configured with JWT validation policies and tier-based quotas. See:
 # Health check (anonymous)
 curl https://func-mba-fresh.azurewebsites.net/api/health
 
-# Get latest snapshot (requires JWT)
-curl https://apim-mba-002.azure-api.net/api/v1/snapshots/latest \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+# Get latest snapshot (public endpoint, no JWT required)
+curl https://apim-mba-002.azure-api.net/api/v1/snapshots/latest
 
 # Get user profile (requires JWT)
 curl https://apim-mba-002.azure-api.net/api/v1/users/me \

@@ -292,7 +292,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Authentication**: JWT validation via APIM policy (subscriptionRequired: false)
 - Rate limiting based on user tier (checked in backend)
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
-- **Public Endpoints**: snapshots-latest, download-images, health (no auth required)
+- **Public Endpoints**: health, snapshots-latest, cocktail-preview (no JWT required)
 - **AI Endpoints**: ask-bartender, ask-bartender-simple, recommend (JWT required)
 - **Voice Endpoints**: voice-session, voice-complete (JWT required, Pro tier only)
 

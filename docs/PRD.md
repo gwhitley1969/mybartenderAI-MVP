@@ -282,9 +282,32 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - As Emma, I want to organize recipes by season or occasion
 - As Sarah, I want AI to help improve my recipe ratios
 
+#### 7. Voice AI Purchase Option ($4.99/10 minutes)
+
+**Description**: Premium users can purchase voice AI minutes without upgrading to Pro.
+
+**Functional Requirements**:
+
+- FR7.1: Purchase 10 minutes of voice AI for $4.99
+- FR7.2: Minutes do not expire (use anytime)
+- FR7.3: Google Play Billing consumable purchase
+- FR7.4: Track purchased minutes separately from subscription
+
+**User Stories**:
+
+- As Emma, I want to try voice guidance for my party without committing to Pro
+- As Mark, I want to occasionally use voice AI without paying $14.99/month
+
+**Acceptance Criteria**:
+
+- Purchase completes in <3 seconds
+- Minutes credited immediately after purchase
+- Clear display of remaining purchased minutes
+- Purchased minutes used before subscription minutes (Pro users)
+
 ### Pro Features ($14.99/month or $99.99/year)
 
-#### 7. Enhanced AI Recommendations (1,000,000 tokens/month)
+#### 8. Enhanced AI Recommendations (1,000,000 tokens/month)
 
 **Description**: Higher AI quota for power users.
 
@@ -300,7 +323,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - As Sarah, I want to generate multiple custom cocktails for my menu
 - As Emma, I want AI to plan all drinks for my dinner party
 
-#### 8. Voice AI Bartender (90 minutes/month)
+#### 9. Voice AI Bartender (45 minutes/month)
 
 **Description**: Real-time voice conversation with AI bartender using Azure OpenAI Realtime API.
 
@@ -310,7 +333,8 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - FR8.2: Natural voice conversation with AI bartender
 - FR8.3: Real-time responses via WebRTC
 - FR8.4: Hands-free cocktail guidance
-- FR8.5: Track usage against 90-minute monthly limit
+- FR8.5: Track usage against 45-minute monthly limit
+- FR8.6: Option to purchase additional voice minutes (10 min for $4.99)
 
 **User Stories**:
 
@@ -331,7 +355,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - Ephemeral session tokens from `voice-session` function
 - Cost: ~$0.06/min input, ~$0.24/min output
 
-#### 9. Advanced Smart Scanner (50 scans/month)
+#### 10. Advanced Smart Scanner (50 scans/month)
 
 **Description**: Frequent inventory updates for active users.
 
@@ -347,7 +371,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - As Sarah, I want to track professional bar inventory changes
 - As Emma, I want to scan after each shopping trip
 
-#### 10. Unlimited Custom Recipes
+#### 11. Unlimited Custom Recipes
 
 **Description**: No limits on recipe storage.
 
@@ -1052,7 +1076,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 ### Phase 2: Voice Features (Q4 2025) ✅ COMPLETE
 
 - ✅ Azure OpenAI Realtime API integration
-- ✅ Voice AI Bartender via WebRTC (Pro: 90 min/month)
+- ✅ Voice AI Bartender via WebRTC (Pro: 45 min/month + $4.99 top-ups)
 - ✅ Real-time conversational voice interface
 - ✅ Ephemeral session token architecture
 - ✅ Voice UI implementation
@@ -1152,7 +1176,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 **Pro Only**:
 
-- `POST /api/v1/voice/session` - Voice AI session token (90 min/month)
+- `POST /api/v1/voice/session` - Voice AI session token (45 min/month)
 
 **Social Features**:
 

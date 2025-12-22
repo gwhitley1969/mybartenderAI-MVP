@@ -11,7 +11,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **AI**: ✅ Azure OpenAI GPT-4o-mini + Claude Haiku (Smart Scanner)
 - **Authentication**: ✅ Entra External ID (Google, Facebook, Email) - JWT-only
 - **Vision**: ✅ Claude Haiku for bottle/ingredient identification
-- **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 90 min/month)
+- **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 45 min/month + top-ups)
 - **Mobile**: 📱 Flutter app - All core features complete
 - **Social Sharing**: ✅ Friends via Code fully deployed
 - **Static Website**: ✅ Azure Front Door (`share.mybartenderai.com`)
@@ -31,7 +31,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ **Voice AI Bartender** - Real-time voice conversations (Pro tier only)
   - WebRTC-based audio streaming via Azure OpenAI Realtime API
   - Live transcription of user and AI speech
-  - 90 minutes/month quota for Pro users
+  - 45 minutes/month quota for Pro users (+ $4.99 for 10 min top-up)
   - Visual status indicators (listening, thinking, speaking)
 
 ### Recent Deployments
@@ -42,7 +42,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ Azure OpenAI Realtime API integration via WebRTC
 - ✅ Database schema for voice sessions, messages, and quota tracking
 - ✅ Flutter Voice AI screen with real-time transcription
-- ✅ Pro tier gating with 90 minutes/month quota
+- ✅ Pro tier gating with 45 minutes/month quota
 - ✅ Consolidated transcript display with accessibility support
 
 **Database & Sync Fixes (December 12, 2025):**
@@ -330,13 +330,14 @@ curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/share-internal \
 - ✅ Smart Scanner: 15 scans/month
 - ✅ Create Studio with AI Refine
 - ✅ Social sharing features
+- ✅ **Voice AI**: Available for purchase ($4.99/10 minutes)
 
 ### Pro Tier ($14.99/month or $99.99/year)
 
 - ✅ Everything in Premium
 - ✅ AI chat: 1,000,000 tokens/month
 - ✅ Smart Scanner: 50 scans/month
-- ✅ **Voice AI Bartender**: 90 minutes/month
+- ✅ **Voice AI Bartender**: 45 minutes/month (+ $4.99/10 min top-up)
 - ✅ Unlimited custom recipes
 - ✅ Priority support
 

@@ -26,8 +26,8 @@ All core features implemented and tested. Ready for Play Store deployment.
 ### Business Model
 
 - **Free Tier**: Limited AI interactions (10,000 tokens / 30 days) (2 scans / 30 days), unlimited access to local cocktail database
-- **Premium Tier** ($4.99/month or $39.99/year): Full AI Chat, Scanner (camera inventory), advanced cocktail recommendations (300,000 tokens / 30 days) (15 scans / 30 days)
-- **Pro** ($14.99/month or $99.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (50 scans / 30 days) (90 voice minutes / 30 days)
+- **Premium Tier** ($4.99/month or $39.99/year): Full AI Chat, Scanner (300,000 tokens / 30 days) (15 scans / 30 days) + Voice AI available as $4.99/10 min purchase
+- **Pro** ($14.99/month or $99.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (50 scans / 30 days) (45 voice minutes / 30 days included + $4.99/10 min top-up)
   
   
 
@@ -190,8 +190,8 @@ Located in `kv-mybartenderai-prod`:
 - **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
 - **Quotas** (enforced by backend):
   - **Free**: 10,000 tokens / 30 days, 2 scans / 30 days
-  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days
-  - **Pro**: 1,000,000 tokens / 30 days, 50 scans / 30 days, 90 voice minutes / 30 days
+  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days (+ $4.99/10 min voice purchase)
+  - **Pro**: 1,000,000 tokens / 30 days, 50 scans / 30 days, 45 voice minutes / 30 days (+ $4.99/10 min top-up)
 
 ### ## Development Environment
 

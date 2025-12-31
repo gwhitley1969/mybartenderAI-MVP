@@ -48,6 +48,9 @@ class VoiceAIService {
   // Buffer for accumulating streaming assistant response
   StringBuffer _currentAssistantResponse = StringBuffer();
 
+  // Pending instructions to send via session.update after connection
+  String? _pendingInstructions;
+
   VoiceAIState _state = VoiceAIState.idle;
   VoiceAIState get state => _state;
 
@@ -156,6 +159,15 @@ class VoiceAIService {
     _onStateChange = onStateChange;
     _onTranscript = onTranscript;
     _onQuotaUpdate = onQuotaUpdate;
+
+    // Build inventory instructions to send via session.update after connection
+    if (inventory != null && (inventory['spirits']?.isNotEmpty ?? false)) {
+      _pendingInstructions = _buildInventoryInstructions(inventory);
+      debugPrint('[VOICE-AI] Built inventory instructions for ${inventory['spirits']?.length ?? 0} ingredients');
+    } else {
+      _pendingInstructions = null;
+      debugPrint('[VOICE-AI] No inventory provided for session');
+    }
 
     _setState(VoiceAIState.connecting);
 
@@ -338,6 +350,15 @@ class VoiceAIService {
         _handleDataChannelMessage(message.text);
       };
 
+      // Send inventory instructions when data channel opens
+      _dataChannel!.onDataChannelState = (RTCDataChannelState state) {
+        debugPrint('[VOICE-AI] Data channel state changed: $state');
+        if (state == RTCDataChannelState.RTCDataChannelOpen) {
+          debugPrint('[VOICE-AI] Data channel opened');
+          _sendSessionUpdate();
+        }
+      };
+
       // Create offer
       final offer = await _peerConnection!.createOffer({
         'offerToReceiveAudio': true,
@@ -448,6 +469,11 @@ class VoiceAIService {
           _setState(VoiceAIState.listening);
           break;
 
+        case 'session.updated':
+          // Confirmation that session.update was applied (instructions set)
+          debugPrint('[VOICE-AI] Session updated - inventory instructions applied successfully');
+          break;
+
         case 'error':
           // Error message available in data['error']?['message']
           debugPrint('VoiceAIService: Received error from data channel: ${data['error']}');
@@ -539,6 +565,54 @@ class VoiceAIService {
   /// Dispose service resources
   Future<void> dispose() async {
     await _cleanup();
+  }
+
+  /// Build inventory instructions string for session.update
+  String _buildInventoryInstructions(Map<String, List<String>> inventory) {
+    final allIngredients = inventory['spirits'] ?? [];
+    final mixers = inventory['mixers'] ?? [];
+
+    // Combine all ingredients
+    final combined = [...allIngredients, ...mixers].where((s) => s.isNotEmpty).toList();
+
+    return '''
+USER'S BAR INVENTORY:
+The user has these ingredients in their home bar: ${combined.join(', ')}
+
+IMPORTANT: When the user asks what they can make or for drink suggestions, you MUST reference these specific ingredients. Suggest cocktails that can be made using ONLY these available ingredients. If they ask "what's in my bar" or "what do I have", list these ingredients.
+''';
+  }
+
+  /// Send session.update event via data channel to apply instructions
+  void _sendSessionUpdate() {
+    if (_pendingInstructions == null) {
+      debugPrint('[VOICE-AI] No pending instructions to send');
+      return;
+    }
+
+    if (_dataChannel == null) {
+      debugPrint('[VOICE-AI] Data channel is null, cannot send session.update');
+      return;
+    }
+
+    if (_dataChannel!.state != RTCDataChannelState.RTCDataChannelOpen) {
+      debugPrint('[VOICE-AI] Data channel not open (state: ${_dataChannel!.state}), cannot send session.update');
+      return;
+    }
+
+    final event = json.encode({
+      'type': 'session.update',
+      'session': {
+        'instructions': _pendingInstructions,
+      }
+    });
+
+    debugPrint('[VOICE-AI] Sending session.update with inventory instructions');
+    debugPrint('[VOICE-AI] Instructions: $_pendingInstructions');
+
+    _dataChannel!.send(RTCDataChannelMessage(event));
+    _pendingInstructions = null; // Clear after sending
+    debugPrint('[VOICE-AI] session.update sent successfully');
   }
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/inventory_provider.dart';
 import '../../providers/voice_ai_provider.dart';
 import '../../services/voice_ai_service.dart';
 import 'widgets/voice_button.dart';
@@ -169,16 +170,40 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
     );
   }
 
-  void _handleVoiceButtonTap(VoiceAISessionState state) {
+  Future<void> _handleVoiceButtonTap(VoiceAISessionState state) async {
     if (state.isLoading) return;
 
     final notifier = ref.read(voiceAINotifierProvider.notifier);
 
     if (state.voiceState == VoiceAIState.idle ||
         state.voiceState == VoiceAIState.error) {
-      // Start new session
-      // TODO: Pass inventory from inventory provider if available
-      notifier.startSession();
+      // Start new session with user's bar inventory
+      // Use .future to properly await the inventory data
+      Map<String, List<String>>? formattedInventory;
+      try {
+        final inventory = await ref.read(inventoryProvider.future);
+
+        if (inventory.isNotEmpty) {
+          // Get all ingredient names - scanner doesn't set categories reliably
+          // so we send all as a combined list
+          final allIngredients = inventory
+              .map((i) => i.ingredientName)
+              .toList();
+
+          formattedInventory = {
+            'spirits': allIngredients,  // Send all as spirits for AI context
+            'mixers': <String>[],       // Empty - AI will figure it out
+          };
+
+          debugPrint('[VOICE-AI] Sending ${allIngredients.length} ingredients to Voice AI');
+          debugPrint('[VOICE-AI] Ingredients: ${allIngredients.join(", ")}');
+        }
+      } catch (e) {
+        debugPrint('[VOICE-AI] Error loading inventory: $e');
+        // Continue without inventory - voice AI will still work
+      }
+
+      notifier.startSession(inventory: formattedInventory);
     } else if (state.isConnected) {
       // End current session
       notifier.endSession();

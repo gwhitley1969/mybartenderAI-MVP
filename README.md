@@ -14,6 +14,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 45 min/month + top-ups)
 - **Mobile**: 📱 Flutter app - All core features complete
 - **Social Sharing**: ✅ Friends via Code fully deployed
+- **Subscriptions**: ✅ RevenueCat integration ready (webhook, config, status endpoints)
 - **Static Website**: ✅ Azure Front Door (`share.mybartenderai.com`)
 - **Status**: 🚀 Release Candidate - Ready for Play Store deployment
 
@@ -33,8 +34,19 @@ AI-powered bartender app that helps users discover and create cocktails based on
   - Live transcription of user and AI speech
   - 45 minutes/month quota for Pro users (+ $4.99 for 10 min top-up)
   - Visual status indicators (listening, thinking, speaking)
+  - Bar inventory integration - AI knows your ingredients via session.update
 
 ### Recent Deployments
+
+**Subscription System (December 2025):**
+
+- ✅ RevenueCat webhook integration with idempotency
+- ✅ Subscription config endpoint (returns API key for SDK)
+- ✅ Subscription status endpoint (returns user tier/status)
+- ✅ Database schema for subscription events and audit logging
+- ✅ Billing issue grace period handling
+- ✅ Sandbox event filtering for production safety
+- ✅ Documentation: `docs/SUBSCRIPTION_DEPLOYMENT.md`
 
 **Voice AI Feature (December 2025):**
 
@@ -44,6 +56,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ Flutter Voice AI screen with real-time transcription
 - ✅ Pro tier gating with 45 minutes/month quota
 - ✅ Consolidated transcript display with accessibility support
+- ✅ Bar inventory integration via session.update (December 27, 2025)
 
 **Database & Sync Fixes (December 12, 2025):**
 
@@ -123,7 +136,7 @@ mybartenderAI-MVP/
   - Hosting Plan: Premium Consumption (Windows)
   - Runtime: Node.js 22
   - Programming Model: v4 (code-centric registration)
-  - Functions: 30 total (29 HTTP triggers + 1 timer trigger)
+  - Functions: 34 total (33 HTTP triggers + 1 timer trigger)
   - AI SDK: Official @azure/openai package
   - Authentication: Managed Identity for Key Vault & Storage
 - **Database**: PostgreSQL Flexible Server (`pg-mybartenderdb`)
@@ -152,7 +165,7 @@ mybartenderAI-MVP/
 - **Tier Detection**: Backend lookup in PostgreSQL (not JWT claims)
 - **Age Verification**: Server-side validation (21+) via Custom Auth Extension
 
-### Azure Functions (30 Total)
+### Azure Functions (34 Total)
 
 **Core & Health (1)**
 
@@ -198,6 +211,16 @@ mybartenderAI-MVP/
 - `social-invite` - Social invites (GET /api/v1/social/invite/{token?})
 - `social-outbox` - Social outbox (GET /api/v1/social/outbox)
 - `social-share-internal` - Internal sharing (POST /api/v1/social/share-internal)
+
+**Subscription Functions (3)**
+
+- `subscription-config` - RevenueCat API key for SDK (GET /api/v1/subscription/config)
+- `subscription-status` - User subscription status (GET /api/v1/subscription/status)
+- `subscription-webhook` - RevenueCat server-to-server webhook (POST /api/v1/subscription/webhook)
+
+**Voice Purchase (1)**
+
+- `voice-purchase` - Purchase voice minutes (POST /api/v1/voice/purchase)
 
 **Testing & Utilities (4)**
 
@@ -279,6 +302,10 @@ curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/share-internal \
     "recipientAlias": "@cool-panda-123",
     "message": "Try this!"
   }'
+
+# Get subscription status (requires JWT)
+curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
 
 ## 📚 Documentation
@@ -299,6 +326,11 @@ curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/share-internal \
 - [Implementation Plan](IMPLEMENTATION-PLAN-FriendsViaCode.md) - 16-day plan
 - [UI Mockups](FRIENDS-VIA-CODE-UI-MOCKUPS.md) - Flutter UI designs
 - [HTML Templates](FRIENDS-VIA-CODE-HTML-TEMPLATES.md) - Web preview pages
+
+### Subscription System
+
+- [Subscription Deployment](docs/SUBSCRIPTION_DEPLOYMENT.md) - RevenueCat integration guide
+- [Google Play Billing](docs/GOOGLE_PLAY_BILLING_SETUP.md) - Play Store configuration
 
 ### Integration Guides
 
@@ -594,6 +626,7 @@ Proprietary - All rights reserved
 - PostgreSQL (Database)
 - Azure Blob Storage (Assets & Static Website)
 - Microsoft Entra External ID (Authentication)
+- RevenueCat (Subscription Management)
 
 ---
 

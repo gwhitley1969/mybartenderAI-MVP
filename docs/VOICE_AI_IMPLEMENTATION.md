@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated December 27, 2025)
 
 ## Overview
 
@@ -447,6 +447,7 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - [x] AI responds audibly
 - [x] User can interrupt AI mid-response
 - [x] "Tap microphone to stop" instruction visible during active session
+- [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
 - [ ] "Minutes remaining" updates after each session
 - [ ] 80% warning toast appears at 6 minutes remaining
 - [ ] Quota exhaustion shows purchase option (after AI finishes response)
@@ -475,3 +476,36 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - Add-on purchase flow not implemented
 
 See `docs/VOICE_AI_DEPLOYED.md` for complete deployment documentation.
+
+---
+
+## Bar Inventory Integration (December 27, 2025)
+
+### Implementation Change
+
+The original plan called for passing inventory context to the backend `voice-session` function, which would include it in the system instructions during session creation. However, this approach did not work for WebRTC sessions - the `instructions` field was not being applied.
+
+### New Approach: session.update via WebRTC Data Channel
+
+Instead of backend instruction injection, the mobile app now:
+1. Loads user's bar inventory when starting a voice session
+2. Builds inventory instructions locally
+3. Sends a `session.update` event via the WebRTC data channel after connection
+4. Azure OpenAI applies the instructions to the active session
+
+**Key Code** (`voice_ai_service.dart`):
+```dart
+// When data channel opens, send inventory instructions
+_dataChannel!.onDataChannelState = (RTCDataChannelState state) {
+  if (state == RTCDataChannelState.RTCDataChannelOpen) {
+    _sendSessionUpdate(); // Sends session.update with inventory
+  }
+};
+```
+
+This approach is more reliable because:
+- Bypasses backend body parsing issues
+- Instructions go directly to the active AI session
+- Confirmed working by `session.updated` response from Azure
+
+See `docs/VOICE_AI_DEPLOYED.md` for full implementation details.

@@ -1,7 +1,7 @@
 # Voice AI Feature - Deployment Documentation
 
 **Date Deployed**: December 8, 2025
-**Last Updated**: December 9, 2025
+**Last Updated**: December 27, 2025
 **Status**: ✅ Deployed and Tested
 **Tier Requirement**: Pro only
 **Latest APK**: `mobile/app/build/app/outputs/flutter-apk/app-release.apk`
@@ -643,9 +643,9 @@ flutter build apk --debug
 ## Next Steps (Not Yet Implemented)
 
 1. ~~**Add route to GoRouter**~~ ✅ Completed
-2. **APIM Integration** - Add voice endpoints to API Management with JWT validation
+2. ~~**APIM Integration**~~ ✅ Completed - Voice endpoints configured with JWT validation
 3. **Add-on Purchase Flow** - Integrate with App Store/Play Store for minute packs
-4. **Inventory Context** - Pass user's bar inventory to personalize suggestions
+4. ~~**Inventory Context**~~ ✅ Completed - Bar inventory sent via session.update (Dec 27, 2025)
 5. **Session History** - View past voice conversations from profile
 6. **Analytics** - Track voice usage metrics in Application Insights
 
@@ -768,4 +768,153 @@ After the fix, Voice AI works correctly:
 
 ---
 
-**Last Updated**: December 11, 2025 (Authentication fix documented)
+---
+
+## Bar Inventory Integration (December 27, 2025)
+
+### Problem
+
+Voice AI could not access the user's "My Bar" inventory. When users asked "What's in my bar?" or "What can I make?", the AI would respond that it didn't know their ingredients - unlike the Chat feature which works correctly with inventory context.
+
+### Root Cause
+
+The `instructions` field in the Azure OpenAI Realtime API session creation request was not being applied to WebRTC sessions. The backend was correctly building inventory-aware system instructions, but they weren't reaching the AI.
+
+### Solution: session.update via WebRTC Data Channel
+
+Instead of relying on backend instruction injection during session creation, the mobile app now sends inventory instructions **directly to the active AI session** via the WebRTC data channel using the `session.update` event.
+
+### Architecture
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Mobile App    │────▶│  Backend Func   │────▶│  Azure OpenAI   │
+│                 │     │  voice-session  │     │  Realtime API   │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│ 1. Load bar     │     │ 4. Create       │     │ 5. Return       │
+│    inventory    │     │    session      │     │    ephemeral    │
+│ 2. Store as     │     │    (no inv.)    │     │    token        │
+│    pending      │     │                 │     │                 │
+│    instructions │     │                 │     │                 │
+│ 3. POST to      │     │                 │     │                 │
+│    /voice/      │     │                 │     │                 │
+│    session      │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+        │                                               │
+        │                                               │
+        └───────────── WebRTC Direct Connection ────────┘
+                              │
+                              ▼
+        ┌─────────────────────────────────────────────┐
+        │ 6. Data channel opens                       │
+        │ 7. Send session.update with inventory       │
+        │ 8. Azure responds with session.updated      │
+        │ 9. AI now knows user's bar inventory!       │
+        └─────────────────────────────────────────────┘
+```
+
+### Implementation Details
+
+**File Modified:** `mobile/app/lib/src/services/voice_ai_service.dart`
+
+**Key Changes:**
+
+1. **Added `_pendingInstructions` field** to store inventory instructions until data channel is ready:
+```dart
+String? _pendingInstructions;
+```
+
+2. **Modified `startSession()`** to build inventory instructions:
+```dart
+if (inventory != null && (inventory['spirits']?.isNotEmpty ?? false)) {
+  _pendingInstructions = _buildInventoryInstructions(inventory);
+  debugPrint('[VOICE-AI] Built inventory instructions for ${inventory['spirits']?.length ?? 0} ingredients');
+}
+```
+
+3. **Added `_buildInventoryInstructions()` helper**:
+```dart
+String _buildInventoryInstructions(Map<String, List<String>> inventory) {
+  final allIngredients = inventory['spirits'] ?? [];
+  final mixers = inventory['mixers'] ?? [];
+  final combined = [...allIngredients, ...mixers].where((s) => s.isNotEmpty).toList();
+
+  return '''
+USER'S BAR INVENTORY:
+The user has these ingredients in their home bar: ${combined.join(', ')}
+
+IMPORTANT: When the user asks what they can make or for drink suggestions, you MUST reference these specific ingredients. Suggest cocktails that can be made using ONLY these available ingredients. If they ask "what's in my bar" or "what do I have", list these ingredients.
+''';
+}
+```
+
+4. **Added `_sendSessionUpdate()` method**:
+```dart
+void _sendSessionUpdate() {
+  if (_pendingInstructions == null) return;
+  if (_dataChannel!.state != RTCDataChannelState.RTCDataChannelOpen) return;
+
+  final event = json.encode({
+    'type': 'session.update',
+    'session': {
+      'instructions': _pendingInstructions,
+    }
+  });
+
+  _dataChannel!.send(RTCDataChannelMessage(event));
+  _pendingInstructions = null;
+}
+```
+
+5. **Wired up data channel `onDataChannelState` handler**:
+```dart
+_dataChannel!.onDataChannelState = (RTCDataChannelState state) {
+  if (state == RTCDataChannelState.RTCDataChannelOpen) {
+    debugPrint('[VOICE-AI] Data channel opened');
+    _sendSessionUpdate();
+  }
+};
+```
+
+6. **Added `session.updated` response handling** to confirm instructions were applied:
+```dart
+case 'session.updated':
+  debugPrint('[VOICE-AI] Session updated - inventory instructions applied successfully');
+  break;
+```
+
+### Why This Approach
+
+| Approach | Pros | Cons |
+|----------|------|------|
+| Backend instruction injection | Single point of configuration | Not working for WebRTC sessions |
+| **session.update via data channel** | Direct to AI, bypasses backend issues, confirmed working | Client-side instruction building |
+
+The `session.update` approach is more reliable because:
+1. Bypasses any backend body parsing issues
+2. Instructions go directly to the active session
+3. Confirmed by `session.updated` response from Azure
+4. No backend deployment required for instruction changes
+
+### Debug Logs
+
+When working correctly, you'll see these log entries:
+```
+[VOICE-AI] Built inventory instructions for 8 ingredients
+[VOICE-AI] Data channel state changed: RTCDataChannelOpen
+[VOICE-AI] Data channel opened
+[VOICE-AI] Sending session.update with inventory instructions
+[VOICE-AI] session.update sent successfully
+[VOICE-AI] Session updated - inventory instructions applied successfully
+```
+
+### Testing
+
+1. Add ingredients to "My Bar" (e.g., vodka, gin, tonic water)
+2. Start Voice AI session
+3. Ask "What's in my bar?" - AI should list your ingredients
+4. Ask "What can I make?" - AI should suggest drinks using your ingredients
+
+---
+
+**Last Updated**: December 27, 2025 (Bar inventory integration via session.update)

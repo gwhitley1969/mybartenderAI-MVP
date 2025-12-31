@@ -123,6 +123,15 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
     // Store router globally for notification navigation when app is already running
     _globalRouter = router;
 
+    // FIX: Check for pending navigation after router is ready
+    if (_pendingCocktailId != null) {
+      final cocktailId = _pendingCocktailId!;
+      _pendingCocktailId = null;
+      debugPrint('Processing pending cocktail navigation: $cocktailId');
+      // Use microtask to avoid building during build
+      Future.microtask(() => _navigateToCocktail(cocktailId));
+    }
+
     return MaterialApp.router(
       routerConfig: router,
       title: 'MyBartenderAI',
@@ -169,9 +178,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       final isLoginRoute = state.matchedLocation == '/login';
       final isAgeRoute = state.matchedLocation == '/age-verification';
       final isInitialSyncRoute = state.matchedLocation == '/initial-sync';
+      // FIX: Allow cocktail detail route to bypass redirects (for notification deep linking)
+      final isCocktailRoute = state.matchedLocation.startsWith('/cocktail/');
 
       // Don't redirect while checking authentication status
       if (isAuthenticating) {
+        return null;
+      }
+
+      // FIX: Allow cocktail routes through without age/auth checks
+      // This ensures notification deep links work properly
+      if (isCocktailRoute) {
         return null;
       }
 

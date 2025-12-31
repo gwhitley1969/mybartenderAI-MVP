@@ -8,6 +8,7 @@ import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../models/cocktail.dart';
+import 'battery_optimization_service.dart';
 
 /// Callback for handling notification taps - must be top-level function
 @pragma('vm:entry-point')
@@ -30,6 +31,15 @@ class NotificationService {
   static const String _todaysSpecialChannelDescription =
       'Daily reminder featuring the bartender\'s special cocktail.';
 
+  // Token refresh alarm constants
+  // This provides a more reliable mechanism than WorkManager for time-critical background tasks
+  static const int _tokenRefreshNotificationId = 9000;
+  static const String _tokenRefreshChannelId = 'token_refresh_background';
+  static const String _tokenRefreshChannelName = 'Background Sync';
+  static const String _tokenRefreshChannelDescription =
+      'Keeps you signed in automatically.';
+  static const String _tokenRefreshPayload = 'TOKEN_REFRESH_TRIGGER';
+
   // Number of days ahead to schedule notifications
   // This ensures notifications fire even if user doesn't open app for a week
   static const int _daysToScheduleAhead = 7;
@@ -51,6 +61,10 @@ class NotificationService {
 
   // Callback for when notification is tapped
   Function(String? cocktailId)? onNotificationTap;
+
+  // Callback for when token refresh alarm fires
+  // This is called when the alarm triggers, allowing the auth service to perform a silent refresh
+  Future<void> Function()? onTokenRefreshNeeded;
 
   Future<void> initialize({Function(String? cocktailId)? onTap}) async {
     if (_initialized) {
@@ -83,7 +97,36 @@ class NotificationService {
     if (kDebugMode) {
       print('Notification tapped: ${response.payload}');
     }
-    // Call the callback with the cocktail ID
+
+    // Handle token refresh trigger (silent alarm)
+    if (response.payload == _tokenRefreshPayload) {
+      if (kDebugMode) {
+        print('[TOKEN-ALARM] Token refresh alarm triggered');
+      }
+      // Call the token refresh callback asynchronously
+      if (onTokenRefreshNeeded != null) {
+        onTokenRefreshNeeded!().then((_) {
+          if (kDebugMode) {
+            print('[TOKEN-ALARM] Token refresh completed, rescheduling alarm');
+          }
+          // Reschedule the alarm for the next interval
+          scheduleTokenRefreshAlarm();
+        }).catchError((e) {
+          if (kDebugMode) {
+            print('[TOKEN-ALARM] Token refresh failed: $e');
+          }
+          // Still reschedule even on error
+          scheduleTokenRefreshAlarm();
+        });
+      } else {
+        if (kDebugMode) {
+          print('[TOKEN-ALARM] No token refresh callback registered');
+        }
+      }
+      return; // Don't call the regular notification tap handler
+    }
+
+    // Call the callback with the cocktail ID for regular notifications
     onNotificationTap?.call(response.payload);
   }
 
@@ -219,15 +262,40 @@ class NotificationService {
   /// This ensures notifications fire reliably even if the app is killed
   /// or the user doesn't open the app for a week.
   Future<void> scheduleTodaysSpecialNotification(Cocktail cocktail) async {
+    // FIX 6: Enhanced diagnostic logging
+    print('[NOTIFICATION] === Scheduling Today\'s Special ===');
+    print('[NOTIFICATION] Cocktail: ${cocktail.name} (ID: ${cocktail.id})');
+
     await initialize();
 
-    // Check if notifications are enabled
-    final enabled = await isNotificationEnabled();
-    if (!enabled) {
-      if (kDebugMode) {
-        print('Notifications disabled, skipping schedule');
-      }
+    // FIX 6: Check and log notification permission status
+    final hasPermission = await Permission.notification.isGranted;
+    print('[NOTIFICATION] System permission granted: $hasPermission');
+    if (!hasPermission) {
+      print('[NOTIFICATION] SKIPPED - No system notification permission');
       return;
+    }
+
+    // Check if notifications are enabled in app settings
+    final enabled = await isNotificationEnabled();
+    print('[NOTIFICATION] App notifications enabled: $enabled');
+    if (!enabled) {
+      print('[NOTIFICATION] SKIPPED - Notifications disabled by user in app settings');
+      return;
+    }
+
+    // FIX 4: Request battery optimization exemption for reliable alarm delivery
+    if (Platform.isAndroid) {
+      try {
+        final batteryOptimized = await BatteryOptimizationService.instance.isOptimizationDisabled();
+        print('[NOTIFICATION] Battery optimization disabled: $batteryOptimized');
+        if (!batteryOptimized) {
+          // Request exemption silently (dialog already shown on home screen)
+          await BatteryOptimizationService.instance.requestOptimizationExemption();
+        }
+      } catch (e) {
+        print('[NOTIFICATION] Battery optimization check failed: $e');
+      }
     }
 
     // Cancel all existing scheduled notifications first
@@ -240,21 +308,15 @@ class NotificationService {
       final canUseExact = await canScheduleExactAlarms();
       if (canUseExact) {
         scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
-        if (kDebugMode) {
-          print('Using exact alarm scheduling for precise notification timing');
-        }
+        print('[NOTIFICATION] Using EXACT alarm scheduling');
       } else {
         // Try to request the permission
         final granted = await requestExactAlarmPermission();
         if (granted) {
           scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
-          if (kDebugMode) {
-            print('Exact alarm permission granted, using precise timing');
-          }
+          print('[NOTIFICATION] Exact alarm permission granted');
         } else {
-          if (kDebugMode) {
-            print('Exact alarm permission not granted, using inexact scheduling (may be delayed)');
-          }
+          print('[NOTIFICATION] Using INEXACT scheduling (may be delayed by hours)');
         }
       }
     }
@@ -290,6 +352,9 @@ class NotificationService {
     final time = await getNotificationTime();
     final now = tz.TZDateTime.now(tz.local);
 
+    print('[NOTIFICATION] Configured time: ${formatTime(time.hour, time.minute)}');
+    print('[NOTIFICATION] Current time: ${now.hour}:${now.minute.toString().padLeft(2, '0')}');
+
     int scheduledCount = 0;
 
     // Schedule notifications for the next 7 days
@@ -304,9 +369,16 @@ class NotificationService {
         time.minute,
       );
 
-      // Skip if this time has already passed
+      // FIX 5: If today's notification time has passed, schedule a catch-up notification
       if (scheduledDate.isBefore(now)) {
-        continue;
+        if (dayOffset == 0) {
+          // Today's time passed - schedule a catch-up notification in 1 minute
+          scheduledDate = now.add(const Duration(minutes: 1));
+          print('[NOTIFICATION] Today\'s time passed - scheduling catch-up in 1 minute at $scheduledDate');
+        } else {
+          // Skip past dates for future days (shouldn't happen, but just in case)
+          continue;
+        }
       }
 
       // Unique notification ID for each day (base ID + day offset)
@@ -327,24 +399,16 @@ class NotificationService {
         );
         scheduledCount++;
 
-        if (kDebugMode) {
-          print('Scheduled notification #$notificationId for: $scheduledDate');
-        }
+        print('[NOTIFICATION] Scheduled #$notificationId for: $scheduledDate');
       } catch (e) {
-        if (kDebugMode) {
-          print('Error scheduling notification #$notificationId: $e');
-        }
+        print('[NOTIFICATION] ERROR scheduling #$notificationId: $e');
       }
     }
 
-    if (kDebugMode) {
-      print('=== Notifications Scheduled ===');
-      print('Cocktail: ${cocktail.name} (${cocktail.id})');
-      print('Total scheduled: $scheduledCount notifications');
-      print('Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT (on-time)" : "INEXACT (may be delayed)"}');
-      print('Time: ${formatTime(time.hour, time.minute)}');
-      print('================================');
-    }
+    print('[NOTIFICATION] === Scheduling Complete ===');
+    print('[NOTIFICATION] Total scheduled: $scheduledCount notifications');
+    print('[NOTIFICATION] Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT" : "INEXACT"}');
+    print('[NOTIFICATION] =============================');
   }
 
   // Offset for test notification IDs (outside the multi-day range)
@@ -537,5 +601,89 @@ class NotificationService {
       }
       return null;
     }
+  }
+
+  // ============================================================================
+  // Token Refresh Alarm Methods
+  // ============================================================================
+
+  /// Schedule a silent alarm to trigger token refresh.
+  ///
+  /// Uses AlarmManager with exact alarms, which is more reliable than WorkManager
+  /// for time-critical tasks. The alarm fires even in Doze mode.
+  ///
+  /// Default interval: 6 hours (provides 2 opportunities before 12-hour timeout)
+  Future<void> scheduleTokenRefreshAlarm({Duration delay = const Duration(hours: 6)}) async {
+    await initialize();
+
+    // Cancel any existing token refresh alarm
+    await _plugin.cancel(_tokenRefreshNotificationId);
+
+    final scheduledTime = tz.TZDateTime.now(tz.local).add(delay);
+
+    // Determine the best schedule mode for accuracy
+    AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
+    if (Platform.isAndroid) {
+      final canUseExact = await canScheduleExactAlarms();
+      if (canUseExact) {
+        scheduleMode = AndroidScheduleMode.exactAllowWhileIdle;
+      }
+    }
+
+    // Create a low-priority silent channel that won't bother the user
+    final androidDetails = AndroidNotificationDetails(
+      _tokenRefreshChannelId,
+      _tokenRefreshChannelName,
+      channelDescription: _tokenRefreshChannelDescription,
+      importance: Importance.min, // Silent - no sound or vibration
+      priority: Priority.low,
+      playSound: false,
+      enableVibration: false,
+      showWhen: false,
+      ongoing: false,
+      autoCancel: true,
+      visibility: NotificationVisibility.secret, // Hidden from lock screen
+      // Make the notification effectively invisible
+      styleInformation: const BigTextStyleInformation(''),
+    );
+
+    try {
+      await _plugin.zonedSchedule(
+        _tokenRefreshNotificationId,
+        '', // Empty title - effectively silent
+        '',
+        scheduledTime,
+        NotificationDetails(android: androidDetails),
+        androidScheduleMode: scheduleMode,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: _tokenRefreshPayload,
+      );
+
+      if (kDebugMode) {
+        print('[TOKEN-ALARM] Token refresh alarm scheduled for: $scheduledTime');
+        print('[TOKEN-ALARM] Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT" : "INEXACT"}');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('[TOKEN-ALARM] Error scheduling token refresh alarm: $e');
+      }
+    }
+  }
+
+  /// Cancel the token refresh alarm.
+  ///
+  /// Call this when the user logs out.
+  Future<void> cancelTokenRefreshAlarm() async {
+    await _plugin.cancel(_tokenRefreshNotificationId);
+
+    if (kDebugMode) {
+      print('[TOKEN-ALARM] Token refresh alarm cancelled');
+    }
+  }
+
+  /// Schedule an immediate token refresh alarm (for testing).
+  Future<void> scheduleImmediateTokenRefresh() async {
+    await scheduleTokenRefreshAlarm(delay: const Duration(seconds: 5));
   }
 }

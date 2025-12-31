@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/cocktail.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/backend_provider.dart';
+import '../../services/battery_optimization_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../favorites/favorites_screen.dart';
@@ -12,11 +14,41 @@ import '../recipe_vault/cocktail_detail_screen.dart';
 import '../recipe_vault/recipe_vault_screen.dart';
 import 'providers/todays_special_provider.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  bool _hasCheckedBatteryOptimization = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Schedule battery optimization check after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkBatteryOptimization();
+    });
+  }
+
+  Future<void> _checkBatteryOptimization() async {
+    if (_hasCheckedBatteryOptimization) return;
+    _hasCheckedBatteryOptimization = true;
+
+    // Only show if user is authenticated
+    final isAuthenticated = ref.read(isAuthenticatedProvider);
+    if (!isAuthenticated) return;
+
+    // Show the battery optimization dialog if needed
+    if (mounted) {
+      await BatteryOptimizationService.instance.showExemptionDialogIfNeeded(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       body: SafeArea(
@@ -476,13 +508,8 @@ class HomeScreen extends ConsumerWidget {
         cocktail: cocktail,
         onTap: cocktail != null
             ? () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        CocktailDetailScreen(cocktailId: cocktail.id),
-                  ),
-                );
+                // FIX: Use GoRouter for consistent navigation with notification deep links
+                context.push('/cocktail/${cocktail.id}');
               }
             : null,
         contentBuilder: () => _buildSpecialDetails(cocktail),

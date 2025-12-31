@@ -20,16 +20,22 @@ String _formatDateKey(DateTime date) {
 
 /// Provides the featured cocktail of the day, rotating once every calendar day.
 final todaysSpecialProvider = FutureProvider<Cocktail?>((ref) async {
+  // FIX 7: Enhanced diagnostic logging
+  print('[TODAYS-SPECIAL] Provider evaluating...');
+
   // Automatically refresh at the next local midnight
   final now = DateTime.now();
   final tomorrow = DateTime(now.year, now.month, now.day + 1);
   final durationUntilMidnight = tomorrow.difference(now);
+
+  print('[TODAYS-SPECIAL] Will auto-refresh at midnight in ${durationUntilMidnight.inHours}h ${durationUntilMidnight.inMinutes % 60}m');
 
   Timer? refreshTimer;
   refreshTimer = Timer(durationUntilMidnight, () {
     if (refreshTimer?.isActive ?? false) {
       refreshTimer?.cancel();
     }
+    print('[TODAYS-SPECIAL] Midnight refresh triggered');
     ref.invalidateSelf();
   });
   ref.onDispose(() {
@@ -46,27 +52,33 @@ final todaysSpecialProvider = FutureProvider<Cocktail?>((ref) async {
   Cocktail? cocktail;
 
   if (cachedDate == todayKey && cachedId != null) {
+    print('[TODAYS-SPECIAL] Using cached cocktail ID: $cachedId');
     cocktail = await db.getCocktailById(cachedId);
+    if (cocktail == null) {
+      print('[TODAYS-SPECIAL] Cached cocktail not found in database, will select new one');
+    }
+  } else {
+    print('[TODAYS-SPECIAL] No cache for today ($todayKey), selecting random cocktail');
   }
 
   cocktail ??= await db.getRandomCocktail();
 
   if (cocktail != null) {
+    print('[TODAYS-SPECIAL] Selected: ${cocktail.name} (ID: ${cocktail.id})');
     await prefs.setString(_specialDateKey, todayKey);
     await prefs.setString(_specialIdKey, cocktail.id);
 
     // Schedule Today's Special notification
     try {
       await NotificationService.instance.scheduleTodaysSpecialNotification(cocktail);
-      if (kDebugMode) {
-        print("Today's Special notification scheduled for: ${cocktail.name}");
-      }
     } catch (e) {
-      if (kDebugMode) {
-        print("Failed to schedule notification: $e");
-      }
+      print('[TODAYS-SPECIAL] ERROR scheduling notification: $e');
     }
   } else {
+    // FIX 7: Log when database is empty - this is a critical issue
+    print('[TODAYS-SPECIAL] WARNING: No cocktail available - database may be empty!');
+    print('[TODAYS-SPECIAL] User needs to complete initial sync to populate database.');
+    print('[TODAYS-SPECIAL] Notification NOT scheduled.');
     await prefs.remove(_specialDateKey);
     await prefs.remove(_specialIdKey);
   }

@@ -60,7 +60,8 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
       onTap: (cocktailId) {
         // Navigate to cocktail detail when notification is tapped
         debugPrint('Notification tap callback received: $cocktailId');
-        if (cocktailId != null) {
+        // Filter out token refresh notifications - they're not cocktail IDs
+        if (cocktailId != null && cocktailId != 'TOKEN_REFRESH_TRIGGER') {
           // Use a slight delay to ensure we're not in the middle of a build
           Future.microtask(() => _navigateToCocktail(cocktailId));
         }
@@ -71,7 +72,8 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
     final launchDetails = await NotificationService.instance.getNotificationAppLaunchDetails();
     if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
       final payload = launchDetails.notificationResponse?.payload;
-      if (payload != null) {
+      // Filter out token refresh notifications - they're not cocktail IDs
+      if (payload != null && payload != 'TOKEN_REFRESH_TRIGGER') {
         _pendingCocktailId = payload;
         // Delay navigation to ensure router is ready
         Future.delayed(const Duration(milliseconds: 500), () {

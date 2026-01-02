@@ -49,6 +49,10 @@ class NotificationService {
   static const String _notificationHourKey = 'notification_hour';
   static const String _notificationMinuteKey = 'notification_minute';
 
+  // Idempotency: Track last scheduling to prevent rapid re-scheduling loops
+  static const String _lastScheduledKey = 'notification_last_scheduled';
+  static const int _minScheduleIntervalMinutes = 30;
+
   // Default notification time: 5:00 PM
   static const int _defaultHour = 17;
   static const int _defaultMinute = 0;
@@ -88,6 +92,7 @@ class NotificationService {
     );
 
     await _requestNotificationPermission();
+    await _createNotificationChannels();
     await _ensureTimeZoneInitialized();
 
     _initialized = true;
@@ -144,6 +149,52 @@ class NotificationService {
     final result = await Permission.notification.request();
     if (kDebugMode) {
       print('Notification permission result: $result');
+    }
+  }
+
+  /// Create notification channels during initialization.
+  ///
+  /// On Android 8.0+ (API 26+), notification channels must be created before
+  /// notifications can be displayed. This method ensures channels exist in
+  /// Android system settings immediately after permission is granted,
+  /// before any notifications are scheduled or shown.
+  ///
+  /// Without this, channels only appear in system settings after the first
+  /// notification is actually displayed (not just scheduled), which causes
+  /// the app to not appear in "App notifications" until a test notification
+  /// is triggered.
+  Future<void> _createNotificationChannels() async {
+    if (!Platform.isAndroid) return;
+
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+    if (androidPlugin == null) return;
+
+    // Create Today's Special channel
+    const todaysSpecialChannel = AndroidNotificationChannel(
+      _todaysSpecialChannelId,
+      _todaysSpecialChannelName,
+      description: _todaysSpecialChannelDescription,
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+    await androidPlugin.createNotificationChannel(todaysSpecialChannel);
+
+    // Create Token Refresh channel (silent/hidden)
+    const tokenRefreshChannel = AndroidNotificationChannel(
+      _tokenRefreshChannelId,
+      _tokenRefreshChannelName,
+      description: _tokenRefreshChannelDescription,
+      importance: Importance.min,
+      playSound: false,
+      enableVibration: false,
+    );
+    await androidPlugin.createNotificationChannel(tokenRefreshChannel);
+
+    if (kDebugMode) {
+      print('[NOTIFICATION] Notification channels created');
     }
   }
 
@@ -261,12 +312,30 @@ class NotificationService {
   /// individual one-time notifications for each of the next 7 days.
   /// This ensures notifications fire reliably even if the app is killed
   /// or the user doesn't open the app for a week.
-  Future<void> scheduleTodaysSpecialNotification(Cocktail cocktail) async {
+  ///
+  /// Set [force] to true to bypass idempotency check (e.g., when user changes settings).
+  Future<void> scheduleTodaysSpecialNotification(Cocktail cocktail, {bool force = false}) async {
     // FIX 6: Enhanced diagnostic logging
     print('[NOTIFICATION] === Scheduling Today\'s Special ===');
     print('[NOTIFICATION] Cocktail: ${cocktail.name} (ID: ${cocktail.id})');
+    print('[NOTIFICATION] Force: $force');
 
     await initialize();
+
+    // Idempotency check: Skip if we've scheduled within the last 30 minutes
+    // This prevents infinite loops when provider re-evaluates
+    if (!force) {
+      final prefs = await SharedPreferences.getInstance();
+      final lastScheduled = prefs.getInt(_lastScheduledKey) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final minutesSinceLastSchedule = (now - lastScheduled) / (1000 * 60);
+
+      if (minutesSinceLastSchedule < _minScheduleIntervalMinutes) {
+        print('[NOTIFICATION] SKIPPED - Already scheduled ${minutesSinceLastSchedule.toInt()} minutes ago');
+        print('[NOTIFICATION] =============================');
+        return;
+      }
+    }
 
     // FIX 6: Check and log notification permission status
     final hasPermission = await Permission.notification.isGranted;
@@ -369,16 +438,12 @@ class NotificationService {
         time.minute,
       );
 
-      // FIX 5: If today's notification time has passed, schedule a catch-up notification
+      // If scheduled time is in the past, skip it (no catch-up to prevent loops)
       if (scheduledDate.isBefore(now)) {
         if (dayOffset == 0) {
-          // Today's time passed - schedule a catch-up notification in 1 minute
-          scheduledDate = now.add(const Duration(minutes: 1));
-          print('[NOTIFICATION] Today\'s time passed - scheduling catch-up in 1 minute at $scheduledDate');
-        } else {
-          // Skip past dates for future days (shouldn't happen, but just in case)
-          continue;
+          print('[NOTIFICATION] Today\'s time already passed - skipping day 0 (tomorrow will fire)');
         }
+        continue;
       }
 
       // Unique notification ID for each day (base ID + day offset)
@@ -404,6 +469,10 @@ class NotificationService {
         print('[NOTIFICATION] ERROR scheduling #$notificationId: $e');
       }
     }
+
+    // Save scheduling timestamp for idempotency check
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastScheduledKey, DateTime.now().millisecondsSinceEpoch);
 
     print('[NOTIFICATION] === Scheduling Complete ===');
     print('[NOTIFICATION] Total scheduled: $scheduledCount notifications');
@@ -630,19 +699,22 @@ class NotificationService {
       }
     }
 
-    // Create a low-priority silent channel that won't bother the user
+    // Create a truly silent notification channel
+    // Note: Even with these settings, some Android versions may show a notification
+    // The main.dart filter handles this case by ignoring TOKEN_REFRESH_TRIGGER payloads
     final androidDetails = AndroidNotificationDetails(
       _tokenRefreshChannelId,
       _tokenRefreshChannelName,
       channelDescription: _tokenRefreshChannelDescription,
-      importance: Importance.min, // Silent - no sound or vibration
-      priority: Priority.low,
+      importance: Importance.min, // Lowest importance
+      priority: Priority.min, // Lowest priority (changed from Priority.low)
       playSound: false,
       enableVibration: false,
       showWhen: false,
       ongoing: false,
       autoCancel: true,
       visibility: NotificationVisibility.secret, // Hidden from lock screen
+      silent: true, // Make notification completely silent
       // Make the notification effectively invisible
       styleInformation: const BigTextStyleInformation(''),
     );

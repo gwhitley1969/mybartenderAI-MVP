@@ -1,7 +1,7 @@
 # Today's Special Feature
 
-**Date**: December 2025
-**Version**: 1.1.0
+**Date**: January 2026
+**Version**: 1.3.0
 **Status**: Implemented with Notifications & Bug Fixes
 
 ## Overview
@@ -74,7 +74,8 @@ mobile/app/lib/src/
 - Schedules 7 individual one-time notifications (more reliable than repeating)
 - Uses `exactAllowWhileIdle` for precise timing on Android 12+
 - Integrates with `BatteryOptimizationService` for reliable delivery on OEM devices
-- Supports catch-up notifications when scheduled time has passed
+- **Idempotency check**: Prevents re-scheduling within 30 minutes to avoid loops
+- **Force parameter**: Allows bypassing idempotency when user changes settings
 - Deep link payload contains cocktail ID for navigation
 - Diagnostic logging with `[NOTIFICATION]` tag
 
@@ -122,8 +123,9 @@ GoRoute(
 - `notification_enabled`: Boolean (default: true)
 - `notification_hour`: Integer 0-23 (default: 17)
 - `notification_minute`: Integer 0-59 (default: 0)
+- `notification_last_scheduled`: Timestamp in milliseconds (for idempotency)
 
-## Bug Fixes (December 2025)
+## Bug Fixes (December 2025 - January 2026)
 
 ### Issue #1: Card Flashes and Closes
 
@@ -155,7 +157,6 @@ GoRoute(
 
 **Root Causes**:
 - Battery optimization killing scheduled alarms on Samsung/Xiaomi/Huawei
-- Time already passed when app opened (skipped that day)
 - Permissions not granted
 
 **Fixes Applied**:
@@ -167,17 +168,109 @@ GoRoute(
    }
    ```
 
-2. **Catch-up notification** (`notification_service.dart`):
+2. **Enhanced diagnostic logging**:
+   - `[NOTIFICATION]` logs show permission status, scheduling details, errors
+   - `[TODAYS-SPECIAL]` logs show cocktail selection, cache status, database state
+
+### Issue #3: Infinite Notification Loop (January 2026)
+
+**Problem**: After tapping a Today's Special notification, the app fired another notification every 1-2 minutes in an infinite loop until notifications were disabled.
+
+**Root Cause**: The catch-up notification logic (from Issue #2 fix) combined with provider re-evaluation created a loop:
+1. `todaysSpecialProvider` called `scheduleTodaysSpecialNotification()` on every evaluation
+2. If today's time had passed, a catch-up notification was scheduled for 1 minute later
+3. When notification fired, app foregrounded, provider re-evaluated
+4. Re-evaluation cancelled all notifications and scheduled new catch-up in 1 minute
+5. Loop repeated indefinitely
+
+**Fixes Applied**:
+
+1. **Added idempotency check** (`notification_service.dart`):
    ```dart
-   if (scheduledDate.isBefore(now) && dayOffset == 0) {
-     // Today's time passed - schedule catch-up in 1 minute
-     scheduledDate = now.add(const Duration(minutes: 1));
+   static const String _lastScheduledKey = 'notification_last_scheduled';
+   static const int _minScheduleIntervalMinutes = 30;
+
+   // Skip if we've scheduled within the last 30 minutes
+   if (!force) {
+     final lastScheduled = prefs.getInt(_lastScheduledKey) ?? 0;
+     final minutesSinceLastSchedule = (now - lastScheduled) / (1000 * 60);
+     if (minutesSinceLastSchedule < _minScheduleIntervalMinutes) {
+       return; // Skip - already scheduled recently
+     }
    }
    ```
 
-3. **Enhanced diagnostic logging**:
-   - `[NOTIFICATION]` logs show permission status, scheduling details, errors
-   - `[TODAYS-SPECIAL]` logs show cocktail selection, cache status, database state
+2. **Removed 1-minute catch-up logic** (`notification_service.dart`):
+   ```dart
+   // If scheduled time is in the past, skip it (no catch-up to prevent loops)
+   if (scheduledDate.isBefore(now)) {
+     continue; // Tomorrow's notification will fire correctly
+   }
+   ```
+
+3. **Added force parameter** (`notification_service.dart`):
+   ```dart
+   Future<void> scheduleTodaysSpecialNotification(Cocktail cocktail, {bool force = false})
+   ```
+   - `force: true` bypasses idempotency check
+   - Used in `profile_screen.dart` when user changes notification settings
+
+### Issue #4: App Not in "App Notifications" Until Test (January 2026)
+
+**Problem**: After fresh install and granting notification permission, the app didn't appear in Settings → Notifications → App notifications. Today's Special notifications never fired unless user tapped "Test Notification" in profile settings.
+
+**Root Cause**: Android 8.0+ (API 26+) requires notification channels to be explicitly created before notifications work. The `NotificationService.initialize()` method only initialized the plugin but didn't create channels. Channels were created implicitly when the first notification was shown (via `show()`), but `zonedSchedule()` only scheduled future notifications without triggering channel registration in Android system settings.
+
+**Why "Test Notification" Fixed It**: The test notification called `show()` which immediately displays a notification, which creates and registers the channel visibly in Android settings.
+
+**Fixes Applied**:
+
+1. **Added explicit channel creation** (`notification_service.dart`):
+   ```dart
+   Future<void> _createNotificationChannels() async {
+     if (!Platform.isAndroid) return;
+
+     final androidPlugin = _plugin
+         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+
+     if (androidPlugin == null) return;
+
+     // Create Today's Special channel
+     const todaysSpecialChannel = AndroidNotificationChannel(
+       _todaysSpecialChannelId,
+       _todaysSpecialChannelName,
+       description: _todaysSpecialChannelDescription,
+       importance: Importance.high,
+       playSound: true,
+       enableVibration: true,
+     );
+     await androidPlugin.createNotificationChannel(todaysSpecialChannel);
+
+     // Create Token Refresh channel (silent/hidden)
+     const tokenRefreshChannel = AndroidNotificationChannel(
+       _tokenRefreshChannelId,
+       _tokenRefreshChannelName,
+       description: _tokenRefreshChannelDescription,
+       importance: Importance.min,
+       playSound: false,
+       enableVibration: false,
+     );
+     await androidPlugin.createNotificationChannel(tokenRefreshChannel);
+   }
+   ```
+
+2. **Called from initialize()** (`notification_service.dart`):
+   ```dart
+   await _requestNotificationPermission();
+   await _createNotificationChannels();  // Ensures channels exist immediately
+   await _ensureTimeZoneInitialized();
+   ```
+
+**Why This Fix Works**:
+- `createNotificationChannel()` is the official Android API for registering channels
+- Channels appear in system settings immediately, without waiting for first notification
+- App now appears in "App notifications" right after installation
+- Scheduled notifications work because the channel already exists when they fire
 
 ## Android Permissions
 
@@ -230,14 +323,22 @@ go_router: ^14.8.1
    - [ ] Tap notification
    - [ ] App comes to foreground with cocktail detail
 
-3. **Catch-up Notification**:
-   - [ ] Set notification time to an hour ago
-   - [ ] Open app after that time
-   - [ ] Verify notification appears within 1 minute
+3. **No Infinite Loop (Issue #3 Regression Test)**:
+   - [ ] Enable notifications with time in the past
+   - [ ] Verify NO notification fires immediately (time passed, skip day 0)
+   - [ ] Navigate around app, close and reopen
+   - [ ] Verify NO repeated notifications fire
+   - [ ] Tomorrow's notification should fire correctly at scheduled time
 
-4. **Diagnostic Logs**:
+4. **User Settings Change**:
+   - [ ] Change notification time in Profile > Notifications
+   - [ ] Verify notifications reschedule immediately (force: true bypasses idempotency)
+   - [ ] Check logs show "Force: true" in scheduling output
+
+5. **Diagnostic Logs**:
    - [ ] Run `adb logcat | grep -E "\[NOTIFICATION\]|\[TODAYS-SPECIAL\]"`
    - [ ] Verify logs show scheduling status and any errors
+   - [ ] Look for "SKIPPED - Already scheduled X minutes ago" on app resume
 
 ### Test Commands
 
@@ -257,11 +358,25 @@ adb shell dumpsys alarm | grep mybartenderai
 
 ## Changelog
 
+### January 2026 (v1.3.0)
+
+- Fixed: App not appearing in "App notifications" until test notification triggered
+- Added: Explicit notification channel creation during `initialize()`
+- Added: `_createNotificationChannels()` method for Android 8.0+ compatibility
+- Changed: Channels now registered immediately on app startup, not on first notification
+
+### January 2026 (v1.2.0)
+
+- Fixed: Infinite notification loop caused by catch-up + provider re-evaluation
+- Added: Idempotency check (30-minute cooldown) to prevent rapid re-scheduling
+- Added: `force` parameter to bypass idempotency for user settings changes
+- Removed: 1-minute catch-up notification (was causing infinite loop)
+- Changed: If today's time passed, skip day 0 instead of catch-up (tomorrow will fire)
+
 ### December 2025 (v1.1.0)
 
 - Fixed: Card flashing and closing when tapping notification
 - Fixed: Notifications not firing on some devices (battery optimization)
-- Added: Catch-up notification when scheduled time has passed
 - Added: Battery optimization exemption request
 - Added: Diagnostic logging (`[NOTIFICATION]`, `[TODAYS-SPECIAL]`)
 - Changed: Navigation from Navigator.push to GoRouter for consistency
@@ -280,4 +395,4 @@ adb shell dumpsys alarm | grep mybartenderai
 ---
 
 **Maintained By**: Claude Code
-**Last Updated**: December 2025
+**Last Updated**: January 2026

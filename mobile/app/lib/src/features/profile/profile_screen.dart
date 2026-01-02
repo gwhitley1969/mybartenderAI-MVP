@@ -301,12 +301,12 @@ class ProfileScreen extends ConsumerWidget {
                     await NotificationService.instance.setNotificationEnabled(value);
                     ref.invalidate(notificationSettingsProvider);
 
-                    // If enabling, reschedule the notification
+                    // If enabling, reschedule the notification (force to bypass idempotency)
                     if (value) {
                       final todaysSpecial = ref.read(todaysSpecialProvider);
                       todaysSpecial.whenData((cocktail) {
                         if (cocktail != null) {
-                          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail);
+                          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail, force: true);
                         }
                       });
                     }
@@ -635,11 +635,11 @@ class ProfileScreen extends ConsumerWidget {
       await NotificationService.instance.setNotificationTime(picked.hour, picked.minute);
       ref.invalidate(notificationSettingsProvider);
 
-      // Reschedule notification with new time
+      // Reschedule notification with new time (force to bypass idempotency)
       final todaysSpecial = ref.read(todaysSpecialProvider);
       todaysSpecial.whenData((cocktail) {
         if (cocktail != null) {
-          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail);
+          NotificationService.instance.scheduleTodaysSpecialNotification(cocktail, force: true);
         }
       });
 

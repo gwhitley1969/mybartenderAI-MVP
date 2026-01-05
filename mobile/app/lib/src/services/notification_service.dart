@@ -405,8 +405,8 @@ class NotificationService {
       playSound: true,
       channelAction: AndroidNotificationChannelAction.update,
       icon: '@mipmap/ic_launcher',
-      // Keep notification visible - user must manually dismiss
-      autoCancel: false,
+      // Dismiss notification when user taps it (standard Android behavior)
+      autoCancel: true,
       ongoing: false,
       // Show on lock screen
       visibility: NotificationVisibility.public,
@@ -591,8 +591,8 @@ class NotificationService {
       ),
       playSound: true,
       icon: '@mipmap/ic_launcher',
-      // Keep notification visible - user must manually dismiss
-      autoCancel: false,
+      // Dismiss notification when user taps it (standard Android behavior)
+      autoCancel: true,
       ongoing: false,
       // Show on lock screen
       visibility: NotificationVisibility.public,

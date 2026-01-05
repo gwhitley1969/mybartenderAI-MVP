@@ -1,7 +1,7 @@
 # Today's Special Feature
 
 **Date**: January 2026
-**Version**: 1.3.0
+**Version**: 1.4.0
 **Status**: Implemented with Notifications & Bug Fixes
 
 ## Overview
@@ -272,6 +272,40 @@ GoRoute(
 - App now appears in "App notifications" right after installation
 - Scheduled notifications work because the channel already exists when they fire
 
+### Issue #5: Card Flashes & Notification Doesn't Clear (January 2026)
+
+**Problems**:
+1. When tapping notification, cocktail detail card flashes briefly then redirects to home screen
+2. After tapping notification, it remains in the notification tray instead of being dismissed
+
+**Root Cause #1 - Card Flash**: The router's `initialSyncStatus` check could redirect away from the cocktail route. While an early exemption existed at lines 191-195, the initial sync check at lines 217-222 didn't include this protection, creating a potential race condition when provider state changed.
+
+**Root Cause #2 - Notification Not Clearing**: `autoCancel: false` was explicitly set in the notification configuration, preventing automatic dismissal on tap.
+
+**Fixes Applied**:
+
+1. **Added cocktail route protection to initial sync check** (`main.dart`):
+   ```dart
+   // Before
+   if (isAuthenticated && !isInitialSyncRoute && !initialSyncStatus.isChecking) {
+
+   // After
+   if (isAuthenticated && !isInitialSyncRoute && !isCocktailRoute && !initialSyncStatus.isChecking) {
+   ```
+
+2. **Changed autoCancel to true** (`notification_service.dart`):
+   ```dart
+   // Before (lines 409 and 595)
+   autoCancel: false,  // Keep notification visible
+
+   // After
+   autoCancel: true,   // Dismiss on tap (standard Android behavior)
+   ```
+
+**Why These Fixes Work**:
+- Belt-and-suspenders protection ensures cocktail routes are never redirected by initial sync check
+- `autoCancel: true` is standard Android UX - tapping a notification should dismiss it
+
 ## Android Permissions
 
 ```xml
@@ -357,6 +391,13 @@ adb shell dumpsys alarm | grep mybartenderai
 3. **First Run**: Notification won't schedule until Today's Special loads (requires database sync).
 
 ## Changelog
+
+### January 2026 (v1.4.0)
+
+- Fixed: Cocktail detail card flashing then redirecting to home on notification tap
+- Fixed: Notification not clearing from tray after user taps it
+- Added: `!isCocktailRoute` protection to initial sync redirect check
+- Changed: `autoCancel: false` → `autoCancel: true` for standard Android dismiss-on-tap behavior
 
 ### January 2026 (v1.3.0)
 

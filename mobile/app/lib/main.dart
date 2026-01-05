@@ -215,8 +215,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       // Check if initial sync is needed (only for authenticated users)
-      // Don't redirect if already on initial-sync page or still checking
-      if (isAuthenticated && !isInitialSyncRoute && !initialSyncStatus.isChecking) {
+      // Don't redirect if already on initial-sync page, cocktail route (deep link), or still checking
+      if (isAuthenticated && !isInitialSyncRoute && !isCocktailRoute && !initialSyncStatus.isChecking) {
         if (initialSyncStatus.needsSync) {
           return '/initial-sync';
         }

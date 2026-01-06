@@ -2,9 +2,14 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: December 2025
+**Last Updated**: January 6, 2026
 
-The MyBartenderAI mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested.
+The MyBartenderAI mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
+
+### Recent Updates (January 2026)
+
+- **Recipe Vault AI Concierge**: Added Chat and Voice buttons to help users find cocktails via AI
+- **My Bar Smart Scanner**: Added Scanner option in empty state for quick bottle identification
 
 ---
 
@@ -40,6 +45,8 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 - `POSTGRES-CONNECTION-STRING` - Database connection
 - `COCKTAILDB-API-KEY` - TheCocktailDB API key
 - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
+- `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization (placeholder)
+- `REVENUECAT-WEBHOOK-SECRET` - RevenueCat webhook signature verification (placeholder)
 - Plus additional service keys
 
 ---
@@ -83,6 +90,8 @@ Tier validation occurs in backend functions via PostgreSQL user lookup (not APIM
 
 **Voice Minutes:** Premium users can purchase voice minutes at $4.99 for 10 minutes. Pro users get 45 minutes included per month and can purchase additional minutes at the same rate.
 
+**Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.tier` updates via PostgreSQL trigger.
+
 ---
 
 ## Deployed Azure Functions
@@ -118,6 +127,22 @@ All functions deployed to `func-mba-fresh`:
 | `social-invite` | POST | `/api/v1/social/invite` | JWT | Working |
 | `social-inbox` | GET | `/api/v1/social/inbox` | JWT | Working |
 | `social-outbox` | GET | `/api/v1/social/outbox` | JWT | Working |
+
+### Subscription Endpoints
+
+| Function | Method | Path | Auth | Status |
+|----------|--------|------|------|--------|
+| `subscription-config` | GET | `/api/v1/subscription/config` | JWT | Deployed* |
+| `subscription-status` | GET | `/api/v1/subscription/status` | JWT | Deployed* |
+| `subscription-webhook` | POST | `/api/v1/subscription/webhook` | RevenueCat Signature | Deployed* |
+
+*Awaiting RevenueCat account setup. See `SUBSCRIPTION_DEPLOYMENT.md` for configuration steps.
+
+### Voice Purchase
+
+| Function | Method | Path | Auth | Status |
+|----------|--------|------|------|--------|
+| `voice-purchase` | POST | `/api/v1/voice/purchase` | JWT | Working |
 
 ### Admin/Utility Functions
 
@@ -188,17 +213,26 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 | Create Studio | `create_studio_screen.dart` | Complete |
 | User Profile | `profile_screen.dart` | Complete |
 | Login | `login_screen.dart` | Complete |
-| Today's Special | Home card | Complete |
+| Today's Special | Home card + notifications | Complete |
+| Notification Settings | Profile screen | Complete |
 | Social Sharing | Share dialogs | Complete |
 
 ### Key Integrations
 
 - **Offline-First Database**: SQLite with Zstandard-compressed snapshots (~172KB)
 - **State Management**: Riverpod providers
-- **Routing**: GoRouter with authentication guards
+- **Routing**: GoRouter with authentication guards + deep linking
 - **HTTP Client**: Dio with JWT interceptors
 - **Secure Storage**: flutter_secure_storage for tokens
-- **Notifications**: Local notifications for Today's Special (5 PM daily)
+- **Notifications**: flutter_local_notifications for Today's Special
+  - 7-day lookahead scheduling (one-time alarms, more reliable than repeating)
+  - Deep link to cocktail detail via notification payload
+  - Idempotent scheduling (30-minute cooldown prevents loops)
+  - Battery optimization exemption for reliable delivery
+  - Configurable notification time (default 5 PM)
+- **Background Token Refresh**: Silent alarm-based token refresh every 6 hours
+  - Uses `Importance.min` and `silent: true` for invisible notifications
+  - `TOKEN_REFRESH_TRIGGER` payload filtered in main.dart to prevent navigation errors
 
 ### Profile Screen (Release Candidate)
 
@@ -255,6 +289,30 @@ Mobile App
 Azure OpenAI Realtime API
 ```
 
+### Subscription Flow (RevenueCat)
+
+```
+Mobile App
+    ↓ (fetch config)
+subscription-config function
+    ↓ (RevenueCat API key)
+Mobile App → RevenueCat SDK → Google Play
+    ↓ (purchase complete)
+RevenueCat Server
+    ↓ (webhook event)
+subscription-webhook function
+    ↓ (verify signature, check idempotency)
+PostgreSQL (user_subscriptions)
+    ↓ (trigger)
+PostgreSQL (users.tier updated)
+```
+
+**Webhook Features:**
+- Idempotency via `revenuecat_event_id` unique index
+- Sandbox event filtering (production ignores sandbox events)
+- Grace period handling for billing issues
+- All events logged to `subscription_events` audit table
+
 ---
 
 ## External Integrations
@@ -266,6 +324,9 @@ Azure OpenAI Realtime API
 | Google OAuth | Social sign-in | Configured |
 | Facebook OAuth | Social sign-in | Configured |
 | Instagram | Social sharing | Configured |
+| RevenueCat | Subscription management | Awaiting setup* |
+
+*Backend code deployed, Key Vault placeholders created. Requires RevenueCat account configuration.
 
 ---
 
@@ -334,9 +395,13 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `AUTHENTICATION_IMPLEMENTATION.md` | Mobile app auth integration |
 | `AGE_VERIFICATION_IMPLEMENTATION.md` | 21+ verification details |
 | `VOICE_AI_IMPLEMENTATION.md` | Voice feature specification |
+| `SUBSCRIPTION_DEPLOYMENT.md` | RevenueCat subscription system |
+| `TODAYS_SPECIAL_FEATURE.md` | Today's Special notifications and deep linking |
+| `RECIPE_VAULT_AI_CONCIERGE.md` | AI Chat/Voice buttons in Recipe Vault |
+| `MY_BAR_SCANNER_INTEGRATION.md` | Smart Scanner option in My Bar empty state |
 | `CLAUDE.md` | Project context and conventions |
 
 ---
 
 **Status**: Release Candidate
-**Last Updated**: December 2025
+**Last Updated**: January 6, 2026

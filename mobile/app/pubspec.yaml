@@ -72,6 +72,10 @@ dependencies:
   # Social sharing
   share_plus: ^7.2.1
 
+  # In-app purchases
+  in_app_purchase: ^3.1.13
+  purchases_flutter: ^8.4.2  # RevenueCat SDK for subscription management
+
   # Preferences
   shared_preferences: ^2.2.3
 
@@ -95,6 +99,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.9.1
   flutter_launcher_icons: ^0.13.1
+  riverpod_generator: ^2.4.0  # For subscription provider code generation
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

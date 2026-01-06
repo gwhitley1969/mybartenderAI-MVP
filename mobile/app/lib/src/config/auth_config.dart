@@ -57,4 +57,5 @@ class AuthConfig {
   static const String idTokenKey = 'id_token';
   static const String expiresAtKey = 'expires_at';
   static const String userProfileKey = 'user_profile';
+  static const String lastRefreshTimeKey = 'last_refresh_time';
 }

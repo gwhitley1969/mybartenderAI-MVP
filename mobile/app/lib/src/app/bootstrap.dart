@@ -96,8 +96,9 @@ Future<void> bootstrap(
   // Backend looks up user tier from database
 
   // Initialize background token refresh service
-  // This keeps the refresh token active by using it every 10 hours
-  // to avoid the 12-hour inactivity timeout in Entra External ID
+  // This runs every 8 hours as a BACKUP to keep the refresh token active
+  // The PRIMARY mechanism is AppLifecycleService (foreground refresh on app resume)
+  // which is initialized in AuthNotifier when providers are ready
   try {
     await BackgroundTokenService.instance.initialize();
     debugPrint('BackgroundTokenService initialized');

@@ -96,3 +96,6 @@ gemini_assessment.md
 
 # Claude settings (local only)
 .claude/settings.local.json
+
+# VS Code workspace files (user-specific)
+*.code-workspace

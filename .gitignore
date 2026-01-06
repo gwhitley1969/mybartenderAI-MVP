@@ -48,3 +48,51 @@ node_modules/
 infrastructure/database/*.exe
 *.png
 nul
+
+# Development artifacts & temp files
+*.db
+*.zst
+*.docx
+*.pdf
+device_logs.txt
+packagename.txt
+temp-*.txt
+migration-*.txt
+get-debug-logs.bat
+test-debug.bat
+check-snapshot.js
+test-decompress.js
+fix-voice-function.sql
+
+# APIM policy exports (not source of truth)
+api-*.json
+apim-*.json
+operation-*.json
+vision-*.json
+*-policy-*.xml
+function-vision-response.json
+test-ai-request.json
+
+# Temp static files
+temp-static/
+
+# Session/troubleshooting notes (not permanent docs)
+*_FIX*.md
+*_SUMMARY*.md
+*ROOT_CAUSE*.md
+*TROUBLESHOOTING*.md
+*ISSUE_RESOLVED*.md
+*DEBUG*.md
+*CRITICAL*.md
+FINAL_FIX.md
+CURRENT_*.md
+*TESTING_GUIDE.md
+*WORKAROUND*.md
+READY-TO-TEST-*.md
+TEST-*.md
+TEST_*.md
+README_FOR_REVIEW.md
+gemini_assessment.md
+
+# Claude settings (local only)
+.claude/settings.local.json

@@ -126,7 +126,7 @@ class AskBartenderService {
       // Temporarily bypass authentication to get AI chat working
       // TODO: Re-enable authentication once Entra External ID is properly configured
       final response = await _dio.post(
-        '/api/v1/ask-bartender-simple?code=PjJ95CqlmcEGrsaKEtftVnK6Pzul1N3_hPy9ekxmWq-tAzFuqm0UKQ==',
+        '/api/v1/ask-bartender-simple?code=<REDACTED-FUNCTION-KEY>',
         data: {
           'message': message,
           'context': context ?? '',

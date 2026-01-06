@@ -4,7 +4,7 @@
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
 - Azure API Management (`apim-mba-002`) as API gateway for tier management and security
-- **Azure Functions v4 Programming Model** - 30 functions with code-centric registration
+- **Azure Functions v4 Programming Model** - 34 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
@@ -15,7 +15,7 @@
 - Mobile → APIM → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
 - Azure Front Door (`fd-mba-share`) for external sharing with custom domain `share.mybartenderai.com`
 
-## Current Operational Status (December 2025)
+## Current Operational Status (January 2026)
 
 ### Working Features
 - ✅ Recipe Vault (database download and sync via APIM)
@@ -32,8 +32,18 @@
 - ✅ **Azure Functions v4 Migration Complete** - All functions migrated and deployed
 - ✅ **Official Azure OpenAI SDK** - All AI functions using @azure/openai package
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
+- ✅ **Subscription System** - RevenueCat webhook integration with idempotency
+- ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 
-### Recent Backend Improvements (November 2025)
+### Recent Backend Improvements
+
+**Subscription System (December 2025):**
+- ✅ **RevenueCat Integration**: Webhook endpoint for subscription lifecycle events
+- ✅ **Idempotency**: Event deduplication via `revenuecat_event_id` unique index
+- ✅ **Grace Period Handling**: BILLING_ISSUE respects `grace_period_expires_date_ms`
+- ✅ **Sandbox Filtering**: Production webhook ignores sandbox test events
+- ✅ **Audit Logging**: All webhook events stored in `subscription_events` table
+- ✅ **3 New Functions**: subscription-config, subscription-status, subscription-webhook
 
 **Azure Functions v4 Migration (November 20, 2025):**
 - ✅ **v4 Programming Model**: Code-centric registration in single `index.js` file
@@ -59,7 +69,7 @@
 
 - AI-powered cocktail recommendations based on inventory (GPT-4o-mini via @azure/openai SDK)
 - **Azure Functions v4 Programming Model** with code-centric registration
-- **30 Backend Functions**: 29 HTTP triggers + 1 timer trigger
+- **34 Backend Functions**: 33 HTTP triggers + 1 timer trigger
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication via Entra External ID (fully operational)
 - APIM-based rate limiting per tier (backend validates tier in PostgreSQL)
@@ -103,15 +113,30 @@ sequenceDiagram
 
   Note over M: All images stored locally on device
   Note over M: All free features run offline
+
+  Note over M,AI: Subscription Flow (RevenueCat)
+  M->>RC: Purchase via Google Play
+  RC->>APIM: POST /v1/subscription/webhook (signature auth)
+  APIM->>F: Forward webhook event
+  F->>F: Verify signature, check idempotency
+  F->>DB: Record event in subscription_events
+  F->>DB: Upsert user_subscriptions, trigger updates users.tier
+  F-->>RC: 200 OK (processed)
+  M->>APIM: GET /v1/subscription/status (JWT)
+  APIM->>F: Forward to subscription-status
+  F->>DB: Query subscription status
+  F-->>M: { tier, isActive, expiresAt }
 ```
+
+**Note:** RC = RevenueCat server-to-server webhook
 
 ## Azure Functions Architecture (v4 Programming Model)
 
 ### Overview
 
-All 30 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
+All 34 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
 
-### Function Catalog (30 Total)
+### Function Catalog (34 Total)
 
 **Core & Health (1)**
 - `health` - Health check endpoint (GET /api/health)
@@ -146,6 +171,16 @@ All 30 functions use the Azure Functions v4 programming model with code-centric 
 - `social-invite` - Social invites (GET /api/v1/social/invite/{token?})
 - `social-outbox` - Social outbox (GET /api/v1/social/outbox)
 - `social-share-internal` - Internal sharing (POST /api/v1/social/share-internal)
+
+**Subscription Functions (3)**
+- `subscription-config` - RevenueCat API key for SDK initialization (GET /api/v1/subscription/config)
+- `subscription-status` - User subscription status and tier (GET /api/v1/subscription/status)
+- `subscription-webhook` - RevenueCat server-to-server webhook (POST /api/v1/subscription/webhook)
+  - Handles: INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE, PRODUCT_CHANGE, UNCANCELLATION, SUBSCRIPTION_PAUSED
+  - Features: Idempotency via event ID, sandbox filtering, grace period handling
+
+**Voice Purchase (1)**
+- `voice-purchase` - Purchase voice minutes (POST /api/v1/voice/purchase)
 
 **Testing & Utilities (4)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
@@ -192,7 +227,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 ```
 
 **Migration Status:**
-- ✅ 30 functions deployed and operational
+- ✅ 34 functions deployed and operational
 - ⚠️ 1 function (speech-token) has configuration issue unrelated to migration
 
 ## AI Model & Cost Strategy
@@ -326,7 +361,7 @@ All authentication and key management functions include comprehensive monitoring
 
 **Status:** ✅ **OPERATIONAL** (PostgreSQL is authoritative master)
 
-**Note:** TheCocktailDB sync timers are DISABLED as of December 2025. The PostgreSQL database (`mybartender`) is now the authoritative master copy with custom modifications. Snapshots are generated manually when needed.
+**Note:** TheCocktailDB sync timers are DISABLED. The PostgreSQL database (`mybartender`) is now the authoritative master copy with custom modifications. Snapshots are generated manually when needed.
 
 ### Architecture Changes (Current State)
 
@@ -337,7 +372,7 @@ All authentication and key management functions include comprehensive monitoring
 - **Distribution**: Via APIM-integrated endpoints
 - **Azure Functions**: v4 programming model with code-centric registration
 - **AI Integration**: Official @azure/openai SDK for all AI features
-- **Current Metrics** (December 2025):
+- **Current Metrics** (January 2026):
   - 621 drinks, 2491 ingredients, 40 glass types, 11 categories, 67 tags
   - Snapshot size: ~172KB (SQLite binary with zstd compression)
   - Response time: <100ms
@@ -442,17 +477,147 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
   - **Status**: ✅ Deployed and tested
   - **URL**: https://func-mba-fresh.azurewebsites.net/api/validate-age
 
+## Subscription Architecture (RevenueCat)
+
+### Overview
+
+Subscription management is handled via **RevenueCat** for unified subscription lifecycle across platforms (Android now, iOS future). The backend receives server-to-server webhooks to maintain authoritative subscription state in PostgreSQL.
+
+### Components
+
+**Database Tables:**
+- `user_subscriptions` - Current subscription state per user (one row per user)
+- `subscription_events` - Audit log of all webhook events (includes raw payload)
+
+**Functions:**
+- `subscription-config` - Returns RevenueCat public API key for SDK initialization
+- `subscription-status` - Returns user's current subscription tier and status
+- `subscription-webhook` - Receives RevenueCat server-to-server notifications
+
+### Webhook Event Handling
+
+| Event Type | Action |
+|------------|--------|
+| `INITIAL_PURCHASE` | Activate subscription, set tier |
+| `RENEWAL` | Extend subscription, update expiry |
+| `CANCELLATION` | Keep active until expiry, set autoRenewing=false |
+| `EXPIRATION` | Deactivate subscription, revert to free tier |
+| `BILLING_ISSUE` | Check grace period; keep active if in grace |
+| `PRODUCT_CHANGE` | Update tier based on new product |
+| `UNCANCELLATION` | Reactivate auto-renewal |
+| `SUBSCRIPTION_PAUSED` | Deactivate but retain renewal intent |
+
+### Key Features
+
+**Idempotency:**
+- Each webhook event has unique `event.id`
+- Stored in `subscription_events.revenuecat_event_id` with unique index
+- Duplicate events return 200 OK but skip processing
+
+**Grace Period Handling:**
+- BILLING_ISSUE checks `grace_period_expires_date_ms`
+- Users retain access during grace period
+- Subscription deactivates only after grace expires
+
+**Sandbox Filtering:**
+- Production webhook ignores `environment: 'SANDBOX'` events
+- Sandbox events logged for debugging but don't update subscriptions
+
+**Tier Sync Trigger:**
+- PostgreSQL trigger `sync_user_tier_from_subscription` automatically updates `users.tier`
+- Ensures authoritative tier is always in sync with subscription state
+
+### Authentication
+
+- **subscription-config**: JWT required (user must be authenticated)
+- **subscription-status**: JWT required (returns current user's status)
+- **subscription-webhook**: RevenueCat signature verification (HMAC-SHA256)
+  - No JWT - uses `X-RevenueCat-Webhook-Signature` header
+  - Secret stored in Key Vault: `REVENUECAT-WEBHOOK-SECRET`
+
+## Today's Special Architecture (January 2026)
+
+### Overview
+
+The Today's Special feature displays a daily featured cocktail on the home screen with push notification reminders. The system is designed for reliability across Android OEM battery optimization and supports deep linking from notifications.
+
+### Components
+
+**Mobile App:**
+- `todays_special_provider.dart` - Riverpod FutureProvider for cocktail selection
+- `notification_service.dart` - flutter_local_notifications integration
+- `battery_optimization_service.dart` - Android battery exemption handling
+- `home_screen.dart` - Today's Special card UI
+
+**Key Features:**
+- **Midnight Refresh**: Timer-based provider invalidation at local midnight
+- **7-Day Scheduling**: One-time alarms for next 7 days (more reliable than repeating)
+- **Idempotent Scheduling**: 30-minute cooldown prevents infinite notification loops
+- **Battery Exemption**: Requests `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` for reliable alarms
+- **Deep Linking**: Notification payload contains cocktail ID for direct navigation
+
+### Data Flow
+
+```mermaid
+sequenceDiagram
+  participant P as Provider
+  participant DB as SQLite
+  participant SP as SharedPreferences
+  participant N as NotificationService
+  participant OS as Android AlarmManager
+
+  P->>SP: Check today's cached selection
+  alt Cache Hit (same day)
+    SP-->>P: Return cached cocktail ID
+    P->>DB: Fetch cocktail by ID
+  else Cache Miss
+    P->>DB: Get random cocktail
+    P->>SP: Store selection for today
+  end
+  P->>N: Schedule notifications (if not recently scheduled)
+  N->>N: Check idempotency (30-min cooldown)
+  N->>OS: Schedule 7 one-time exact alarms
+  Note over OS: Alarms fire at configured time
+  OS->>N: Notification delivered
+  Note over N: User taps notification
+  N->>App: Deep link to /cocktail/:id
+```
+
+### Notification Scheduling Details
+
+**SharedPreferences Keys:**
+- `todays_special_date` - Date key (YYYY-MM-DD)
+- `todays_special_id` - Selected cocktail ID
+- `notification_enabled` - User preference (default: true)
+- `notification_hour` / `notification_minute` - Notification time (default: 5:00 PM)
+- `notification_last_scheduled` - Idempotency timestamp
+
+**Android Permissions:**
+```xml
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+```
+
+### Bug Fixes (January 2026)
+
+1. **Infinite Loop Prevention**: Added idempotency check - scheduling skipped if done within 30 minutes
+2. **Deep Link Protection**: Protected `/cocktail/:id` route from router redirects
+3. **Battery Optimization**: Request exemption for reliable alarm delivery on Samsung/Xiaomi/Huawei
+
 ## Security & Privacy
 
 ### Authentication & Access
 
-- **Current Status (November 20, 2025)**:
+- **Current Status (January 2026)**:
   - JWT authentication via Microsoft Entra External ID (fully operational)
   - JWT-only authentication (APIM validates JWT via policy)
   - Server-side tier validation in PostgreSQL
   - Rate limiting based on user tier
-  - **Azure Functions v4 Programming Model**: All 30 functions deployed
+  - **Azure Functions v4 Programming Model**: All 34 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
+  - **RevenueCat Subscriptions**: Webhook-based subscription management
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role
 - **Key Vault Access**: Managed Identity with Key Vault Secrets User role (RBAC)
 - **PostgreSQL Access**: Connection string retrieved from Key Vault via Managed Identity
@@ -629,7 +794,7 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: December 21, 2025
-**Architecture Version**: 3.1 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice)
+**Last Updated**: January 1, 2026
+**Architecture Version**: 3.3 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + RevenueCat Subscriptions + Today's Special Notifications)
 **Programming Model**: Azure Functions v4
 **Security Level**: Production-ready with Managed Identity

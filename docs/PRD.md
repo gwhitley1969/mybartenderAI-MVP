@@ -2,8 +2,8 @@
 
 ## MyBartenderAI
 
-**Document Version**: 2.0
-**Last Updated**: December 21, 2025
+**Document Version**: 2.2
+**Last Updated**: January 1, 2026
 **Product Owner**: Gene Whitley
 **Status**: Release Candidate
 
@@ -138,7 +138,32 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 ### Core Features (Free Tier)
 
-#### 1. Offline Cocktail Database
+#### 1. Today's Special
+
+**Description**: Daily featured cocktail with push notification reminders.
+
+**Functional Requirements**:
+
+- FR0.1: Select random cocktail each day at midnight (local time)
+- FR0.2: Persist selection across app restarts using SharedPreferences
+- FR0.3: Display prominently on home screen with cocktail image and name
+- FR0.4: Schedule daily push notification at configurable time (default 5:00 PM)
+- FR0.5: Deep link from notification to cocktail detail screen
+- FR0.6: Work offline once cocktail data is downloaded
+
+**User Stories**:
+
+- As Emma, I want a daily drink suggestion so I have inspiration for happy hour
+- As Mark, I want notification reminders so I don't forget to try new cocktails
+
+**Acceptance Criteria**:
+
+- Same cocktail shown all day until midnight
+- Notification fires reliably even if app is closed
+- Tapping notification opens cocktail detail screen
+- Works on Android with battery optimization exemption
+
+#### 2. Offline Cocktail Database
 
 **Description**: Complete database of ~621 cocktails with recipes, images, and instructions.
 
@@ -436,6 +461,8 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
   - `CLAUDE-API-KEY` - Anthropic Claude API key (Smart Scanner)
   - `POSTGRES-CONNECTION-STRING` - Database connection
   - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
+  - `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization
+  - `REVENUECAT-WEBHOOK-SECRET` - Webhook signature verification
 
 #### AI Services
 
@@ -1173,10 +1200,17 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 **Premium/Pro Features**:
 
 - `POST /api/v1/vision/analyze` - Smart Scanner (Premium: 15/month, Pro: 50/month)
+- `POST /api/v1/voice/purchase` - Purchase voice minutes ($4.99/10 min)
 
 **Pro Only**:
 
 - `POST /api/v1/voice/session` - Voice AI session token (45 min/month)
+
+**Subscription Management**:
+
+- `GET /api/v1/subscription/config` - RevenueCat SDK configuration
+- `GET /api/v1/subscription/status` - User subscription status and tier
+- `POST /api/v1/subscription/webhook` - RevenueCat server-to-server webhook (signature auth)
 
 **Social Features**:
 
@@ -1223,8 +1257,10 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | ------- | ------------ | ------------ | -------------------------------------------- |
 | 1.0     | Oct 22, 2025 | Gene Whitley | Initial PRD creation                         |
 | 2.0     | Dec 21, 2025 | Gene Whitley | Updated for Release Candidate status: corrected pricing, tier quotas, technical architecture (JWT-only auth, Claude Haiku for vision, Azure OpenAI Realtime for voice), marked Phases 1-3 complete |
+| 2.1     | Dec 23, 2025 | Gene Whitley | Added subscription system (RevenueCat integration): Key Vault secrets, subscription management endpoints, voice-purchase endpoint |
+| 2.2     | Jan 1, 2026  | Gene Whitley | Added Today's Special feature with push notifications, deep linking, and idempotent scheduling |
 
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: December 21, 2025
+**Last Updated**: January 1, 2026

@@ -52,9 +52,9 @@ The Smart Scanner option allows users to:
 │                                     │
 │       Your bar is empty             │
 │                                     │
-│   Add ingredients to track what     │
-│   you have and discover cocktails   │
-│   you can make                      │
+│   Search to add ingredients, or     │
+│   snap a photo to let AI identify   │
+│   your bottles                      │
 │                                     │
 │  [ + Add ]       [ 📷 Scanner ]     │  ← Two buttons
 │   Purple             Pink           │

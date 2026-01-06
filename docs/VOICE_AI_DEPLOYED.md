@@ -525,6 +525,7 @@ const WARNING_THRESHOLD = 360;       // Show warning at 6 minutes remaining (80%
 - [ ] Conversation history saved to database
 - [ ] Session survives brief network interruption
 - [x] Out-of-scope questions get polite redirect
+- [x] Background noise filtered (semantic_vad + noise reduction)
 - [ ] End session properly records usage
 - [ ] iOS microphone permission flow (not yet tested)
 
@@ -917,4 +918,125 @@ When working correctly, you'll see these log entries:
 
 ---
 
-**Last Updated**: December 27, 2025 (Bar inventory integration via session.update)
+---
+
+## Background Noise Sensitivity Fix (Updated January 2026)
+
+### Problem
+
+Users reported the Voice AI was too sensitive to background noise:
+- TV or music playing in the background would trigger responses
+- Other people talking nearby would interrupt the AI
+- Environmental sounds caused erratic behavior
+- **January 2026 Update**: Even with initial `semantic_vad` fix, AI would pause indefinitely when background conversations were detected, requiring user to say "continue"
+
+### Root Cause
+
+The original implementation used `server_vad` (Voice Activity Detection), which detects speech based on audio energy thresholds. This was changed to `semantic_vad`, but with `eagerness: 'medium'` the AI was still too sensitive to background conversations in noisy environments (TV + people talking).
+
+### Solution: Low Eagerness + Far-Field Noise Reduction + Enhanced WebRTC
+
+**Key insight**: The `eagerness` parameter controls how quickly the AI assumes you've finished speaking:
+- `high` = responds quickly, sensitive to any pause
+- `medium` = balanced (still too sensitive for noisy environments)
+- **`low`** = waits longer, more tolerant of background noise/pauses
+
+**Session Configuration (voice-session function):**
+```javascript
+turn_detection: {
+    type: 'semantic_vad',           // AI-powered speech understanding
+    eagerness: 'low',               // More tolerant of background noise/pauses
+    create_response: true,
+    interrupt_response: false       // Prevents AI from being interrupted by noise
+},
+input_audio_noise_reduction: {
+    type: 'far_field'               // Aggressive filtering for speakerphone/ambient use
+}
+```
+
+**Client-side session.update (voice_ai_service.dart):**
+```dart
+'turn_detection': {
+  'type': 'semantic_vad',
+  'eagerness': 'low',
+  'create_response': true,
+  'interrupt_response': false,
+},
+'input_audio_noise_reduction': {
+  'type': 'far_field',
+},
+```
+
+**Enhanced WebRTC Audio Constraints:**
+```dart
+_localStream = await navigator.mediaDevices.getUserMedia({
+  'audio': {
+    'echoCancellation': true,
+    'noiseSuppression': true,
+    'autoGainControl': true,
+    // Enhanced noise filtering for noisy environments
+    'googNoiseSuppression': true,    // Chrome-specific enhanced suppression
+    'googHighpassFilter': true,       // Filter low-frequency background noise
+    'channelCount': 1,                // Mono audio (reduces complexity)
+  },
+  'video': false,
+});
+```
+
+### How Semantic VAD Works
+
+| Feature | server_vad | semantic_vad |
+|---------|------------|--------------|
+| Detection method | Audio energy threshold | AI speech understanding |
+| Background noise | Triggers on any sound | Ignores non-speech |
+| Other voices | Cannot distinguish | Focuses on primary speaker |
+| TV/Music | Triggers false positives | Filters out |
+| Latency | ~100ms | ~200ms |
+
+### Noise Reduction Types
+
+| Type | Best For | Description |
+|------|----------|-------------|
+| `near_field` | Headphones/close mic | Moderate noise filtering |
+| `far_field` | Speakerphone/ambient | Aggressive filtering for noisy environments |
+
+We use `far_field` because users are typically using phone speaker/mic in noisy bar environments.
+
+### Eagerness Settings
+
+| Setting | Behavior |
+|---------|----------|
+| **`low`** | Waits longer, more tolerant of background noise - **recommended for noisy environments** |
+| `medium` | Balanced - too sensitive for TV + conversations |
+| `high` | Responds quickly, may cut off user mid-sentence |
+
+We use `low` to handle noisy environments (TV, background conversations) without pausing indefinitely.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `backend/functions/index.js` | `eagerness: 'low'`, `interrupt_response: false`, `far_field` noise reduction |
+| `mobile/app/lib/src/services/voice_ai_service.dart` | Same VAD settings + enhanced WebRTC audio constraints |
+
+### Testing
+
+After implementing these changes (January 2026):
+- ✅ AI completes full responses without pausing when TV is on
+- ✅ AI completes responses when people are talking nearby
+- ✅ User can still speak to AI and get responses
+- ✅ Slight increase in response latency (acceptable trade-off)
+
+### Debug Logging
+
+When session.update is sent with the new configuration:
+```
+[VOICE-AI] Sending session.update with turn_detection: semantic_vad
+[VOICE-AI] Noise reduction enabled: far_field
+[VOICE-AI] session.update sent successfully
+[VOICE-AI] Session updated - configuration applied
+```
+
+---
+
+**Last Updated**: January 2026 (Low eagerness + far_field for better noise tolerance)

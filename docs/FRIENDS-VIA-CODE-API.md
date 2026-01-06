@@ -6,7 +6,7 @@ The Friends via Code API enables users to share cocktail recipes internally (by 
 
 ## Base URLs
 
-- **APIM Gateway**: `https://apim-mba-001.azure-api.net/api`
+- **APIM Gateway**: `https://apim-mba-002.azure-api.net/api`
 - **Function App (Direct)**: `https://func-mba-fresh.azurewebsites.net/api`
 
 **Note**: Always use APIM gateway in production for proper authentication, rate limiting, and analytics.

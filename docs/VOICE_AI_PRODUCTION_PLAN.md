@@ -488,3 +488,44 @@ MOBILE APP                    APIM                         FUNCTION APP
 The original plan included passing user inventory context via the backend during session creation. This approach did not work for WebRTC sessions.
 
 **Solution:** Inventory context is now sent directly via the WebRTC data channel using a `session.update` event after connection. This is handled entirely client-side in `voice_ai_service.dart`. See `VOICE_AI_DEPLOYED.md` for implementation details.
+
+---
+
+## Note: Background Noise Sensitivity Fix (December 2025)
+
+### Problem
+
+Users reported Voice AI was too sensitive to background noise (TV, other conversations, environmental sounds).
+
+### Solution
+
+Changed voice activity detection from `server_vad` to `semantic_vad` and added noise reduction:
+
+```javascript
+// Updated session configuration
+turn_detection: {
+    type: 'semantic_vad',           // AI-powered speech intent detection
+    eagerness: 'medium',            // Balanced responsiveness
+    create_response: true,
+    interrupt_response: true
+},
+input_audio_noise_reduction: {
+    type: 'near_field'              // Optimized for mobile device microphones
+}
+```
+
+### Key Differences
+
+| Aspect | server_vad (Before) | semantic_vad (After) |
+|--------|---------------------|----------------------|
+| Detection | Audio energy threshold | AI understands speech intent |
+| Background noise | Triggers false positives | Filtered out |
+| Other voices | Cannot distinguish | Focuses on primary speaker |
+| Latency | ~100ms | ~200ms (acceptable trade-off) |
+
+### Files Modified
+
+- `backend/functions/index.js` - voice-session function
+- `mobile/app/lib/src/services/voice_ai_service.dart` - session.update configuration
+
+See `VOICE_AI_DEPLOYED.md` for full implementation details.

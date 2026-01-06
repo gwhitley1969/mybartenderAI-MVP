@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
@@ -34,8 +35,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch snapshot statistics
-    final statisticsAsync = ref.watch(snapshotStatisticsProvider);
+    // Watch snapshot sync status for progress indicator
     final snapshotSync = ref.watch(snapshotSyncProvider);
 
     // Build cocktail filter
@@ -107,16 +107,12 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
             padding: EdgeInsets.all(AppSpacing.screenPaddingHorizontal),
             child: Column(
               children: [
-                // Statistics
-                statisticsAsync.when(
-                  data: (stats) => _buildStatistics(stats),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
+                // Search bar (now at top)
+                _buildSearchBar(),
                 SizedBox(height: AppSpacing.md),
 
-                // Search bar
-                _buildSearchBar(),
+                // AI Concierge prompt card
+                _buildAIConciergePrompt(context),
                 SizedBox(height: AppSpacing.md),
 
                 // Filter chips
@@ -183,53 +179,6 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
     );
   }
 
-  String _formatVersion(String? version) {
-    if (version == null || version == 'None') return 'None';
-
-    // Format: YYYYMMDD.HHMMSS -> MM/DD
-    if (version.length >= 8) {
-      final dateStr = version.substring(0, 8); // YYYYMMDD
-      final month = dateStr.substring(4, 6);
-      final day = dateStr.substring(6, 8);
-      return '$month/$day';
-    }
-
-    return version;
-  }
-
-  Widget _buildStatistics(Map<String, dynamic> stats) {
-    return Container(
-      padding: EdgeInsets.all(AppSpacing.md),
-      decoration: BoxDecoration(
-        color: AppColors.cardBackground,
-        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
-        border: Border.all(
-          color: AppColors.cardBorder,
-          width: AppSpacing.borderWidthThin,
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _buildStatItem('Cocktails', '${stats['totalCocktails'] ?? 0}'),
-          _buildStatItem('Categories', '${stats['categories'] ?? 0}'),
-          _buildStatItem(
-              'Updated', _formatVersion(stats['snapshotVersion']?.toString())),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value) {
-    return Column(
-      children: [
-        Text(value, style: AppTypography.heading3),
-        SizedBox(height: AppSpacing.xs),
-        Text(label, style: AppTypography.caption),
-      ],
-    );
-  }
-
   /// Build the measurement unit toggle button (oz/ml) for the app bar
   Widget _buildMeasurementToggle(WidgetRef ref) {
     final measurementUnitAsync = ref.watch(measurementUnitProvider);
@@ -280,6 +229,101 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
       },
       loading: () => SizedBox(width: 48),
       error: (_, __) => SizedBox(width: 48),
+    );
+  }
+
+  /// Build the AI Concierge prompt card with direct Chat/Voice buttons
+  Widget _buildAIConciergePrompt(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header row with icon and text
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.accentBlue,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.lightbulb_outline,
+                  color: AppColors.textPrimary,
+                  size: 20,
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Can't find what you're looking for?",
+                      style: AppTypography.cardTitle,
+                    ),
+                    SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Ask our AI Cocktail Concierge!',
+                      style: AppTypography.cardSubtitle,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          // Two action buttons side by side
+          Row(
+            children: [
+              // Chat button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/ask-bartender'),
+                  icon: Icon(Icons.chat_bubble_outline, size: 18),
+                  label: Text('Chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.iconCircleBlue,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              // Voice button
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.push('/voice-ai'),
+                  icon: Icon(Icons.mic, size: 18),
+                  label: Text('Voice'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.iconCircleTeal,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

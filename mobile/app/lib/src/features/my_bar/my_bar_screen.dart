@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/models.dart';
 import '../../providers/inventory_provider.dart';
@@ -205,27 +206,57 @@ class MyBarScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.xl),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AddIngredientScreen(),
+            // Two buttons side by side: Add manually or use Smart Scanner
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                children: [
+                  // Add Manually button
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: AppSpacing.sm),
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddIngredientScreen(),
+                            ),
+                          );
+                        },
+                        icon: Icon(Icons.add, size: 18),
+                        label: Text('Add'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPurple,
+                          foregroundColor: AppColors.textPrimary,
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                );
-              },
-              icon: Icon(Icons.add),
-              label: Text('Add First Ingredient'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryPurple,
-                foregroundColor: AppColors.textPrimary,
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.xl,
-                  vertical: AppSpacing.md,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
-                ),
+                  // Smart Scanner button
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(left: AppSpacing.sm),
+                      child: ElevatedButton.icon(
+                        onPressed: () => context.push('/smart-scanner'),
+                        icon: Icon(Icons.camera_alt, size: 18),
+                        label: Text('Scanner'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.iconCirclePink,
+                          foregroundColor: AppColors.textPrimary,
+                          padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

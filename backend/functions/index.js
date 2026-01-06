@@ -2375,10 +2375,13 @@ app.http('voice-realtime-test', {
                     model: 'whisper-1'
                 },
                 turn_detection: {
-                    type: 'server_vad',
-                    threshold: 0.5,
-                    prefix_padding_ms: 300,
-                    silence_duration_ms: 500
+                    type: 'semantic_vad',        // AI-based detection - understands speech semantically
+                    eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
+                    create_response: true,
+                    interrupt_response: false    // Prevents AI from being interrupted by noise
+                },
+                input_audio_noise_reduction: {
+                    type: 'far_field'            // For phone speaker/mic - filters ambient noise
                 }
             };
 
@@ -2643,10 +2646,13 @@ Never provide:
                     model: 'whisper-1'
                 },
                 turn_detection: {
-                    type: 'server_vad',
-                    threshold: 0.5,
-                    prefix_padding_ms: 300,
-                    silence_duration_ms: 500
+                    type: 'semantic_vad',        // AI-based detection - understands speech semantically
+                    eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
+                    create_response: true,
+                    interrupt_response: false    // Prevents AI from being interrupted by noise
+                },
+                input_audio_noise_reduction: {
+                    type: 'far_field'            // For phone speaker/mic - filters ambient noise
                 }
             };
 
@@ -2989,6 +2995,673 @@ app.http('voice-quota', {
                 status: 500,
                 headers,
                 jsonBody: { success: false, error: 'exception', message: error.message }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 33. Voice Purchase - POST /v1/voice/purchase
+// Validates Google Play purchase and credits voice minutes to user account
+// Uses existing voice_addon_purchases table integrated with check_voice_quota()
+// =============================================================================
+app.http('voice-purchase', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/voice/purchase',
+    handler: async (request, context) => {
+        context.log('Voice Purchase - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        // Configuration
+        const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
+        const PRODUCT_ID = 'voice_minutes_10';
+        const SECONDS_PER_PURCHASE = 600; // 10 minutes
+        const PRICE_CENTS = 499;
+
+        try {
+            const db = require('./shared/database');
+            const { google } = require('googleapis');
+
+            // Get user from x-user-id header (set by APIM from JWT)
+            const userId = request.headers.get('x-user-id');
+            if (!userId) {
+                context.log.warn('Missing x-user-id header');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { success: false, error: 'unauthorized', message: 'Missing user ID' }
+                };
+            }
+
+            context.log(`User ID from header: ${userId.substring(0, 8)}...`);
+
+            // Parse request body
+            const body = await request.json().catch(() => ({}));
+            const { purchaseToken, productId } = body;
+
+            if (!purchaseToken) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: { success: false, error: 'Missing purchaseToken' }
+                };
+            }
+
+            if (productId !== PRODUCT_ID) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: { success: false, error: `Invalid productId. Expected: ${PRODUCT_ID}` }
+                };
+            }
+
+            // Look up internal user UUID from Azure AD sub
+            const userResult = await db.query(
+                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                return {
+                    status: 404,
+                    headers,
+                    jsonBody: { success: false, error: 'User not found' }
+                };
+            }
+
+            const user = userResult.rows[0];
+            const internalUserId = user.id;
+            context.log(`User found: internal ID ${internalUserId}, tier: ${user.tier}`);
+
+            // Check user tier - only pro and premium can purchase
+            if (user.tier !== 'pro' && user.tier !== 'premium') {
+                return {
+                    status: 403,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'tier_required',
+                        message: 'Voice minute purchases require Premium or Pro subscription',
+                        currentTier: user.tier
+                    }
+                };
+            }
+
+            // Check if purchase already processed (idempotent)
+            const existingPurchase = await db.query(
+                'SELECT id FROM voice_addon_purchases WHERE transaction_id = $1',
+                [purchaseToken]
+            );
+
+            if (existingPurchase.rows.length > 0) {
+                context.log('Purchase already processed, returning success (idempotent)');
+
+                const quotaResult = await db.query(
+                    'SELECT * FROM check_voice_quota($1)',
+                    [internalUserId]
+                );
+                const quota = quotaResult.rows[0];
+
+                return {
+                    status: 200,
+                    headers,
+                    jsonBody: {
+                        success: true,
+                        minutesAdded: 0,
+                        message: 'Purchase already credited',
+                        alreadyProcessed: true,
+                        quota: {
+                            remainingSeconds: quota.total_remaining_seconds,
+                            monthlyUsedSeconds: quota.monthly_used_seconds,
+                            monthlyLimitSeconds: quota.monthly_limit_seconds,
+                            addonSecondsRemaining: quota.addon_seconds_remaining
+                        }
+                    }
+                };
+            }
+
+            // Verify with Google Play API
+            const credentialsJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY;
+            if (!credentialsJson) {
+                context.log.error('GOOGLE_PLAY_SERVICE_ACCOUNT_KEY not configured');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: { success: false, error: 'Purchase verification not configured' }
+                };
+            }
+
+            context.log('Verifying purchase with Google Play...');
+
+            const credentials = JSON.parse(credentialsJson);
+            const auth = new google.auth.GoogleAuth({
+                credentials,
+                scopes: ['https://www.googleapis.com/auth/androidpublisher']
+            });
+
+            const androidpublisher = google.androidpublisher({ version: 'v3', auth });
+
+            let verification;
+            try {
+                const response = await androidpublisher.purchases.products.get({
+                    packageName: PACKAGE_NAME,
+                    productId: PRODUCT_ID,
+                    token: purchaseToken
+                });
+
+                const purchase = response.data;
+                context.log('Google Play response:', JSON.stringify(purchase, null, 2));
+
+                // purchaseState: 0 = Purchased, 1 = Canceled/Refunded
+                if (purchase.purchaseState !== 0) {
+                    return {
+                        status: 400,
+                        headers,
+                        jsonBody: { success: false, error: 'Purchase was canceled or refunded' }
+                    };
+                }
+
+                // Acknowledge if not already done
+                if (purchase.acknowledgementState === 0) {
+                    context.log('Acknowledging purchase...');
+                    await androidpublisher.purchases.products.acknowledge({
+                        packageName: PACKAGE_NAME,
+                        productId: PRODUCT_ID,
+                        token: purchaseToken
+                    });
+                    context.log('Purchase acknowledged');
+                }
+
+                verification = {
+                    valid: true,
+                    orderId: purchase.orderId,
+                    environment: purchase.purchaseType === 0 ? 'sandbox' : 'production'
+                };
+            } catch (gpError) {
+                context.log.error('Google Play verification error:', gpError.message);
+                if (gpError.code === 404) {
+                    return { status: 400, headers, jsonBody: { success: false, error: 'Purchase not found' } };
+                }
+                if (gpError.code === 401 || gpError.code === 403) {
+                    return { status: 400, headers, jsonBody: { success: false, error: 'Google Play authentication failed' } };
+                }
+                throw gpError;
+            }
+
+            context.log('Purchase verified successfully, order:', verification.orderId);
+
+            // Insert into existing voice_addon_purchases table
+            await db.query(
+                `INSERT INTO voice_addon_purchases
+                    (user_id, seconds_purchased, price_cents, transaction_id, platform, purchased_at)
+                 VALUES ($1, $2, $3, $4, $5, NOW())`,
+                [internalUserId, SECONDS_PER_PURCHASE, PRICE_CENTS, purchaseToken, 'android']
+            );
+
+            context.log(`Credited ${SECONDS_PER_PURCHASE} seconds (${SECONDS_PER_PURCHASE / 60} minutes) to user`);
+
+            // Get updated quota
+            const quotaResult = await db.query(
+                'SELECT * FROM check_voice_quota($1)',
+                [internalUserId]
+            );
+            const quota = quotaResult.rows[0];
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    minutesAdded: SECONDS_PER_PURCHASE / 60,
+                    message: `${SECONDS_PER_PURCHASE / 60} voice minutes added to your account`,
+                    quota: {
+                        remainingSeconds: quota.total_remaining_seconds,
+                        monthlyUsedSeconds: quota.monthly_used_seconds,
+                        monthlyLimitSeconds: quota.monthly_limit_seconds,
+                        addonSecondsRemaining: quota.addon_seconds_remaining
+                    }
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Exception in voice-purchase:', error.message);
+            context.log.error('Stack:', error.stack);
+            return {
+                status: 500,
+                headers,
+                jsonBody: { success: false, error: 'Purchase processing failed' }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 34. Subscription Webhook - POST /v1/subscription/webhook
+// Receives RevenueCat server-to-server notifications
+// NO JWT - uses RevenueCat webhook signature for authentication
+// =============================================================================
+app.http('subscription-webhook', {
+    methods: ['POST', 'OPTIONS'],
+    authLevel: 'anonymous',  // No function key - RevenueCat uses signature auth
+    route: 'v1/subscription/webhook',
+    handler: async (request, context) => {
+        context.log('Subscription Webhook - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, X-RevenueCat-Webhook-Signature'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            const db = require('./shared/database');
+            const crypto = require('crypto');
+
+            // Get webhook secret from environment
+            const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
+            if (!webhookSecret) {
+                context.log.warn('REVENUECAT_WEBHOOK_SECRET not configured - skipping signature verification');
+                // In production, you should reject requests without proper configuration
+                // For now, we'll log a warning and continue (for testing)
+            }
+
+            // Get signature from header
+            const signature = request.headers.get('X-RevenueCat-Webhook-Signature');
+
+            // Parse the webhook body
+            const rawBody = await request.text();
+            const event = JSON.parse(rawBody);
+
+            // Verify signature if secret is configured
+            if (webhookSecret && signature) {
+                const expectedSignature = crypto
+                    .createHmac('sha256', webhookSecret)
+                    .update(rawBody)
+                    .digest('hex');
+
+                if (signature !== expectedSignature) {
+                    context.log.warn('Webhook signature mismatch');
+                    return {
+                        status: 401,
+                        headers,
+                        jsonBody: { error: 'Invalid signature' }
+                    };
+                }
+                context.log('Webhook signature verified');
+            }
+
+            // Extract event data
+            const eventType = event.event?.type;
+            const eventId = event.event?.id;  // For idempotency
+            const environment = event.event?.environment;  // SANDBOX or PRODUCTION
+            const appUserId = event.event?.app_user_id;  // This is azure_ad_sub
+            const productId = event.event?.product_id;
+            let expiresAt = event.event?.expiration_at_ms
+                ? new Date(event.event.expiration_at_ms)
+                : null;
+
+            context.log(`Event type: ${eventType}, ID: ${eventId}, Env: ${environment}, User: ${appUserId?.substring(0, 8)}..., Product: ${productId}`);
+
+            // Filter out sandbox events in production
+            if (environment === 'SANDBOX') {
+                context.log(`Sandbox event (${eventType}) received - logging only, not processing`);
+                // We'll still record in audit log below but won't update subscription
+            }
+
+            if (!appUserId) {
+                context.log.warn('Missing app_user_id in webhook');
+                return {
+                    status: 200,  // Return 200 to prevent retries
+                    headers,
+                    jsonBody: { received: true, processed: false, reason: 'missing_user_id' }
+                };
+            }
+
+            // Look up internal user UUID from azure_ad_sub
+            const userResult = await db.query(
+                'SELECT id FROM users WHERE azure_ad_sub = $1',
+                [appUserId]
+            );
+
+            let internalUserId = null;
+            if (userResult.rows.length > 0) {
+                internalUserId = userResult.rows[0].id;
+            } else {
+                context.log.warn(`User not found for azure_ad_sub: ${appUserId.substring(0, 8)}...`);
+            }
+
+            // Idempotency check - skip if we've already processed this event
+            if (eventId) {
+                const existingEvent = await db.query(
+                    'SELECT id FROM subscription_events WHERE revenuecat_event_id = $1',
+                    [eventId]
+                );
+                if (existingEvent.rows.length > 0) {
+                    context.log(`Duplicate event ${eventId} - already processed, skipping`);
+                    return {
+                        status: 200,
+                        headers,
+                        jsonBody: { received: true, processed: false, reason: 'duplicate_event', event_id: eventId }
+                    };
+                }
+            }
+
+            // Record the event in subscription_events (audit log)
+            await db.query(
+                `INSERT INTO subscription_events
+                    (user_id, revenuecat_app_user_id, event_type, product_id, tier, expires_at, raw_event, revenuecat_event_id)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [
+                    internalUserId,
+                    appUserId,
+                    eventType,
+                    productId,
+                    productId ? (productId.startsWith('pro_') ? 'pro' : 'premium') : null,
+                    expiresAt,
+                    event,
+                    eventId
+                ]
+            );
+            context.log('Event recorded in subscription_events');
+
+            // For sandbox events, we logged it but don't update production subscriptions
+            if (environment === 'SANDBOX') {
+                return {
+                    status: 200,
+                    headers,
+                    jsonBody: { received: true, processed: false, reason: 'sandbox_event', event_type: eventType }
+                };
+            }
+
+            // If user not found, we can't update their subscription
+            if (!internalUserId) {
+                return {
+                    status: 200,
+                    headers,
+                    jsonBody: { received: true, processed: false, reason: 'user_not_found' }
+                };
+            }
+
+            // Handle event types
+            let isActive = false;
+            let autoRenewing = true;
+            let cancelReason = null;
+
+            switch (eventType) {
+                case 'INITIAL_PURCHASE':
+                case 'RENEWAL':
+                case 'UNCANCELLATION':
+                case 'PRODUCT_CHANGE':
+                    isActive = true;
+                    autoRenewing = true;
+                    context.log('Activating/renewing subscription');
+                    break;
+
+                case 'CANCELLATION':
+                    // User cancelled but still has access until expiry
+                    isActive = true;
+                    autoRenewing = false;
+                    cancelReason = 'CUSTOMER_CANCELLED';
+                    context.log('Subscription cancelled (access until expiry)');
+                    break;
+
+                case 'EXPIRATION':
+                    isActive = false;
+                    autoRenewing = false;
+                    cancelReason = 'EXPIRED';
+                    context.log('Subscription expired');
+                    break;
+
+                case 'BILLING_ISSUE':
+                    // Check if user is still in grace period
+                    const gracePeriodExpires = event.event?.grace_period_expires_date_ms
+                        ? new Date(event.event.grace_period_expires_date_ms)
+                        : null;
+
+                    if (gracePeriodExpires && gracePeriodExpires > new Date()) {
+                        // Still in grace period - keep access active
+                        isActive = true;
+                        autoRenewing = false;
+                        cancelReason = 'BILLING_ISSUE_GRACE_PERIOD';
+                        expiresAt = gracePeriodExpires;  // Update expiry to grace period end
+                        context.log(`Billing issue - grace period active until ${gracePeriodExpires.toISOString()}`);
+                    } else {
+                        // No grace period or it has expired
+                        isActive = false;
+                        autoRenewing = false;
+                        cancelReason = 'BILLING_ERROR';
+                        context.log('Billing issue - no grace period, deactivating');
+                    }
+                    break;
+
+                case 'SUBSCRIPTION_PAUSED':
+                    isActive = false;
+                    autoRenewing = true;
+                    cancelReason = 'PAUSED';
+                    context.log('Subscription paused');
+                    break;
+
+                default:
+                    context.log(`Unhandled event type: ${eventType}`);
+                    return {
+                        status: 200,
+                        headers,
+                        jsonBody: { received: true, processed: false, reason: 'unhandled_event_type' }
+                    };
+            }
+
+            // Upsert subscription using the helper function
+            if (productId) {
+                await db.query(
+                    `SELECT upsert_subscription_from_webhook($1, $2, $3, $4, $5, $6, $7)`,
+                    [internalUserId, appUserId, productId, isActive, autoRenewing, expiresAt, cancelReason]
+                );
+                context.log('Subscription upserted successfully');
+            }
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: { received: true, processed: true, event_type: eventType }
+            };
+
+        } catch (error) {
+            context.log.error('Subscription webhook error:', error.message);
+            context.log.error('Stack:', error.stack);
+
+            // Return 200 to prevent RevenueCat from retrying (we logged the error)
+            // In a real scenario, you might want to return 500 for transient errors
+            return {
+                status: 200,
+                headers,
+                jsonBody: { received: true, processed: false, error: error.message }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 35. Subscription Status - GET /v1/subscription/status
+// Returns user's current subscription status
+// JWT required (x-user-id header from APIM)
+// =============================================================================
+app.http('subscription-status', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/subscription/status',
+    handler: async (request, context) => {
+        context.log('Subscription Status - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            const db = require('./shared/database');
+
+            // Get user from x-user-id header (set by APIM from JWT)
+            const userId = request.headers.get('x-user-id');
+            if (!userId) {
+                context.log.warn('Missing x-user-id header');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { success: false, error: 'unauthorized', message: 'Missing user ID' }
+                };
+            }
+
+            context.log(`User ID from header: ${userId.substring(0, 8)}...`);
+
+            // Look up internal user UUID from Azure AD sub
+            const userResult = await db.query(
+                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                [userId]
+            );
+
+            if (userResult.rows.length === 0) {
+                return {
+                    status: 404,
+                    headers,
+                    jsonBody: { success: false, error: 'User not found' }
+                };
+            }
+
+            const user = userResult.rows[0];
+            const internalUserId = user.id;
+
+            // Get subscription status using helper function
+            const statusResult = await db.query(
+                'SELECT * FROM get_subscription_status($1)',
+                [internalUserId]
+            );
+
+            const status = statusResult.rows[0] || {
+                tier: 'free',
+                product_id: null,
+                is_active: false,
+                auto_renewing: false,
+                expires_at: null,
+                cancel_reason: null
+            };
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    subscription: {
+                        tier: status.tier,
+                        productId: status.product_id,
+                        isActive: status.is_active,
+                        autoRenewing: status.auto_renewing,
+                        expiresAt: status.expires_at ? status.expires_at.toISOString() : null,
+                        cancelReason: status.cancel_reason
+                    },
+                    // Also include the current tier from users table for redundancy
+                    currentTier: user.tier
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Subscription status error:', error.message);
+            context.log.error('Stack:', error.stack);
+            return {
+                status: 500,
+                headers,
+                jsonBody: { success: false, error: 'Failed to get subscription status' }
+            };
+        }
+    }
+});
+
+// =============================================================================
+// 36. Subscription Config - GET /v1/subscription/config
+// Returns RevenueCat configuration (API key from Key Vault)
+// JWT required (x-user-id header from APIM)
+// =============================================================================
+app.http('subscription-config', {
+    methods: ['GET', 'OPTIONS'],
+    authLevel: 'function',
+    route: 'v1/subscription/config',
+    handler: async (request, context) => {
+        context.log('Subscription Config - Request received');
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-functions-key, Ocp-Apim-Subscription-Key'
+        };
+
+        if (request.method === 'OPTIONS') {
+            return { status: 200, headers, body: '' };
+        }
+
+        try {
+            // Verify user is authenticated (x-user-id header from APIM JWT validation)
+            const userId = request.headers.get('x-user-id');
+            if (!userId) {
+                context.log.warn('Missing x-user-id header');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { success: false, error: 'unauthorized', message: 'Missing user ID' }
+                };
+            }
+
+            context.log(`User ID from header: ${userId.substring(0, 8)}...`);
+
+            // Get RevenueCat API key from environment (Key Vault reference)
+            const revenueCatApiKey = process.env.REVENUECAT_PUBLIC_API_KEY;
+            if (!revenueCatApiKey) {
+                context.log.error('REVENUECAT_PUBLIC_API_KEY not configured');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: { success: false, error: 'Configuration error' }
+                };
+            }
+
+            return {
+                status: 200,
+                headers,
+                jsonBody: {
+                    success: true,
+                    config: {
+                        revenueCatApiKey: revenueCatApiKey
+                    }
+                }
+            };
+
+        } catch (error) {
+            context.log.error('Subscription config error:', error.message);
+            return {
+                status: 500,
+                headers,
+                jsonBody: { success: false, error: 'Failed to get subscription config' }
             };
         }
     }

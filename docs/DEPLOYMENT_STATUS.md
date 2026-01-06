@@ -4,21 +4,26 @@
 
 **Last Updated**: January 6, 2026
 
-The MyBartenderAI mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
+The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
 
 - **Recipe Vault AI Concierge**: Added Chat and Voice buttons to help users find cocktails via AI
 - **My Bar Smart Scanner**: Added Scanner option in empty state for quick bottle identification
+- **My Bar Empty State**: Updated instructional text to explain Add (search) vs Scanner (AI photo) options
+- **Academy AI Concierge**: Added Chat and Voice CTA at bottom of Academy screen
+- **Pro Tools AI Concierge**: Added Chat and Voice CTA at bottom of Pro Tools screen
+- **Favorites Create Prompt**: Added "Create your own signature cocktails" with Create button in empty state
+- **Home Screen Footer**: Added "21+ | Drink Responsibly" responsible drinking message
 
 ---
 
 ## Platform Status
 
-| Platform | Status | Notes |
-|----------|--------|-------|
-| Android | Ready | Release APK builds successfully |
-| iOS | Pending | URL scheme configuration needed in Info.plist |
+| Platform | Status  | Notes                                         |
+| -------- | ------- | --------------------------------------------- |
+| Android  | Ready   | Release APK builds successfully               |
+| iOS      | Pending | URL scheme configuration needed in Info.plist |
 
 ---
 
@@ -26,19 +31,20 @@ The MyBartenderAI mobile app and Azure backend are fully operational and in rele
 
 ### Resource Overview
 
-| Resource | Name | SKU/Tier | Region |
-|----------|------|----------|--------|
-| Function App | `func-mba-fresh` | Premium Consumption | South Central US |
-| API Management | `apim-mba-002` | Basic V2 (~$150/mo) | South Central US |
-| PostgreSQL | `pg-mybartenderdb` | Flexible Server | South Central US |
-| Storage Account | `mbacocktaildb3` | Standard | South Central US |
-| Key Vault | `kv-mybartenderai-prod` | Standard | East US |
-| Azure OpenAI | `mybartenderai-scus` | S0 | South Central US |
-| Front Door | `fd-mba-share` | Standard | Global |
+| Resource        | Name                    | SKU/Tier            | Region           |
+| --------------- | ----------------------- | ------------------- | ---------------- |
+| Function App    | `func-mba-fresh`        | Premium Consumption | South Central US |
+| API Management  | `apim-mba-002`          | Basic V2 (~$150/mo) | South Central US |
+| PostgreSQL      | `pg-mybartenderdb`      | Flexible Server     | South Central US |
+| Storage Account | `mbacocktaildb3`        | Standard            | South Central US |
+| Key Vault       | `kv-mybartenderai-prod` | Standard            | East US          |
+| Azure OpenAI    | `mybartenderai-scus`    | S0                  | South Central US |
+| Front Door      | `fd-mba-share`          | Standard            | Global           |
 
 ### Key Vault Secrets
 
 All sensitive configuration stored in `kv-mybartenderai-prod`:
+
 - `AZURE-OPENAI-API-KEY` - Azure OpenAI service key
 - `AZURE-OPENAI-ENDPOINT` - Azure OpenAI endpoint URL
 - `CLAUDE-API-KEY` - Anthropic Claude API key (Smart Scanner)
@@ -57,14 +63,14 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 
 **Architecture**: JWT-only authentication (no APIM subscription keys on client)
 
-| Component | Status | Details |
-|-----------|--------|---------|
-| Entra External ID | Configured | Tenant: `mybartenderai` |
-| Email + Password | Working | Native Entra authentication |
-| Google Sign-In | Working | OAuth 2.0 federation |
-| Facebook Sign-In | Working | OAuth 2.0 federation |
-| Age Verification (21+) | Working | Custom Authentication Extension |
-| JWT Validation | Working | APIM `validate-jwt` policy |
+| Component              | Status     | Details                         |
+| ---------------------- | ---------- | ------------------------------- |
+| Entra External ID      | Configured | Tenant: `mybartenderai`         |
+| Email + Password       | Working    | Native Entra authentication     |
+| Google Sign-In         | Working    | OAuth 2.0 federation            |
+| Facebook Sign-In       | Working    | OAuth 2.0 federation            |
+| Age Verification (21+) | Working    | Custom Authentication Extension |
+| JWT Validation         | Working    | APIM `validate-jwt` policy      |
 
 ### Authentication Flow
 
@@ -80,11 +86,11 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 
 ## Subscription Tiers
 
-| Tier | Monthly | Annual | AI Tokens | Scans | Voice |
-|------|---------|--------|-----------|-------|-------|
-| Free | $0 | - | 10,000 | 2 | - |
-| Premium | $4.99 | $39.99 | 300,000 | 15 | $4.99/10 min purchase |
-| Pro | $14.99 | $99.99 | 1,000,000 | 50 | 45 min + $4.99 top-ups |
+| Tier    | Monthly | Annual | AI Tokens | Scans | Voice                  |
+| ------- | ------- | ------ | --------- | ----- | ---------------------- |
+| Free    | $0      | -      | 10,000    | 2     | -                      |
+| Premium | $4.99   | $39.99 | 300,000   | 15    | $4.99/10 min purchase  |
+| Pro     | $14.99  | $99.99 | 1,000,000 | 50    | 45 min + $4.99 top-ups |
 
 Tier validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
@@ -100,58 +106,58 @@ All functions deployed to `func-mba-fresh`:
 
 ### Core API Endpoints
 
-| Function | Method | Path | Auth | Status |
-|----------|--------|------|------|--------|
-| `ask-bartender-simple` | POST | `/api/v1/ask-bartender-simple` | JWT | Working |
-| `recommend` | POST | `/api/v1/recommend` | JWT | Working |
-| `snapshots-latest` | GET | `/api/v1/snapshots/latest` | JWT | Working |
-| `vision-analyze` | POST | `/api/v1/vision/analyze` | JWT | Working |
-| `voice-session` | POST | `/api/v1/voice/session` | JWT (Pro) | Working |
-| `refine-cocktail` | POST | `/api/v1/create-studio/refine` | JWT | Working |
-| `cocktail-preview` | GET | `/api/v1/cocktails/preview/{id}` | Public | Working |
-| `users-me` | GET | `/api/v1/users/me` | JWT | Working |
+| Function               | Method | Path                             | Auth      | Status  |
+| ---------------------- | ------ | -------------------------------- | --------- | ------- |
+| `ask-bartender-simple` | POST   | `/api/v1/ask-bartender-simple`   | JWT       | Working |
+| `recommend`            | POST   | `/api/v1/recommend`              | JWT       | Working |
+| `snapshots-latest`     | GET    | `/api/v1/snapshots/latest`       | JWT       | Working |
+| `vision-analyze`       | POST   | `/api/v1/vision/analyze`         | JWT       | Working |
+| `voice-session`        | POST   | `/api/v1/voice/session`          | JWT (Pro) | Working |
+| `refine-cocktail`      | POST   | `/api/v1/create-studio/refine`   | JWT       | Working |
+| `cocktail-preview`     | GET    | `/api/v1/cocktails/preview/{id}` | Public    | Working |
+| `users-me`             | GET    | `/api/v1/users/me`               | JWT       | Working |
 
 ### Authentication Endpoints
 
-| Function | Method | Path | Auth | Status |
-|----------|--------|------|------|--------|
-| `validate-age` | POST | `/api/validate-age` | OAuth 2.0 | Working |
-| `auth-exchange` | POST | `/api/v1/auth/exchange` | JWT | Working |
-| `auth-rotate` | POST | `/api/v1/auth/rotate` | JWT | Working |
+| Function        | Method | Path                    | Auth      | Status  |
+| --------------- | ------ | ----------------------- | --------- | ------- |
+| `validate-age`  | POST   | `/api/validate-age`     | OAuth 2.0 | Working |
+| `auth-exchange` | POST   | `/api/v1/auth/exchange` | JWT       | Working |
+| `auth-rotate`   | POST   | `/api/v1/auth/rotate`   | JWT       | Working |
 
 ### Social Features
 
-| Function | Method | Path | Auth | Status |
-|----------|--------|------|------|--------|
-| `social-share-internal` | POST | `/api/v1/social/share` | JWT | Working |
-| `social-invite` | POST | `/api/v1/social/invite` | JWT | Working |
-| `social-inbox` | GET | `/api/v1/social/inbox` | JWT | Working |
-| `social-outbox` | GET | `/api/v1/social/outbox` | JWT | Working |
+| Function                | Method | Path                    | Auth | Status  |
+| ----------------------- | ------ | ----------------------- | ---- | ------- |
+| `social-share-internal` | POST   | `/api/v1/social/share`  | JWT  | Working |
+| `social-invite`         | POST   | `/api/v1/social/invite` | JWT  | Working |
+| `social-inbox`          | GET    | `/api/v1/social/inbox`  | JWT  | Working |
+| `social-outbox`         | GET    | `/api/v1/social/outbox` | JWT  | Working |
 
 ### Subscription Endpoints
 
-| Function | Method | Path | Auth | Status |
-|----------|--------|------|------|--------|
-| `subscription-config` | GET | `/api/v1/subscription/config` | JWT | Deployed* |
-| `subscription-status` | GET | `/api/v1/subscription/status` | JWT | Deployed* |
-| `subscription-webhook` | POST | `/api/v1/subscription/webhook` | RevenueCat Signature | Deployed* |
+| Function               | Method | Path                           | Auth                 | Status    |
+| ---------------------- | ------ | ------------------------------ | -------------------- | --------- |
+| `subscription-config`  | GET    | `/api/v1/subscription/config`  | JWT                  | Deployed* |
+| `subscription-status`  | GET    | `/api/v1/subscription/status`  | JWT                  | Deployed* |
+| `subscription-webhook` | POST   | `/api/v1/subscription/webhook` | RevenueCat Signature | Deployed* |
 
 *Awaiting RevenueCat account setup. See `SUBSCRIPTION_DEPLOYMENT.md` for configuration steps.
 
 ### Voice Purchase
 
-| Function | Method | Path | Auth | Status |
-|----------|--------|------|------|--------|
-| `voice-purchase` | POST | `/api/v1/voice/purchase` | JWT | Working |
+| Function         | Method | Path                     | Auth | Status  |
+| ---------------- | ------ | ------------------------ | ---- | ------- |
+| `voice-purchase` | POST   | `/api/v1/voice/purchase` | JWT  | Working |
 
 ### Admin/Utility Functions
 
-| Function | Status | Notes |
-|----------|--------|-------|
-| `sync-cocktaildb` | Timer DISABLED | Using static database copy |
-| `download-images` | Available | Manual trigger only |
-| `health` | Available | Health check endpoint |
-| `rotate-keys-timer` | Timer | Key rotation automation |
+| Function            | Status         | Notes                      |
+| ------------------- | -------------- | -------------------------- |
+| `sync-cocktaildb`   | Timer DISABLED | Using static database copy |
+| `download-images`   | Available      | Manual trigger only        |
+| `health`            | Available      | Health check endpoint      |
+| `rotate-keys-timer` | Timer          | Key rotation automation    |
 
 ---
 
@@ -161,11 +167,11 @@ All functions deployed to `func-mba-fresh`:
 
 **Service**: `mybartenderai-scus` (South Central US)
 
-| Feature | Function | Model |
-|---------|----------|-------|
-| AI Bartender Chat | `ask-bartender-simple` | gpt-4o-mini |
-| Cocktail Recommendations | `recommend` | gpt-4o-mini |
-| Recipe Refinement | `refine-cocktail` | gpt-4o-mini |
+| Feature                  | Function               | Model       |
+| ------------------------ | ---------------------- | ----------- |
+| AI Bartender Chat        | `ask-bartender-simple` | gpt-4o-mini |
+| Cocktail Recommendations | `recommend`            | gpt-4o-mini |
+| Recipe Refinement        | `refine-cocktail`      | gpt-4o-mini |
 
 **Cost**: ~$0.15/1M input tokens, ~$0.60/1M output tokens
 
@@ -173,8 +179,8 @@ All functions deployed to `func-mba-fresh`:
 
 **Used for**: Smart Scanner (vision-analyze)
 
-| Feature | Function | Model |
-|---------|----------|-------|
+| Feature                       | Function         | Model          |
+| ----------------------------- | ---------------- | -------------- |
 | Bottle/Ingredient Recognition | `vision-analyze` | Claude 3 Haiku |
 
 Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy.
@@ -183,11 +189,12 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 
 **Used for**: Voice AI (Pro tier only)
 
-| Feature | Function | Technology |
-|---------|----------|------------|
+| Feature         | Function        | Technology                |
+| --------------- | --------------- | ------------------------- |
 | Voice Bartender | `voice-session` | Azure OpenAI Realtime API |
 
 **Architecture**:
+
 1. Mobile app requests WebRTC session token from `voice-session`
 2. Function returns ephemeral token for Azure OpenAI Realtime API
 3. Mobile app connects directly to Azure OpenAI via WebRTC
@@ -201,21 +208,21 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 
 ### Implemented Features
 
-| Feature | Screen | Status |
-|---------|--------|--------|
-| Home Dashboard | `home_screen.dart` | Complete |
-| AI Bartender Chat | `chat_screen.dart` | Complete |
-| Recipe Vault | `recipe_vault_screen.dart` | Complete |
-| Cocktail Details | `cocktail_detail_screen.dart` | Complete |
-| My Bar (Inventory) | `my_bar_screen.dart` | Complete |
-| Smart Scanner | `smart_scanner_screen.dart` | Complete |
-| Voice Bartender | `voice_bartender_screen.dart` | Complete (Pro) |
-| Create Studio | `create_studio_screen.dart` | Complete |
-| User Profile | `profile_screen.dart` | Complete |
-| Login | `login_screen.dart` | Complete |
-| Today's Special | Home card + notifications | Complete |
-| Notification Settings | Profile screen | Complete |
-| Social Sharing | Share dialogs | Complete |
+| Feature               | Screen                        | Status         |
+| --------------------- | ----------------------------- | -------------- |
+| Home Dashboard        | `home_screen.dart`            | Complete       |
+| AI Bartender Chat     | `chat_screen.dart`            | Complete       |
+| Recipe Vault          | `recipe_vault_screen.dart`    | Complete       |
+| Cocktail Details      | `cocktail_detail_screen.dart` | Complete       |
+| My Bar (Inventory)    | `my_bar_screen.dart`          | Complete       |
+| Smart Scanner         | `smart_scanner_screen.dart`   | Complete       |
+| Voice Bartender       | `voice_bartender_screen.dart` | Complete (Pro) |
+| Create Studio         | `create_studio_screen.dart`   | Complete       |
+| User Profile          | `profile_screen.dart`         | Complete       |
+| Login                 | `login_screen.dart`           | Complete       |
+| Today's Special       | Home card + notifications     | Complete       |
+| Notification Settings | Profile screen                | Complete       |
+| Social Sharing        | Share dialogs                 | Complete       |
 
 ### Key Integrations
 
@@ -237,6 +244,7 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 ### Profile Screen (Release Candidate)
 
 Cleaned up for release:
+
 - Account information (name only, email removed)
 - Notification settings (Today's Special Reminder)
 - Measurement preferences (oz/ml)
@@ -308,6 +316,7 @@ PostgreSQL (users.tier updated)
 ```
 
 **Webhook Features:**
+
 - Idempotency via `revenuecat_event_id` unique index
 - Sandbox event filtering (production ignores sandbox events)
 - Grace period handling for billing issues
@@ -317,14 +326,14 @@ PostgreSQL (users.tier updated)
 
 ## External Integrations
 
-| Service | Purpose | Status |
-|---------|---------|--------|
-| Azure Front Door | Custom domain `share.mybartenderai.com` | Active |
-| TheCocktailDB | Cocktail database source | Sync disabled |
-| Google OAuth | Social sign-in | Configured |
-| Facebook OAuth | Social sign-in | Configured |
-| Instagram | Social sharing | Configured |
-| RevenueCat | Subscription management | Awaiting setup* |
+| Service          | Purpose                                 | Status          |
+| ---------------- | --------------------------------------- | --------------- |
+| Azure Front Door | Custom domain `share.mybartenderai.com` | Active          |
+| TheCocktailDB    | Cocktail database source                | Sync disabled   |
+| Google OAuth     | Social sign-in                          | Configured      |
+| Facebook OAuth   | Social sign-in                          | Configured      |
+| Instagram        | Social sharing                          | Configured      |
+| RevenueCat       | Subscription management                 | Awaiting setup* |
 
 *Backend code deployed, Key Vault placeholders created. Requires RevenueCat account configuration.
 
@@ -388,18 +397,18 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 
 ## Documentation References
 
-| Document | Purpose |
-|----------|---------|
-| `ARCHITECTURE.md` | System architecture and design |
-| `AUTHENTICATION_SETUP.md` | Entra External ID configuration |
-| `AUTHENTICATION_IMPLEMENTATION.md` | Mobile app auth integration |
-| `AGE_VERIFICATION_IMPLEMENTATION.md` | 21+ verification details |
-| `VOICE_AI_IMPLEMENTATION.md` | Voice feature specification |
-| `SUBSCRIPTION_DEPLOYMENT.md` | RevenueCat subscription system |
-| `TODAYS_SPECIAL_FEATURE.md` | Today's Special notifications and deep linking |
-| `RECIPE_VAULT_AI_CONCIERGE.md` | AI Chat/Voice buttons in Recipe Vault |
-| `MY_BAR_SCANNER_INTEGRATION.md` | Smart Scanner option in My Bar empty state |
-| `CLAUDE.md` | Project context and conventions |
+| Document                             | Purpose                                        |
+| ------------------------------------ | ---------------------------------------------- |
+| `ARCHITECTURE.md`                    | System architecture and design                 |
+| `AUTHENTICATION_SETUP.md`            | Entra External ID configuration                |
+| `AUTHENTICATION_IMPLEMENTATION.md`   | Mobile app auth integration                    |
+| `AGE_VERIFICATION_IMPLEMENTATION.md` | 21+ verification details                       |
+| `VOICE_AI_IMPLEMENTATION.md`         | Voice feature specification                    |
+| `SUBSCRIPTION_DEPLOYMENT.md`         | RevenueCat subscription system                 |
+| `TODAYS_SPECIAL_FEATURE.md`          | Today's Special notifications and deep linking |
+| `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
+| `MY_BAR_SCANNER_INTEGRATION.md`      | Smart Scanner option in My Bar empty state     |
+| `CLAUDE.md`                          | Project context and conventions                |
 
 ---
 

@@ -78,7 +78,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
               // Today's Special
               _buildTodaysSpecial(context, ref),
-              SizedBox(height: AppSpacing.xxl),
+              SizedBox(height: AppSpacing.xl),
+              // Responsible drinking message
+              Center(
+                child: Padding(
+                  padding: EdgeInsets.only(bottom: AppSpacing.md),
+                  child: Text(
+                    '21+ | Drink Responsibly',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: AppSpacing.md),
             ],
           ),
         ),

@@ -199,7 +199,7 @@ class MyBarScreen extends ConsumerWidget {
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
-              'Add ingredients to track what you have\nand discover cocktails you can make',
+              'Search to add ingredients, or snap a photo\nto let AI identify your bottles',
               style: AppTypography.bodyMedium.copyWith(
                 color: AppColors.textSecondary,
               ),

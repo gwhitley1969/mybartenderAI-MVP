@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
@@ -126,6 +127,51 @@ class FavoritesScreen extends ConsumerWidget {
                 style: AppTypography.bodyMedium
                     .copyWith(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppSpacing.xl),
+              // Divider with "or"
+              Row(
+                children: [
+                  Expanded(child: Divider(color: AppColors.cardBorder)),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    child: Text(
+                      'or',
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                  Expanded(child: Divider(color: AppColors.cardBorder)),
+                ],
+              ),
+              SizedBox(height: AppSpacing.lg),
+              // Create prompt
+              Text(
+                'Create your own signature cocktails',
+                style: AppTypography.bodyMedium.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: AppSpacing.md),
+              // Create button
+              ElevatedButton.icon(
+                onPressed: () => context.go('/create-studio'),
+                icon: Icon(Icons.auto_awesome, size: 18),
+                label: Text('Create'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.iconCirclePurple,
+                  foregroundColor: AppColors.textPrimary,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                    vertical: AppSpacing.md,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.cardBorderRadius),
+                  ),
+                ),
               ),
             ],
           ),

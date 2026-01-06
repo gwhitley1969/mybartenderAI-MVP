@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
 import 'academy_category_screen.dart';
@@ -183,6 +184,9 @@ class _AcademyScreenState extends State<AcademyScreen> {
               return _buildCategoryCard(category);
             },
           ),
+          SizedBox(height: AppSpacing.xl),
+          // AI Concierge prompt card
+          _buildConciergeCTA(),
         ],
       ),
     );
@@ -266,6 +270,79 @@ class _AcademyScreenState extends State<AcademyScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Build the AI Concierge call-to-action card.
+  Widget _buildConciergeCTA() {
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Icon
+          Icon(
+            Icons.chat_bubble_outline,
+            size: 32,
+            color: AppColors.iconCircleBlue,
+          ),
+          SizedBox(height: AppSpacing.sm),
+          // Text
+          Text(
+            'Have questions? Your AI Concierge\nis here to help',
+            style: AppTypography.bodyMedium.copyWith(
+              color: AppColors.textSecondary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: AppSpacing.lg),
+          // Buttons row
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go('/ask-bartender'),
+                  icon: Icon(Icons.chat_bubble_outline, size: 18),
+                  label: Text('Chat'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.iconCircleBlue,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.cardBorderRadius),
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => context.go('/voice-ai'),
+                  icon: Icon(Icons.mic, size: 18),
+                  label: Text('Voice'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.iconCircleTeal,
+                    foregroundColor: AppColors.textPrimary,
+                    padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
+                    shape: RoundedRectangleBorder(
+                      borderRadius:
+                          BorderRadius.circular(AppSpacing.cardBorderRadius),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

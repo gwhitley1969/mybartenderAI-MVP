@@ -110,6 +110,10 @@ Future<bool> _performTokenRefresh() async {
         print('[BG-TOKEN] Expiry saved');
       }
 
+      // Save last refresh time for AppLifecycleService to check
+      await tokenStorage.saveLastRefreshTime(DateTime.now());
+      print('[BG-TOKEN] Last refresh time saved');
+
       print('[BG-TOKEN] === TOKEN REFRESH KEEPALIVE SUCCEEDED ===');
     } else {
       print('[BG-TOKEN] acquireTokenSilent returned null');
@@ -163,7 +167,7 @@ class BackgroundTokenService {
 
     await Workmanager().initialize(
       callbackDispatcher,
-      isInDebugMode: true, // Set to false in production
+      isInDebugMode: false, // Production mode - no debug notifications
     );
 
     _isInitialized = true;
@@ -171,20 +175,22 @@ class BackgroundTokenService {
   }
 
   /// Schedule the periodic token refresh task
-  /// Runs every 10 hours to keep the refresh token active
+  /// Runs every 8 hours to keep the refresh token active
+  /// This serves as a BACKUP to the foreground refresh in AppLifecycleService
   Future<void> scheduleTokenRefresh() async {
     print('[BG-TOKEN] Scheduling periodic token refresh task...');
 
     // Cancel any existing task first
     await Workmanager().cancelByUniqueName(tokenRefreshTaskUniqueName);
 
-    // Schedule periodic task - runs approximately every 10 hours
+    // Schedule periodic task - runs approximately every 8 hours
     // Note: Android has a minimum of 15 minutes for periodic tasks
-    // We use 10 hours to stay well under the 12-hour inactivity limit
+    // We use 8 hours to provide extra margin (4 hours before 12-hour timeout)
+    // Primary refresh happens in AppLifecycleService when app comes to foreground
     await Workmanager().registerPeriodicTask(
       tokenRefreshTaskUniqueName,
       tokenRefreshTaskName,
-      frequency: const Duration(hours: 10),
+      frequency: const Duration(hours: 8),
       constraints: Constraints(
         networkType: NetworkType.connected, // Requires network connection
         requiresBatteryNotLow: false, // Run even on low battery
@@ -198,7 +204,7 @@ class BackgroundTokenService {
       tag: 'token_refresh',
     );
 
-    print('[BG-TOKEN] Periodic token refresh scheduled (every 10 hours)');
+    print('[BG-TOKEN] Periodic token refresh scheduled (every 8 hours, backup to foreground refresh)');
   }
 
   /// Cancel the periodic token refresh task

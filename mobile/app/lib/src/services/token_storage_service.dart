@@ -63,6 +63,30 @@ class TokenStorageService {
     return DateTime.now().isAfter(expiresAt);
   }
 
+  /// Save the last time tokens were successfully refreshed
+  /// Used for proactive refresh to prevent 12-hour inactivity timeout
+  Future<void> saveLastRefreshTime(DateTime time) async {
+    await _storage.write(
+      key: AuthConfig.lastRefreshTimeKey,
+      value: time.toIso8601String(),
+    );
+  }
+
+  /// Get the last time tokens were successfully refreshed
+  Future<DateTime?> getLastRefreshTime() async {
+    final value = await _storage.read(key: AuthConfig.lastRefreshTimeKey);
+    if (value == null) return null;
+    return DateTime.parse(value);
+  }
+
+  /// Check how long since last token refresh
+  /// Returns null if no refresh time is recorded
+  Future<Duration?> getTimeSinceLastRefresh() async {
+    final lastRefresh = await getLastRefreshTime();
+    if (lastRefresh == null) return null;
+    return DateTime.now().difference(lastRefresh);
+  }
+
   // User profile management
 
   Future<void> saveUserProfile(User user) async {
@@ -89,5 +113,6 @@ class TokenStorageService {
     await _storage.delete(key: AuthConfig.idTokenKey);
     await _storage.delete(key: AuthConfig.expiresAtKey);
     await _storage.delete(key: AuthConfig.userProfileKey);
+    await _storage.delete(key: AuthConfig.lastRefreshTimeKey);
   }
 }

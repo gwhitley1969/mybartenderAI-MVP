@@ -312,12 +312,16 @@ class VoiceAIService {
   /// Connect to WebRTC endpoint with ephemeral token
   Future<void> _connectWebRTC(String token, String webrtcUrl) async {
     try {
-      // Get local audio stream
+      // Get local audio stream with enhanced noise filtering
       _localStream = await navigator.mediaDevices.getUserMedia({
         'audio': {
           'echoCancellation': true,
           'noiseSuppression': true,
           'autoGainControl': true,
+          // Enhanced noise filtering for noisy environments (TV, conversations)
+          'googNoiseSuppression': true,    // Chrome-specific enhanced suppression
+          'googHighpassFilter': true,       // Filter low-frequency background noise
+          'channelCount': 1,                // Mono audio (reduces complexity)
         },
         'video': false,
       });
@@ -583,13 +587,8 @@ IMPORTANT: When the user asks what they can make or for drink suggestions, you M
 ''';
   }
 
-  /// Send session.update event via data channel to apply instructions
+  /// Send session.update event via data channel to apply VAD config and instructions
   void _sendSessionUpdate() {
-    if (_pendingInstructions == null) {
-      debugPrint('[VOICE-AI] No pending instructions to send');
-      return;
-    }
-
     if (_dataChannel == null) {
       debugPrint('[VOICE-AI] Data channel is null, cannot send session.update');
       return;
@@ -600,15 +599,37 @@ IMPORTANT: When the user asks what they can make or for drink suggestions, you M
       return;
     }
 
+    // Build session config with VAD settings and optional instructions
+    final sessionConfig = <String, dynamic>{
+      // Semantic VAD - uses AI to understand speech, not just volume
+      // 'low' eagerness = more tolerant of background noise/pauses
+      'turn_detection': {
+        'type': 'semantic_vad',
+        'eagerness': 'low',
+        'create_response': true,
+        'interrupt_response': false,
+      },
+      // Noise reduction filter for phone speaker/mic usage
+      'input_audio_noise_reduction': {
+        'type': 'far_field',
+      },
+    };
+
+    // Add inventory instructions if available
+    if (_pendingInstructions != null) {
+      sessionConfig['instructions'] = _pendingInstructions;
+      debugPrint('[VOICE-AI] Including inventory instructions');
+    }
+
     final event = json.encode({
       'type': 'session.update',
-      'session': {
-        'instructions': _pendingInstructions,
-      }
+      'session': sessionConfig,
     });
 
-    debugPrint('[VOICE-AI] Sending session.update with inventory instructions');
-    debugPrint('[VOICE-AI] Instructions: $_pendingInstructions');
+    debugPrint('[VOICE-AI] Sending session.update with VAD config (semantic_vad + far_field noise reduction)');
+    if (_pendingInstructions != null) {
+      debugPrint('[VOICE-AI] Instructions: $_pendingInstructions');
+    }
 
     _dataChannel!.send(RTCDataChannelMessage(event));
     _pendingInstructions = null; // Clear after sending

@@ -226,6 +226,16 @@ class BackendService {
       throw Exception('Failed to get recommendations: $e');
     }
   }
+
+  /// Get subscription configuration (RevenueCat API key from Key Vault)
+  Future<SubscriptionConfig> getSubscriptionConfig() async {
+    try {
+      final response = await _dio.get('/v1/subscription/config');
+      return SubscriptionConfig.fromJson(response.data);
+    } catch (e) {
+      throw Exception('Failed to get subscription config: $e');
+    }
+  }
 }
 
 // Data Models
@@ -343,6 +353,21 @@ class Recommendation {
       matchScore: json['matchScore'].toDouble(),
       reason: json['reason'],
       missingIngredients: List<String>.from(json['missingIngredients'] ?? []),
+    );
+  }
+}
+
+class SubscriptionConfig {
+  final String revenueCatApiKey;
+
+  SubscriptionConfig({
+    required this.revenueCatApiKey,
+  });
+
+  factory SubscriptionConfig.fromJson(Map<String, dynamic> json) {
+    final config = json['config'] as Map<String, dynamic>;
+    return SubscriptionConfig(
+      revenueCatApiKey: config['revenueCatApiKey'],
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:jwt_decoder/jwt_decoder.dart';
 import '../config/auth_config.dart';
 import '../models/user.dart';
 import 'background_token_service.dart';
+import 'notification_service.dart';
 import 'token_storage_service.dart';
 
 /// Authentication service for Entra External ID (Azure AD B2C) using MSAL
@@ -24,6 +25,9 @@ class AuthService {
 
   /// Track last authentication time for diagnostics
   DateTime? _lastAuthTime;
+
+  /// Mutex to prevent concurrent refresh attempts
+  bool _isRefreshing = false;
 
   AuthService({
     required TokenStorageService tokenStorage,
@@ -240,12 +244,21 @@ class AuthService {
     try {
       developer.log('Starting sign out flow', name: 'AuthService');
 
-      // Cancel background token refresh task
+      // Cancel background token refresh task (WorkManager)
       try {
         await BackgroundTokenService.instance.cancelTokenRefresh();
         developer.log('Background token refresh cancelled', name: 'AuthService');
       } catch (e) {
         developer.log('Failed to cancel background token refresh: $e', name: 'AuthService');
+      }
+
+      // Cancel AlarmManager-based token refresh
+      try {
+        await NotificationService.instance.cancelTokenRefreshAlarm();
+        NotificationService.instance.onTokenRefreshNeeded = null;
+        developer.log('AlarmManager token refresh cancelled', name: 'AuthService');
+      } catch (e) {
+        developer.log('Failed to cancel AlarmManager token refresh: $e', name: 'AuthService');
       }
 
       // LAYER 4: Clear local storage FIRST before MSAL sign out
@@ -374,15 +387,30 @@ class AuthService {
       // Update tracking timestamps
       _lastAuthTime = DateTime.now();
       _lastSuccessfulRefresh = DateTime.now();
-      _diagLog('Authentication timestamps updated');
+      await _tokenStorage.saveLastRefreshTime(DateTime.now());
+      _diagLog('Authentication timestamps updated (including lastRefreshTime in storage)');
 
       // Schedule background token refresh to keep refresh token active
       // This prevents the 12-hour inactivity timeout in Entra External ID
       try {
         await BackgroundTokenService.instance.scheduleTokenRefresh();
-        _diagLog('Background token refresh scheduled (every 10 hours)');
+        _diagLog('Background token refresh scheduled via WorkManager (every 8 hours)');
       } catch (e) {
         _diagLog('Failed to schedule background token refresh: $e');
+      }
+
+      // Schedule AlarmManager-based token refresh (more reliable backup)
+      // AlarmManager fires even in Doze mode, providing better reliability than WorkManager
+      try {
+        // Set up the callback to perform token refresh when alarm fires
+        NotificationService.instance.onTokenRefreshNeeded = () async {
+          _diagLog('[ALARM-REFRESH] AlarmManager token refresh triggered');
+          await refreshToken();
+        };
+        await NotificationService.instance.scheduleTokenRefreshAlarm();
+        _diagLog('AlarmManager token refresh scheduled (every 6 hours)');
+      } catch (e) {
+        _diagLog('Failed to schedule AlarmManager token refresh: $e');
       }
 
       _diagLog('User authenticated successfully: ${user.email}');
@@ -471,6 +499,17 @@ class AuthService {
     _diagLog('Last successful refresh: ${_lastSuccessfulRefresh?.toIso8601String() ?? "NEVER"}');
     _diagLog('Last auth time: ${_lastAuthTime?.toIso8601String() ?? "UNKNOWN"}');
 
+    // Mutex to prevent concurrent refresh attempts
+    if (_isRefreshing) {
+      _diagLog('Refresh already in progress, waiting...');
+      // Wait a bit and return null - the other refresh will handle it
+      await Future.delayed(const Duration(milliseconds: 500));
+      return await _tokenStorage.getUserProfile();
+    }
+
+    _isRefreshing = true;
+    _diagLog('Acquired refresh mutex');
+
     if (_lastSuccessfulRefresh != null) {
       final timeSinceLastRefresh = DateTime.now().difference(_lastSuccessfulRefresh!);
       _diagLog('Time since last successful refresh: ${timeSinceLastRefresh.inHours} hours (${timeSinceLastRefresh.inMinutes} minutes)');
@@ -538,6 +577,10 @@ class AuthService {
         _diagLog('Token lifetime: ${tokenLifetime.inMinutes} minutes');
       }
 
+      // Save last refresh time to storage for AppLifecycleService
+      await _tokenStorage.saveLastRefreshTime(DateTime.now());
+      _diagLog('Last refresh time saved to storage');
+
       _diagLog('=== REFRESH TOKEN SUCCEEDED ===');
       return await _handleAuthResult(result);
 
@@ -589,6 +632,9 @@ class AuthService {
 
       _diagLog('=== REFRESH TOKEN FAILED - UNEXPECTED ERROR ===');
       return null;
+    } finally {
+      _isRefreshing = false;
+      _diagLog('Released refresh mutex');
     }
   }
 
@@ -602,6 +648,95 @@ class AuthService {
   Future<User?> signUp() async {
     // For MSAL with Entra External ID, sign up and sign in use the same flow
     return await signIn();
+  }
+
+  /// Quick re-login with minimal friction.
+  ///
+  /// Uses the stored user's email as a loginHint to pre-fill the MSAL login screen,
+  /// reducing re-authentication from 3+ taps to potentially just 1 tap.
+  ///
+  /// This is called when the refresh token has expired and silent refresh fails.
+  /// The user will see the login screen but with their email pre-filled.
+  ///
+  /// Returns the authenticated user or null if cancelled/failed.
+  Future<User?> quickRelogin() async {
+    _diagLog('=== QUICK RE-LOGIN STARTED ===');
+
+    // Get the last known user info for the login hint
+    final storedUser = await _tokenStorage.getUserProfile();
+    final loginHint = storedUser?.email;
+
+    if (loginHint != null) {
+      _diagLog('Using login hint: $loginHint');
+    } else {
+      _diagLog('No stored user found, proceeding without login hint');
+    }
+
+    try {
+      if (_msalAuth == null) {
+        _diagLog('MSAL not initialized, initializing now...');
+        await initialize();
+      }
+
+      // Try silent auth first (may work if Azure session is still valid)
+      try {
+        _diagLog('Attempting silent re-login first...');
+        final scopes = [
+          'https://graph.microsoft.com/User.Read',
+          'openid',
+          'profile',
+          'email',
+        ];
+
+        final result = await _msalAuth!.acquireTokenSilent(scopes: scopes);
+        if (result != null) {
+          _diagLog('Silent re-login succeeded!');
+          return await _handleAuthResult(result);
+        }
+      } catch (e) {
+        _diagLog('Silent re-login failed: $e');
+        _diagLog('Falling back to interactive login with hint');
+      }
+
+      // Interactive login with login hint to pre-fill email
+      final scopes = [
+        'https://graph.microsoft.com/User.Read',
+        'openid',
+        'profile',
+        'email',
+      ];
+
+      _diagLog('Starting interactive re-login with loginHint');
+
+      final result = await _msalAuth!.acquireToken(
+        scopes: scopes,
+        loginHint: loginHint, // Pre-fills the email field
+        prompt: Prompt.selectAccount, // Shows account picker with hint
+      );
+
+      if (result == null) {
+        _diagLog('Quick re-login cancelled by user');
+        return null;
+      }
+
+      _diagLog('Quick re-login successful');
+      return await _handleAuthResult(result);
+    } catch (e, stackTrace) {
+      _diagLog(
+        'Quick re-login error: ${e.toString()}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  }
+
+  /// Get the last known user info (even if session expired).
+  ///
+  /// This is useful for showing "Welcome back, [Name]!" in the re-login dialog.
+  /// Returns null if no user was ever logged in.
+  Future<User?> getLastKnownUser() async {
+    return await _tokenStorage.getUserProfile();
   }
 
   /// DIAGNOSTIC TEST: Force token expiration to simulate the 24-hour issue

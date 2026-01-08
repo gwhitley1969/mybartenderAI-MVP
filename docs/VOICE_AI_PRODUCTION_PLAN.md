@@ -1,7 +1,7 @@
 # Voice AI Production Implementation Plan
 
 **Created:** December 11, 2025
-**Last Updated:** December 27, 2025
+**Last Updated:** January 7, 2026
 **Status:** ✅ Implemented
 **Estimated Effort:** 1.5-2 hours
 
@@ -478,8 +478,8 @@ MOBILE APP                    APIM                         FUNCTION APP
 
 ---
 
-**Document Version:** 1.1
-**Last Updated:** December 27, 2025
+**Document Version:** 1.2
+**Last Updated:** January 7, 2026
 
 ---
 
@@ -491,41 +491,60 @@ The original plan included passing user inventory context via the backend during
 
 ---
 
-## Note: Background Noise Sensitivity Fix (December 2025)
+## Note: Background Noise Sensitivity Fix (December 2025 - January 2026)
 
 ### Problem
 
 Users reported Voice AI was too sensitive to background noise (TV, other conversations, environmental sounds).
 
-### Solution
+**January 2026 Update**: Even with server-side `semantic_vad` configuration, the AI would stop mid-sentence when TV dialogue was detected due to client-side state machine bugs.
 
-Changed voice activity detection from `server_vad` to `semantic_vad` and added noise reduction:
+### Solution: Two-Part Fix
+
+#### Part 1: Server Configuration (December 2025)
 
 ```javascript
-// Updated session configuration
 turn_detection: {
     type: 'semantic_vad',           // AI-powered speech intent detection
-    eagerness: 'medium',            // Balanced responsiveness
+    eagerness: 'low',               // More tolerant of background noise
     create_response: true,
-    interrupt_response: true
+    interrupt_response: false       // Prevent background noise from interrupting
 },
 input_audio_noise_reduction: {
-    type: 'near_field'              // Optimized for mobile device microphones
+    type: 'far_field'               // Aggressive filtering for noisy environments
 }
 ```
 
+#### Part 2: Client-Side State Guards (January 2026)
+
+Fixed multiple bugs in `voice_ai_service.dart`:
+
+1. **Wrong event names**: Changed `response.audio.started` → `output_audio_buffer.started`
+2. **Premature state change**: Removed `_setState(VoiceAIState.speaking)` from WebRTC `onTrack` handler (fires at connection, not playback)
+3. **Added state guards**: `speech_started` events now ignored when AI is speaking
+
+### Key Insight
+
+The WebRTC `onTrack` event fires when the audio TRACK is added during connection setup, NOT when audio actually starts playing. Setting state to `speaking` at that point caused the state guards to incorrectly block user speech.
+
 ### Key Differences
 
-| Aspect | server_vad (Before) | semantic_vad (After) |
-|--------|---------------------|----------------------|
+| Aspect | server_vad (Before) | semantic_vad + guards (After) |
+|--------|---------------------|-------------------------------|
 | Detection | Audio energy threshold | AI understands speech intent |
-| Background noise | Triggers false positives | Filtered out |
+| Background noise | Triggers false positives | Filtered out + client guards |
 | Other voices | Cannot distinguish | Focuses on primary speaker |
 | Latency | ~100ms | ~200ms (acceptable trade-off) |
 
 ### Files Modified
 
-- `backend/functions/index.js` - voice-session function
-- `mobile/app/lib/src/services/voice_ai_service.dart` - session.update configuration
+- `backend/functions/index.js` - voice-session function (eagerness: low, interrupt_response: false, far_field)
+- `mobile/app/lib/src/services/voice_ai_service.dart` - Fixed event names, removed onTrack state change, added state guards
+
+### Testing Results (January 7, 2026)
+
+- ✅ AI completes full responses with TV dialogue in background
+- ✅ User can still speak to AI and get responses
+- ✅ State machine correctly transitions
 
 See `VOICE_AI_DEPLOYED.md` for full implementation details.

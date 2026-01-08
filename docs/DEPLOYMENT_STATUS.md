@@ -2,12 +2,15 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 6, 2026
+**Last Updated**: January 8, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
 
+- **Token Refresh Notification UX Fix**: Made the background token refresh notification user-friendly instead of confusingly empty. Changed from invisible (which Android displayed as just app name) to informative: "Session Active - Keeping you signed in automatically". See `NOTIFICATION_SYSTEM.md` for details.
+- **Today's Special Deep Link Fix**: Fixed critical regression where notification deep links would flash the cocktail card briefly then redirect to home. Root cause was `routerProvider` using `ref.watch()` which recreated the entire GoRouter on state changes. Fixed with `refreshListenable` pattern per GoRouter best practices. See `TODAYS_SPECIAL_FEATURE.md` Issue #5 REGRESSION for details.
+- **Voice AI Background Noise Fix**: Fixed critical issue where Voice AI would stop mid-sentence when TV dialogue or background conversations were detected. Root cause was premature state change in WebRTC `onTrack` handler and incorrect event names. See `VOICE_AI_DEPLOYED.md` for details.
 - **Recipe Vault AI Concierge**: Added Chat and Voice buttons to help users find cocktails via AI
 - **My Bar Smart Scanner**: Added Scanner option in empty state for quick bottle identification
 - **My Bar Empty State**: Updated instructional text to explain Add (search) vs Scanner (AI photo) options
@@ -237,9 +240,11 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
   - Idempotent scheduling (30-minute cooldown prevents loops)
   - Battery optimization exemption for reliable delivery
   - Configurable notification time (default 5 PM)
-- **Background Token Refresh**: Silent alarm-based token refresh every 6 hours
-  - Uses `Importance.min` and `silent: true` for invisible notifications
+- **Background Token Refresh**: Alarm-based token refresh every 6 hours
+  - Shows friendly notification: "Session Active - Keeping you signed in automatically"
+  - Uses `Importance.low` with `silent: true` (no sound/vibration)
   - `TOKEN_REFRESH_TRIGGER` payload filtered in main.dart to prevent navigation errors
+  - See `NOTIFICATION_SYSTEM.md` for architecture details
 
 ### Profile Screen (Release Candidate)
 
@@ -406,6 +411,7 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `VOICE_AI_IMPLEMENTATION.md`         | Voice feature specification                    |
 | `SUBSCRIPTION_DEPLOYMENT.md`         | RevenueCat subscription system                 |
 | `TODAYS_SPECIAL_FEATURE.md`          | Today's Special notifications and deep linking |
+| `NOTIFICATION_SYSTEM.md`             | Notification architecture and token refresh    |
 | `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
 | `MY_BAR_SCANNER_INTEGRATION.md`      | Smart Scanner option in My Bar empty state     |
 | `CLAUDE.md`                          | Project context and conventions                |
@@ -413,4 +419,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 6, 2026
+**Last Updated**: January 8, 2026

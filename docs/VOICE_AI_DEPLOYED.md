@@ -1039,4 +1039,126 @@ When session.update is sent with the new configuration:
 
 ---
 
-**Last Updated**: January 2026 (Low eagerness + far_field for better noise tolerance)
+## Client-Side State Guard Fix (January 7, 2026)
+
+### Problem
+
+Despite the server-side configuration (`semantic_vad`, `eagerness: low`, `interrupt_response: false`, `far_field`), the AI would still stop mid-sentence when TV dialogue was detected. The AI would wait indefinitely for user input.
+
+### Root Cause Analysis
+
+**The configuration was correct but insufficient.** Investigation revealed multiple issues:
+
+1. **Azure still sends events**: Even with `interrupt_response: false`, Azure still SENDS `input_audio_buffer.speech_started` events when it detects human speech (including TV dialogue)
+
+2. **Wrong event name in code**: The code was listening for `response.audio.started` which doesn't exist in Azure OpenAI Realtime API. The correct event is `output_audio_buffer.started`
+
+3. **Premature state change in onTrack**: The WebRTC `onTrack` handler was setting state to `speaking` when the audio track was added during connection setup - NOT when the AI actually started talking. This caused the state machine to be in `speaking` state before any audio playback began
+
+4. **Buffer clear command causing aborts**: Initial fix attempted to send `input_audio_buffer.clear` when background noise was detected, but this caused Azure to abort the response with a server error
+
+### Solution: Multi-Part Fix
+
+#### Fix 1: Correct Event Names
+
+Changed from non-existent events to correct Azure OpenAI Realtime API events:
+
+| Wrong (Before) | Correct (After) |
+|----------------|-----------------|
+| `response.audio.started` | `output_audio_buffer.started` |
+| `response.audio.done` (for state) | `output_audio_buffer.stopped` |
+
+#### Fix 2: Remove Premature State Change from onTrack
+
+**Before (problematic):**
+```dart
+_peerConnection!.onTrack = (RTCTrackEvent event) {
+  if (event.track.kind == 'audio') {
+    _setState(VoiceAIState.speaking);  // WRONG - fires at connection, not playback!
+  }
+};
+```
+
+**After (fixed):**
+```dart
+_peerConnection!.onTrack = (RTCTrackEvent event) {
+  if (event.track.kind == 'audio') {
+    debugPrint('[VOICE-AI] Remote audio track received (AI can now send audio)');
+    // State will transition to 'speaking' when output_audio_buffer.started is received
+  }
+};
+```
+
+#### Fix 3: State Guards (Passive Defense)
+
+```dart
+case 'input_audio_buffer.speech_started':
+  // STATE GUARD: Only transition to listening if NOT currently speaking
+  if (_state != VoiceAIState.speaking) {
+    _setState(VoiceAIState.listening);
+  } else {
+    debugPrint('[VOICE-AI] IGNORED speech_started - AI is speaking (likely TV/background noise)');
+    // Do NOT send any commands to Azure - just ignore client-side
+  }
+  break;
+
+case 'input_audio_buffer.speech_stopped':
+  // STATE GUARD: Only transition to processing if we were actually listening
+  if (_state == VoiceAIState.listening) {
+    _setState(VoiceAIState.processing);
+  } else {
+    debugPrint('[VOICE-AI] IGNORED speech_stopped - was not in listening state');
+  }
+  break;
+```
+
+### Key Insight: Why onTrack Was the Real Bug
+
+The `onTrack` WebRTC event fires when the audio TRACK is added to the connection during setup, NOT when audio playback actually begins. This caused:
+
+1. Connection established → `onTrack` fires → state = `speaking` (WRONG!)
+2. You try to speak → `speech_started` event arrives
+3. Guard checks `state != speaking` → FALSE (because state is incorrectly `speaking`)
+4. **Your speech is IGNORED** because the system thinks AI is already talking
+
+After removing this premature state change, the flow is correct:
+1. Connection established → state = `listening`
+2. User speaks → `speech_started` → state stays `listening`
+3. User stops → `speech_stopped` → state = `processing`
+4. AI generates response → `output_audio_buffer.started` → state = `speaking`
+5. Background noise → `speech_started` → GUARD BLOCKS (correct!)
+6. AI finishes → `output_audio_buffer.stopped` → state = `listening`
+
+### Additional Improvements
+
+1. **Debug Logging**: All incoming events are now logged with timestamps and current state
+2. **`conversation.interrupted` Handler**: Now properly handled (logs but doesn't change state)
+3. **Speaking Duration Tracking**: Tracks how long AI has been speaking for diagnostic purposes
+
+### Debug Logging Example
+
+With the new logging, you can diagnose issues by watching for:
+```
+[VOICE-AI] Remote audio track received (AI can now send audio)
+[VOICE-AI] AI started speaking (audio playback began) at 2026-01-07T...
+[VOICE-AI] EVENT: input_audio_buffer.speech_started | State: speaking
+[VOICE-AI] IGNORED speech_started - AI is speaking for 3734ms (likely TV/background noise)
+[VOICE-AI] AI stopped speaking (audio playback ended) - duration: 8500ms
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `mobile/app/lib/src/services/voice_ai_service.dart` | Fixed event names, removed onTrack state change, added state guards, debug logging |
+
+### Testing Results (January 7, 2026)
+
+- [x] AI completes full responses with TV dialogue in background
+- [x] User can still speak to AI and get responses
+- [x] State machine correctly transitions: listening → processing → speaking → listening
+- [x] Background noise during AI speech is properly ignored
+
+---
+
+**Last Updated**: January 7, 2026 (Fixed onTrack premature state change + correct event names)

@@ -278,11 +278,11 @@ GoRoute(
 1. When tapping notification, cocktail detail card flashes briefly then redirects to home screen
 2. After tapping notification, it remains in the notification tray instead of being dismissed
 
-**Root Cause #1 - Card Flash**: The router's `initialSyncStatus` check could redirect away from the cocktail route. While an early exemption existed at lines 191-195, the initial sync check at lines 217-222 didn't include this protection, creating a potential race condition when provider state changed.
+**Root Cause #1 - Card Flash (Initial Fix)**: The router's `initialSyncStatus` check could redirect away from the cocktail route. While an early exemption existed at lines 191-195, the initial sync check at lines 217-222 didn't include this protection, creating a potential race condition when provider state changed.
 
 **Root Cause #2 - Notification Not Clearing**: `autoCancel: false` was explicitly set in the notification configuration, preventing automatic dismissal on tap.
 
-**Fixes Applied**:
+**Initial Fixes Applied**:
 
 1. **Added cocktail route protection to initial sync check** (`main.dart`):
    ```dart
@@ -302,9 +302,78 @@ GoRoute(
    autoCancel: true,   // Dismiss on tap (standard Android behavior)
    ```
 
-**Why These Fixes Work**:
-- Belt-and-suspenders protection ensures cocktail routes are never redirected by initial sync check
-- `autoCancel: true` is standard Android UX - tapping a notification should dismiss it
+### Issue #5 REGRESSION: Card Flash Returns (January 2026)
+
+**Problem**: The card flash issue returned despite the previous fixes. During cold start, tapping notification would:
+1. Show cocktail detail briefly ✓
+2. Card disappears, redirects to home ✗
+
+**TRUE ROOT CAUSE - Router Recreation via ref.watch()**:
+
+The `routerProvider` in `main.dart` used `ref.watch()` on three state providers:
+```dart
+// BEFORE (Broken)
+final routerProvider = Provider<GoRouter>((ref) {
+  final authState = ref.watch(authNotifierProvider);        // ← PROBLEM!
+  final isAgeVerified = ref.watch(ageVerificationProvider); // ← PROBLEM!
+  final initialSyncStatus = ref.watch(initialSyncStatusProvider); // ← PROBLEM!
+
+  return GoRouter(
+    initialLocation: '/',  // ← New router starts HERE!
+    ...
+  );
+});
+```
+
+When any of these providers changed state (which happens asynchronously during cold start), Riverpod **recreated the entire routerProvider**, which created a **NEW GoRouter instance** with `initialLocation: '/'`. This reset the navigation stack, losing the cocktail detail route.
+
+**Timeline of What Happened**:
+```
+T=0ms:   App launches from notification tap
+T=50ms:  routerProvider created (authState = AuthStateInitial)
+T=100ms: Router navigates to /cocktail/123 ✓ (user sees card!)
+T=200ms: Auth finishes loading (authState = AuthStateAuthenticated)
+T=210ms: ref.watch() detects change → triggers provider rebuild
+T=220ms: NEW GoRouter created with initialLocation: '/'
+T=230ms: Navigation resets to '/' ✗ (card disappears!)
+```
+
+**Why Previous Fixes Didn't Work**: The `isCocktailRoute` guards in the redirect function were inside the GoRouter that got **replaced**. When a new router was created, the navigation stack was already lost before redirect even ran.
+
+**PERMANENT FIX - GoRouter refreshListenable Pattern** (`main.dart`):
+
+1. **Created RouterRefreshNotifier class** that uses `ref.listen()` instead of `ref.watch()`:
+   ```dart
+   class RouterRefreshNotifier extends ChangeNotifier {
+     RouterRefreshNotifier(Ref ref) {
+       ref.listen(authNotifierProvider, (_, __) => notifyListeners());
+       ref.listen(ageVerificationProvider, (_, __) => notifyListeners());
+       ref.listen(initialSyncStatusProvider, (_, __) => notifyListeners());
+     }
+   }
+   ```
+
+2. **Modified routerProvider** to use `refreshListenable`:
+   ```dart
+   // AFTER (Fixed)
+   final routerProvider = Provider<GoRouter>((ref) {
+     final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
+
+     return GoRouter(
+       refreshListenable: refreshNotifier,  // ← Re-evaluates redirects, keeps nav stack
+       redirect: (context, state) {
+         final authState = ref.read(authNotifierProvider);  // ← No rebuild, just reads
+         // ... rest of redirect logic unchanged
+       },
+     );
+   });
+   ```
+
+**Why This Fix Works**:
+- `refreshListenable` makes GoRouter **re-evaluate its redirects** WITHOUT creating a new router instance
+- The navigation stack is preserved because the same router instance handles the redirect re-evaluation
+- `ref.read()` inside redirect reads current state without subscribing to changes
+- This is the official GoRouter best practice for Riverpod integration
 
 ## Android Permissions
 
@@ -391,6 +460,16 @@ adb shell dumpsys alarm | grep mybartenderai
 3. **First Run**: Notification won't schedule until Today's Special loads (requires database sync).
 
 ## Changelog
+
+### January 2026 (v1.5.0)
+
+- **PERMANENT FIX**: Resolved root cause of notification deep link card flash regression
+- Root Cause: `routerProvider` using `ref.watch()` caused router recreation on state changes
+- Added: `RouterRefreshNotifier` class using `ref.listen()` pattern
+- Added: `routerRefreshNotifierProvider` for stable router refresh handling
+- Changed: `routerProvider` now uses GoRouter's `refreshListenable` pattern
+- Changed: Redirect function uses `ref.read()` instead of closure-captured watched state
+- Result: Router stays as single instance, navigation stack preserved during auth state changes
 
 ### January 2026 (v1.4.0)
 

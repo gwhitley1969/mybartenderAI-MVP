@@ -35,9 +35,9 @@ class NotificationService {
   // This provides a more reliable mechanism than WorkManager for time-critical background tasks
   static const int _tokenRefreshNotificationId = 9000;
   static const String _tokenRefreshChannelId = 'token_refresh_background';
-  static const String _tokenRefreshChannelName = 'Background Sync';
+  static const String _tokenRefreshChannelName = 'Session Keepalive';
   static const String _tokenRefreshChannelDescription =
-      'Keeps you signed in automatically.';
+      'Periodic notification to keep you signed in automatically.';
   static const String _tokenRefreshPayload = 'TOKEN_REFRESH_TRIGGER';
 
   // Number of days ahead to schedule notifications
@@ -699,31 +699,30 @@ class NotificationService {
       }
     }
 
-    // Create a truly silent notification channel
-    // Note: Even with these settings, some Android versions may show a notification
-    // The main.dart filter handles this case by ignoring TOKEN_REFRESH_TRIGGER payloads
+    // Create an informative but non-intrusive notification
+    // Instead of trying to hide it (which doesn't work on Android), we make it useful
+    // Users see "Session Active" instead of a confusing empty notification
     final androidDetails = AndroidNotificationDetails(
       _tokenRefreshChannelId,
       _tokenRefreshChannelName,
       channelDescription: _tokenRefreshChannelDescription,
-      importance: Importance.min, // Lowest importance
-      priority: Priority.min, // Lowest priority (changed from Priority.low)
+      importance: Importance.low, // Low but visible - won't make sound
+      priority: Priority.low,
       playSound: false,
       enableVibration: false,
-      showWhen: false,
+      showWhen: true, // Show timestamp so users know when it ran
       ongoing: false,
       autoCancel: true,
-      visibility: NotificationVisibility.secret, // Hidden from lock screen
-      silent: true, // Make notification completely silent
-      // Make the notification effectively invisible
-      styleInformation: const BigTextStyleInformation(''),
+      visibility: NotificationVisibility.private, // Show on lock screen but hide content
+      silent: true, // No sound
+      icon: '@mipmap/ic_launcher',
     );
 
     try {
       await _plugin.zonedSchedule(
         _tokenRefreshNotificationId,
-        '', // Empty title - effectively silent
-        '',
+        'Session Active', // Friendly title so users understand the notification
+        'Keeping you signed in automatically', // Helpful body explaining the benefit
         scheduledTime,
         NotificationDetails(android: androidDetails),
         androidScheduleMode: scheduleMode,

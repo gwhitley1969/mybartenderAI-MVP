@@ -54,6 +54,12 @@ class VoiceAIService {
   VoiceAIState _state = VoiceAIState.idle;
   VoiceAIState get state => _state;
 
+  // Background noise protection - tracks when AI started speaking
+  // to implement a "speaking protection window" against false speech detections
+  DateTime? _speakingStartTime;
+  static const _minSpeakingDuration = Duration(milliseconds: 1500);  // Minimum time before allowing interruption
+  bool _ignoringBackgroundNoise = false;  // Flag when we're actively filtering TV/background noise
+
   VoiceAIService(
     this._dio, {
     required Future<String?> Function() getUserId,
@@ -336,11 +342,14 @@ class VoiceAIService {
       final audioTrack = _localStream!.getAudioTracks().first;
       await _peerConnection!.addTrack(audioTrack, _localStream!);
 
-      // Handle incoming audio from AI
+      // Handle incoming audio track from AI (for logging only)
+      // NOTE: onTrack fires when the track is ADDED to the connection during setup,
+      // NOT when the AI actually starts speaking. Do NOT change state here!
+      // The correct event for AI speaking is 'output_audio_buffer.started' from data channel.
       _peerConnection!.onTrack = (RTCTrackEvent event) {
         if (event.track.kind == 'audio') {
-          // AI is speaking - the audio will play automatically
-          _setState(VoiceAIState.speaking);
+          debugPrint('[VOICE-AI] Remote audio track received (AI can now send audio)');
+          // State will transition to 'speaking' when output_audio_buffer.started is received
         }
       };
 
@@ -413,6 +422,19 @@ class VoiceAIService {
       final data = json.decode(message);
       final type = data['type'];
 
+      // Debug logging for all events - helps diagnose background noise issues
+      debugPrint('[VOICE-AI] EVENT: $type | State: $_state | Time: ${DateTime.now().toIso8601String()}');
+
+      // Verbose logging for diagnostic events (helps debug background noise issues)
+      if (type == 'input_audio_buffer.speech_started' ||
+          type == 'input_audio_buffer.speech_stopped' ||
+          type == 'conversation.interrupted' ||
+          type == 'response.done' ||
+          type == 'response.audio.done' ||
+          type == 'response.audio.started') {
+        debugPrint('[VOICE-AI] FULL EVENT DATA: ${json.encode(data)}');
+      }
+
       switch (type) {
         case 'response.audio_transcript.delta':
           // AI response transcript - streaming word-by-word
@@ -457,20 +479,78 @@ class VoiceAIService {
           break;
 
         case 'input_audio_buffer.speech_started':
-          _setState(VoiceAIState.listening);
+          // STATE GUARD: Only transition to listening if NOT currently speaking
+          // This prevents TV dialogue/background noise from interrupting AI mid-response
+          // Azure sends speech_started even with interrupt_response:false - we handle it client-side
+          if (_state != VoiceAIState.speaking) {
+            _setState(VoiceAIState.listening);
+          } else {
+            // Calculate how long the AI has been speaking
+            final speakingDuration = _speakingStartTime != null
+                ? DateTime.now().difference(_speakingStartTime!)
+                : Duration.zero;
+
+            debugPrint('[VOICE-AI] IGNORED speech_started - AI is speaking for ${speakingDuration.inMilliseconds}ms (likely TV/background noise)');
+
+            // Set flag so we can detect if response ends prematurely
+            _ignoringBackgroundNoise = true;
+
+            // IMPORTANT: Do NOT send input_audio_buffer.clear here!
+            // Sending clear while Azure is generating audio causes it to abort the response
+            // with a server error. Instead, we just silently ignore the event client-side
+            // and let Azure's interrupt_response:false setting handle it server-side.
+          }
           break;
 
         case 'input_audio_buffer.speech_stopped':
-          _setState(VoiceAIState.processing);
+          // STATE GUARD: Only transition to processing if we were actually listening
+          // Prevents false speech_stopped from background noise affecting state
+          if (_state == VoiceAIState.listening) {
+            _setState(VoiceAIState.processing);
+          } else {
+            debugPrint('[VOICE-AI] IGNORED speech_stopped - was not in listening state (state: $_state)');
+          }
           break;
 
-        case 'response.audio.started':
+        // CRITICAL: Use output_audio_buffer.started (NOT response.audio.started which doesn't exist!)
+        // This event fires when audio PLAYBACK actually begins on the client
+        case 'output_audio_buffer.started':
+          _speakingStartTime = DateTime.now();
+          _ignoringBackgroundNoise = false;  // Reset on new response
+          debugPrint('[VOICE-AI] AI started speaking (audio playback began) at $_speakingStartTime');
           _setState(VoiceAIState.speaking);
           break;
 
+        // CRITICAL: Use output_audio_buffer.stopped for state transitions (NOT response.audio.done!)
+        // This event fires when audio PLAYBACK actually stops (natural end or interruption)
+        case 'output_audio_buffer.stopped':
+          if (_state == VoiceAIState.speaking) {
+            final speakingDuration = _speakingStartTime != null
+                ? DateTime.now().difference(_speakingStartTime!)
+                : Duration.zero;
+            debugPrint('[VOICE-AI] AI stopped speaking (audio playback ended) - duration: ${speakingDuration.inMilliseconds}ms');
+
+            // Check if this might be a premature end due to background noise
+            if (_ignoringBackgroundNoise && speakingDuration < _minSpeakingDuration) {
+              debugPrint('[VOICE-AI] WARNING: Playback stopped quickly (${speakingDuration.inMilliseconds}ms) while ignoring background noise');
+              debugPrint('[VOICE-AI] This may indicate Azure truncated the response despite interrupt_response:false');
+            }
+
+            _speakingStartTime = null;
+            _ignoringBackgroundNoise = false;
+            _setState(VoiceAIState.listening);
+          } else {
+            debugPrint('[VOICE-AI] output_audio_buffer.stopped received but not in speaking state (state: $_state)');
+          }
+          break;
+
+        // response.audio.done and response.done indicate GENERATION complete, NOT playback complete
+        // Do NOT change state here - let output_audio_buffer.stopped handle state transitions
         case 'response.audio.done':
         case 'response.done':
-          _setState(VoiceAIState.listening);
+          debugPrint('[VOICE-AI] Response generation complete (state: $_state, playback may still be ongoing)');
+          // Note: We intentionally do NOT transition state here.
+          // The output_audio_buffer.stopped event handles the actual end of playback.
           break;
 
         case 'session.updated':
@@ -478,10 +558,53 @@ class VoiceAIService {
           debugPrint('[VOICE-AI] Session updated - inventory instructions applied successfully');
           break;
 
+        case 'conversation.interrupted':
+          // Azure detected an interruption - this may be from background noise (TV dialogue)
+          // With interrupt_response:false configured, Azure SHOULD NOT truncate the response,
+          // but we've seen it still send this event.
+          final interruptedDuration = _speakingStartTime != null
+              ? DateTime.now().difference(_speakingStartTime!)
+              : Duration.zero;
+
+          debugPrint('[VOICE-AI] INTERRUPTED event received after ${interruptedDuration.inMilliseconds}ms speaking');
+          debugPrint('[VOICE-AI] This may be false detection from TV/background noise - NOT changing state');
+
+          // Set flag to track if we're being interrupted during a response
+          if (_state == VoiceAIState.speaking) {
+            _ignoringBackgroundNoise = true;
+            // IMPORTANT: Do NOT send any commands to Azure here!
+            // Sending input_audio_buffer.clear or other commands during response generation
+            // can cause Azure to abort with a server error. Just ignore client-side.
+          }
+          break;
+
         case 'error':
           // Error message available in data['error']?['message']
           debugPrint('VoiceAIService: Received error from data channel: ${data['error']}');
           _setState(VoiceAIState.error);
+          break;
+
+        // Events we want to track but don't need to act on
+        // NOTE: response.audio_transcript.delta and response.audio_transcript.done
+        // are handled above for transcript processing - do NOT duplicate here!
+        case 'response.created':
+        case 'response.output_item.added':
+        case 'response.output_item.done':
+        case 'response.content_part.added':
+        case 'response.content_part.done':
+        case 'input_audio_buffer.committed':
+        case 'input_audio_buffer.cleared':
+        case 'output_audio_buffer.cleared':
+        case 'conversation.item.created':
+        case 'conversation.item.truncated':
+        case 'rate_limits.updated':
+        case 'session.created':
+          // These are informational events - already logged above
+          break;
+
+        default:
+          // Log any unhandled events so we can see what we might be missing
+          debugPrint('[VOICE-AI] UNHANDLED EVENT: $type | Data: ${json.encode(data)}');
           break;
       }
     } catch (e) {
@@ -634,6 +757,24 @@ IMPORTANT: When the user asks what they can make or for drink suggestions, you M
     _dataChannel!.send(RTCDataChannelMessage(event));
     _pendingInstructions = null; // Clear after sending
     debugPrint('[VOICE-AI] session.update sent successfully');
+  }
+
+  /// Send a generic command via the data channel
+  /// Used for commands like input_audio_buffer.clear to discard false speech detection
+  void _sendDataChannelMessage(Map<String, dynamic> message) {
+    if (_dataChannel == null) {
+      debugPrint('[VOICE-AI] Data channel is null, cannot send message');
+      return;
+    }
+
+    if (_dataChannel!.state != RTCDataChannelState.RTCDataChannelOpen) {
+      debugPrint('[VOICE-AI] Data channel not open (state: ${_dataChannel!.state}), cannot send message');
+      return;
+    }
+
+    final event = json.encode(message);
+    debugPrint('[VOICE-AI] Sending command: ${message['type']}');
+    _dataChannel!.send(RTCDataChannelMessage(event));
   }
 }
 

@@ -26,6 +26,45 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 /// Global router instance for notification navigation when app is already running
 GoRouter? _globalRouter;
 
+/// Notifier that triggers GoRouter redirect re-evaluation when auth state changes.
+///
+/// This pattern prevents router recreation (which loses navigation state).
+/// When any watched provider changes, we call notifyListeners() which triggers
+/// GoRouter to re-evaluate its redirect function WITHOUT creating a new router.
+///
+/// FIX for Issue #5: Today's Special notification deep link regression.
+/// The previous implementation used ref.watch() directly in routerProvider,
+/// which caused the entire GoRouter to be recreated on state changes,
+/// losing the navigation stack (including the cocktail detail route).
+class RouterRefreshNotifier extends ChangeNotifier {
+  RouterRefreshNotifier(Ref ref) {
+    // Listen to auth changes - notifyListeners triggers redirect re-evaluation
+    ref.listen(authNotifierProvider, (_, __) {
+      debugPrint('[ROUTER] Auth state changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+
+    // Listen to age verification changes
+    ref.listen(ageVerificationProvider, (_, __) {
+      debugPrint('[ROUTER] Age verification changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+
+    // Listen to initial sync status changes
+    ref.listen(initialSyncStatusProvider, (_, __) {
+      debugPrint('[ROUTER] Initial sync status changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+  }
+}
+
+/// Provider for the router refresh notifier.
+/// This is watched by routerProvider but doesn't cause rebuilds because
+/// the notifier itself is stable - it just calls notifyListeners() when state changes.
+final routerRefreshNotifierProvider = Provider<RouterRefreshNotifier>((ref) {
+  return RouterRefreshNotifier(ref);
+});
+
 Future<void> main() async {
   await bootstrap(
     () => const MyBartenderApp(),
@@ -165,15 +204,31 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
 }
 
 /// The router configuration with authentication guards.
+///
+/// Uses refreshListenable pattern to prevent router recreation on state changes.
+/// This is the GoRouter best practice for Riverpod integration.
+///
+/// FIX for Issue #5: The previous implementation used ref.watch() on state
+/// providers, which caused the entire GoRouter to be recreated when state
+/// changed. This lost the navigation stack, breaking notification deep links.
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authNotifierProvider);
-  final isAgeVerified = ref.watch(ageVerificationProvider);
-  final initialSyncStatus = ref.watch(initialSyncStatusProvider);
+  // Get the refresh notifier - this does NOT cause rebuilds because
+  // the notifier itself is stable (it just calls notifyListeners on changes)
+  final refreshNotifier = ref.watch(routerRefreshNotifierProvider);
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
     initialLocation: '/',
+    // KEY FIX: Use refreshListenable instead of ref.watch() on state providers
+    // This re-evaluates redirects WITHOUT recreating the router, preserving nav stack
+    refreshListenable: refreshNotifier,
     redirect: (BuildContext context, GoRouterState state) {
+      // Use ref.read() inside redirect - reads current state without subscribing
+      // This is called whenever refreshNotifier.notifyListeners() is triggered
+      final authState = ref.read(authNotifierProvider);
+      final isAgeVerified = ref.read(ageVerificationProvider);
+      final initialSyncStatus = ref.read(initialSyncStatusProvider);
+
       // Get authentication status
       final isAuthenticated = authState is AuthStateAuthenticated;
       final isAuthenticating = authState is AuthStateLoading || authState is AuthStateInitial;

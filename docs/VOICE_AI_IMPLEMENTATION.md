@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated December 2025 - semantic_vad + noise reduction)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 7, 2026 - background noise fix)
 
 ## Overview
 
@@ -515,7 +515,7 @@ See `docs/VOICE_AI_DEPLOYED.md` for full implementation details.
 
 ---
 
-## Background Noise Sensitivity Fix (December 2025)
+## Background Noise Sensitivity Fix (December 2025 - January 2026)
 
 ### Problem
 
@@ -523,41 +523,57 @@ Users reported the Voice AI was too sensitive to background noise:
 - TV/music in the background would trigger false "speech detected" events
 - Other people talking nearby would interrupt the AI's responses
 - Environmental sounds (air conditioning, traffic) caused erratic behavior
+- **January 2026**: Even with `semantic_vad`, AI would stop mid-sentence when TV dialogue was detected
 
-### Root Cause
+### Root Cause (Multi-Part)
 
-The original `server_vad` (Voice Activity Detection) uses simple audio energy thresholds to detect speech. It cannot distinguish between:
-- Intentional user speech directed at the app
-- Background conversations
-- TV/music audio
-- Environmental noise
+1. **Original Issue**: `server_vad` uses simple audio energy thresholds - cannot distinguish intentional speech from background noise
 
-### Solution: Semantic VAD + Noise Reduction
+2. **Deeper Issue (January 2026)**: Even with `semantic_vad` + `interrupt_response: false`, client-side state machine bugs caused failures:
+   - **Wrong event names**: Code used `response.audio.started` (doesn't exist), should be `output_audio_buffer.started`
+   - **Premature state change**: WebRTC `onTrack` handler set state to `speaking` at connection time, not when AI actually spoke
+   - **No state guards**: `speech_started` events always transitioned to `listening`, even during AI playback
 
-Changed from `server_vad` to `semantic_vad` and added noise reduction:
+### Solution: Server + Client-Side Fixes
 
-**Before:**
-```javascript
-turn_detection: {
-    type: 'server_vad',
-    threshold: 0.5,
-    prefix_padding_ms: 300,
-    silence_duration_ms: 500
-}
-```
+#### Part 1: Server Configuration (December 2025)
 
-**After:**
 ```javascript
 turn_detection: {
     type: 'semantic_vad',           // AI-powered speech understanding
-    eagerness: 'medium',            // Balanced responsiveness
+    eagerness: 'low',               // More tolerant of background noise
     create_response: true,
-    interrupt_response: true
+    interrupt_response: false       // Prevent interruption from background noise
 },
 input_audio_noise_reduction: {
-    type: 'near_field'              // Optimized for close microphone
+    type: 'far_field'               // Aggressive filtering for noisy environments
 }
 ```
+
+#### Part 2: Client-Side State Guards (January 2026)
+
+Fixed WebRTC event handling in `voice_ai_service.dart`:
+
+1. **Correct event names**:
+   - `output_audio_buffer.started` → state = speaking
+   - `output_audio_buffer.stopped` → state = listening
+
+2. **Removed premature state change from `onTrack`**:
+   ```dart
+   // Before: _setState(VoiceAIState.speaking); // WRONG!
+   // After: Just log - state changes on output_audio_buffer.started
+   ```
+
+3. **Added state guards**:
+   ```dart
+   case 'input_audio_buffer.speech_started':
+     if (_state != VoiceAIState.speaking) {
+       _setState(VoiceAIState.listening);
+     } else {
+       debugPrint('[VOICE-AI] IGNORED - AI is speaking');
+     }
+     break;
+   ```
 
 ### How Semantic VAD Works
 
@@ -569,24 +585,18 @@ input_audio_noise_reduction: {
 | TV/Music | Triggers false positives | Filters out as non-speech |
 | Latency | Lower (~100ms) | Slightly higher (~200ms) |
 
-### Noise Reduction Options
-
-| Type | Best For | Description |
-|------|----------|-------------|
-| `near_field` | Mobile devices | Close microphone, filters ambient noise |
-| `far_field` | Smart speakers | Distant microphone, aggressive filtering |
-
 ### Files Modified
 
 | File | Change |
 |------|--------|
-| `backend/functions/index.js` | Updated `voice-session` function with semantic_vad and noise reduction |
-| `mobile/app/lib/src/services/voice_ai_service.dart` | Updated session.update to use semantic_vad |
+| `backend/functions/index.js` | semantic_vad, eagerness: low, interrupt_response: false, far_field |
+| `mobile/app/lib/src/services/voice_ai_service.dart` | Fixed event names, removed onTrack state change, added state guards |
 
-### Testing Results
+### Testing Results (January 7, 2026)
 
-After implementing semantic VAD:
-- ✅ Background TV no longer triggers responses
-- ✅ Other people talking in the room are ignored
-- ✅ User speech is still detected reliably
-- ✅ Slight increase in response latency (~100-200ms) - acceptable trade-off
+- ✅ AI completes full responses with TV dialogue in background
+- ✅ User can still speak to AI and get responses
+- ✅ State machine correctly transitions: listening → processing → speaking → listening
+- ✅ Background noise during AI speech is properly ignored
+
+See `docs/VOICE_AI_DEPLOYED.md` for complete implementation details.

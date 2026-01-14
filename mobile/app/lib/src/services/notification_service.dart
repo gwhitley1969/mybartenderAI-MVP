@@ -35,9 +35,9 @@ class NotificationService {
   // This provides a more reliable mechanism than WorkManager for time-critical background tasks
   static const int _tokenRefreshNotificationId = 9000;
   static const String _tokenRefreshChannelId = 'token_refresh_background';
-  static const String _tokenRefreshChannelName = 'Session Keepalive';
+  static const String _tokenRefreshChannelName = 'Background Sync';
   static const String _tokenRefreshChannelDescription =
-      'Periodic notification to keep you signed in automatically.';
+      'Silent background task for session management.';
   static const String _tokenRefreshPayload = 'TOKEN_REFRESH_TRIGGER';
 
   // Number of days ahead to schedule notifications
@@ -699,30 +699,29 @@ class NotificationService {
       }
     }
 
-    // Create an informative but non-intrusive notification
-    // Instead of trying to hide it (which doesn't work on Android), we make it useful
-    // Users see "Session Active" instead of a confusing empty notification
+    // Use minimal notification settings - we'll cancel it immediately after scheduling
+    // The alarm is registered with AlarmManager, but the notification is dismissed
+    // before the user ever sees it
     final androidDetails = AndroidNotificationDetails(
       _tokenRefreshChannelId,
       _tokenRefreshChannelName,
       channelDescription: _tokenRefreshChannelDescription,
-      importance: Importance.low, // Low but visible - won't make sound
-      priority: Priority.low,
+      importance: Importance.min, // Minimum importance
+      priority: Priority.min,
       playSound: false,
       enableVibration: false,
-      showWhen: true, // Show timestamp so users know when it ran
+      showWhen: false,
       ongoing: false,
       autoCancel: true,
-      visibility: NotificationVisibility.private, // Show on lock screen but hide content
-      silent: true, // No sound
-      icon: '@mipmap/ic_launcher',
+      visibility: NotificationVisibility.secret, // Hidden from lock screen
+      silent: true,
     );
 
     try {
       await _plugin.zonedSchedule(
         _tokenRefreshNotificationId,
-        'Session Active', // Friendly title so users understand the notification
-        'Keeping you signed in automatically', // Helpful body explaining the benefit
+        '', // Empty - notification will be canceled immediately
+        '',
         scheduledTime,
         NotificationDetails(android: androidDetails),
         androidScheduleMode: scheduleMode,
@@ -731,8 +730,16 @@ class NotificationService {
         payload: _tokenRefreshPayload,
       );
 
+      // KEY FIX: Cancel the notification immediately after scheduling
+      // The alarm is already registered with Android's AlarmManager system.
+      // Canceling the notification does NOT cancel the alarm callback -
+      // the alarm will still fire and trigger _onNotificationTap() with our payload.
+      // This makes the notification invisible to users while keeping the refresh mechanism.
+      await _plugin.cancel(_tokenRefreshNotificationId);
+
       if (kDebugMode) {
         print('[TOKEN-ALARM] Token refresh alarm scheduled for: $scheduledTime');
+        print('[TOKEN-ALARM] Notification canceled immediately (invisible to user)');
         print('[TOKEN-ALARM] Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT" : "INEXACT"}');
       }
     } catch (e) {

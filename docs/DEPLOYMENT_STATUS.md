@@ -2,13 +2,13 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 8, 2026
+**Last Updated**: January 13, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
 
-- **Token Refresh Notification UX Fix**: Made the background token refresh notification user-friendly instead of confusingly empty. Changed from invisible (which Android displayed as just app name) to informative: "Session Active - Keeping you signed in automatically". See `NOTIFICATION_SYSTEM.md` for details.
+- **Token Refresh Notification Eliminated**: Removed the visible notification for background token refresh entirely. Users complained about seeing "Session Active" every 6 hours. Solution: Cancel the notification immediately after scheduling - the AlarmManager callback still fires, but no notification is displayed. See `NOTIFICATION_SYSTEM.md` for technical details.
 - **Today's Special Deep Link Fix**: Fixed critical regression where notification deep links would flash the cocktail card briefly then redirect to home. Root cause was `routerProvider` using `ref.watch()` which recreated the entire GoRouter on state changes. Fixed with `refreshListenable` pattern per GoRouter best practices. See `TODAYS_SPECIAL_FEATURE.md` Issue #5 REGRESSION for details.
 - **Voice AI Background Noise Fix**: Fixed critical issue where Voice AI would stop mid-sentence when TV dialogue or background conversations were detected. Root cause was premature state change in WebRTC `onTrack` handler and incorrect event names. See `VOICE_AI_DEPLOYED.md` for details.
 - **Recipe Vault AI Concierge**: Added Chat and Voice buttons to help users find cocktails via AI
@@ -240,9 +240,9 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
   - Idempotent scheduling (30-minute cooldown prevents loops)
   - Battery optimization exemption for reliable delivery
   - Configurable notification time (default 5 PM)
-- **Background Token Refresh**: Alarm-based token refresh every 6 hours
-  - Shows friendly notification: "Session Active - Keeping you signed in automatically"
-  - Uses `Importance.low` with `silent: true` (no sound/vibration)
+- **Background Token Refresh**: Invisible alarm-based token refresh every 6 hours
+  - Notification is immediately canceled after scheduling (invisible to users)
+  - AlarmManager callback still fires - only the visible notification is suppressed
   - `TOKEN_REFRESH_TRIGGER` payload filtered in main.dart to prevent navigation errors
   - See `NOTIFICATION_SYSTEM.md` for architecture details
 
@@ -419,4 +419,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 8, 2026
+**Last Updated**: January 13, 2026

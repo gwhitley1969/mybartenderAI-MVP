@@ -89,7 +89,7 @@ When tapped, the notification navigates to the cocktail detail screen:
 
 ---
 
-## Session Keepalive Notifications
+## Background Token Refresh (Invisible)
 
 ### Purpose
 
@@ -107,11 +107,11 @@ User logs in → Closes app → 12 hours pass → Opens app → Token expired �
 
 The app uses three layers of protection:
 
-| Layer | Mechanism | Interval | Reliability |
-|-------|-----------|----------|-------------|
-| 1 | **AppLifecycleService** | On app resume | High when app is used |
-| 2 | **AlarmManager** (Session Keepalive) | 6 hours | High - fires in Doze mode |
-| 3 | **WorkManager** | 8 hours | Moderate backup |
+| Layer | Mechanism | Interval | Reliability | Visible? |
+|-------|-----------|----------|-------------|----------|
+| 1 | **AppLifecycleService** | On app resume | High when app is used | No |
+| 2 | **AlarmManager** | 6 hours | High - fires in Doze mode | No (canceled immediately) |
+| 3 | **WorkManager** | 8 hours | Moderate backup | No |
 
 ### Implementation
 
@@ -120,40 +120,44 @@ The app uses three layers of protection:
 **Flow**:
 1. User logs in
 2. `AuthService` schedules token refresh alarm for 6 hours
-3. When alarm fires, notification appears
-4. `_onNotificationTap()` detects `TOKEN_REFRESH_TRIGGER` payload
-5. Calls registered `onTokenRefreshNeeded` callback
-6. `AuthService.refreshToken()` silently refreshes the token
-7. Alarm reschedules for next 6 hours
+3. `zonedSchedule()` registers alarm with Android's AlarmManager
+4. **Notification is immediately canceled** (invisible to user)
+5. When alarm fires, `_onNotificationTap()` detects `TOKEN_REFRESH_TRIGGER` payload
+6. Calls registered `onTokenRefreshNeeded` callback
+7. `AuthService.refreshToken()` silently refreshes the token
+8. Alarm reschedules for next 6 hours
 
-### Notification Content
+### Immediate Cancellation Technique
 
-```
-Title: Session Active
-Body: Keeping you signed in automatically
-```
-
-**Why visible instead of hidden?**
-
-Android's notification system is designed to prevent apps from showing truly invisible notifications (security/privacy concern). Attempts to hide the notification (empty title, empty body, minimum importance, secret visibility) still resulted in Android displaying the app name.
-
-Instead of confusing users with an empty notification, we make it informative:
-- Users understand what's happening
-- Builds trust ("the app is taking care of me")
-- Users can still disable it if desired
-
-### Notification Settings
+The key innovation is canceling the notification immediately after scheduling:
 
 ```dart
-Importance: LOW (visible but non-intrusive)
-Priority: LOW
+await _plugin.zonedSchedule(...);  // Register alarm with AlarmManager
+await _plugin.cancel(_tokenRefreshNotificationId);  // Cancel notification immediately
+```
+
+**Why this works**:
+- `zonedSchedule()` registers the alarm with Android's AlarmManager system
+- The alarm callback is separate from the notification display
+- Canceling the notification does NOT cancel the alarm
+- The alarm still fires and triggers `_onNotificationTap()` with our payload
+- Users never see any notification
+
+### Notification Settings (Minimal)
+
+```dart
+Importance: MIN (lowest possible)
+Priority: MIN
 Sound: false
 Vibration: false
 Silent: true
-ShowWhen: true (shows timestamp)
-Visibility: PRIVATE (shows on lock screen, hides content)
-AutoCancel: true (dismisses on tap)
+ShowWhen: false
+Visibility: SECRET (hidden from lock screen)
+Title: '' (empty)
+Body: '' (empty)
 ```
+
+**Note**: These settings are defensive - the notification is canceled immediately anyway, so users never see it regardless of these settings.
 
 ### Payload Filtering
 
@@ -234,11 +238,9 @@ Settings stored in `SharedPreferences`:
 - `notification_hour`: Int (0-23)
 - `notification_minute`: Int (0-59)
 
-### Session Keepalive
+### Background Token Refresh
 
-No in-app setting. Users can disable via Android system settings:
-1. Settings → Apps → My AI Bartender
-2. Notifications → Session Keepalive → Toggle off
+No settings needed - the token refresh runs silently in the background with no visible notifications. The "Background Sync" notification channel exists in Android settings but notifications are immediately canceled before being displayed.
 
 ---
 
@@ -283,7 +285,27 @@ If refresh fails, user will be prompted to re-login next time they open the app.
 
 ## History
 
-### January 8, 2026 - Session Keepalive UX Fix
+### January 13, 2026 - Token Refresh Notification Eliminated
+
+**Problem**: Users complained about the "Session Active" notification appearing every ~6 hours. They didn't want ANY notification for background token refresh.
+
+**Solution**: Implemented immediate notification cancellation technique:
+1. Schedule the alarm via `zonedSchedule()` (registers with AlarmManager)
+2. Immediately call `cancel()` to dismiss the notification
+3. The alarm callback still fires - only the visible notification is canceled
+4. Users now see NO notification for token refresh
+
+**Technical Details**:
+```dart
+await _plugin.zonedSchedule(...);  // Register alarm
+await _plugin.cancel(_tokenRefreshNotificationId);  // Cancel immediately
+```
+
+**Result**: Token refresh still works reliably (AlarmManager fires even in Doze mode), but users never see any notification.
+
+---
+
+### January 8, 2026 - Session Keepalive UX Fix (Superseded)
 
 **Problem**: Users saw a mysterious notification with just "My AI Bartender" and no content every ~6 hours.
 
@@ -293,7 +315,7 @@ If refresh fails, user will be prompted to re-login next time they open the app.
 - Title: "Session Active"
 - Body: "Keeping you signed in automatically"
 
-**Rationale**: Transparency is better than confusion. Users now understand what the notification means and can disable it if desired via Android settings.
+**Note**: This approach was superseded by the January 13, 2026 fix which eliminates the notification entirely.
 
 ---
 

@@ -68,11 +68,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildConciergeSection(context),
               SizedBox(height: AppSpacing.sectionSpacing),
 
-              // Lounge Essentials Section
+              // The Lounge Section
               _buildLoungeEssentials(context),
               SizedBox(height: AppSpacing.sectionSpacing),
 
-              // Master Mixologist Section
+              // Back Bar Section
               _buildMasterMixologist(context),
               SizedBox(height: AppSpacing.sectionSpacing),
 
@@ -372,7 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SectionHeader(title: 'Lounge Essentials'),
+        SectionHeader(title: 'The Lounge'),
         // Recipe Vault - Full Width Card
         GestureDetector(
           onTap: () {
@@ -482,7 +482,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'Master Mixologist',
+          title: 'Back Bar',
           badgeText: 'Elite',
         ),
         GridView.count(

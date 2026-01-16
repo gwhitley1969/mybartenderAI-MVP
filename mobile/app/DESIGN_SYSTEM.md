@@ -87,7 +87,7 @@ AppTypography.appTitle      // 32px, Bold - App brand title
 AppTypography.heading1      // 28px, Bold - Main headings
 AppTypography.heading2      // 24px, Bold - Section headings
 AppTypography.heading3      // 20px, SemiBold - Subsection headings
-AppTypography.sectionTitle  // 22px, Bold - Section titles ("Lounge Essentials")
+AppTypography.sectionTitle  // 22px, Bold - Section titles ("The Lounge")
 ```
 
 ### Body Text
@@ -256,7 +256,7 @@ Header for content sections with optional badge and "See All" button.
 **Usage:**
 ```dart
 SectionHeader(
-  title: 'Lounge Essentials',
+  title: 'The Lounge',
   badgeText: 'Elite',
   onSeeAllTap: () => // Navigate to full list
 )
@@ -323,7 +323,7 @@ Column(
   children: [
     // Section Header
     SectionHeader(
-      title: 'Lounge Essentials',
+      title: 'The Lounge',
     ),
 
     // Grid of Feature Cards

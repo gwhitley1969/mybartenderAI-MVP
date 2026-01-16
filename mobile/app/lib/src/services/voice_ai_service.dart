@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:flutter_webrtc/src/native/ios/audio_configuration.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 /// Voice AI Service for managing real-time voice conversations
@@ -410,6 +412,28 @@ class VoiceAIService {
             break;
         }
       };
+
+      // iOS-specific: Force speaker output AFTER peer connection is established
+      // This must happen AFTER WebRTC setup to override iOS's default earpiece routing
+      // Calling before peer connection doesn't work because WebRTC overrides the settings
+      if (Platform.isIOS) {
+        // Configure audio session with explicit defaultToSpeaker option
+        await Helper.setAppleAudioConfiguration(AppleAudioConfiguration(
+          appleAudioCategory: AppleAudioCategory.playAndRecord,
+          appleAudioCategoryOptions: {
+            AppleAudioCategoryOption.defaultToSpeaker, // KEY: Forces speaker!
+            AppleAudioCategoryOption.allowBluetooth,
+            AppleAudioCategoryOption.allowBluetoothA2DP,
+            AppleAudioCategoryOption.allowAirPlay,
+          },
+          appleAudioMode: AppleAudioMode.voiceChat,
+        ));
+
+        // Also call setSpeakerphoneOn for belt-and-suspenders approach
+        await Helper.setSpeakerphoneOn(true);
+
+        debugPrint('[VOICE-AI] iOS audio configured for speaker output');
+      }
     } catch (e) {
       await _cleanup();
       throw VoiceAIException('WebRTC connection failed: $e');

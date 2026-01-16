@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -55,10 +57,12 @@ class CocktailDetailScreen extends ConsumerWidget {
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
-                  // Share button
-                  IconButton(
-                    icon: Icon(Icons.share, color: AppColors.textPrimary),
-                    onPressed: () => _shareRecipe(context, cocktail),
+                  // Share button - wrapped in Builder for iOS sharePositionOrigin
+                  Builder(
+                    builder: (shareContext) => IconButton(
+                      icon: Icon(Icons.share, color: AppColors.textPrimary),
+                      onPressed: () => _shareRecipe(shareContext, cocktail),
+                    ),
                   ),
                   // Favorite button
                   Consumer(
@@ -516,9 +520,22 @@ $description
 ''';
 
     try {
+      // Calculate share position origin for iOS
+      // Required for iPad and recommended for all iOS devices
+      // Without this, UIActivityViewController may fail to display
+      Rect? sharePositionOrigin;
+      if (Platform.isIOS) {
+        final renderBox = context.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          final position = renderBox.localToGlobal(Offset.zero);
+          sharePositionOrigin = position & renderBox.size;
+        }
+      }
+
       final result = await Share.shareWithResult(
         '$shareText\n$shareUrl',
         subject: '${cocktail.name} - My AI Bartender Recipe',
+        sharePositionOrigin: sharePositionOrigin,
       );
 
       // Show success feedback if shared successfully
@@ -533,7 +550,11 @@ $description
           );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Log the actual error for debugging
+      debugPrint('[SHARE] Share failed: $e');
+      debugPrint('[SHARE] Stack trace: $stackTrace');
+
       // Handle share errors gracefully
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

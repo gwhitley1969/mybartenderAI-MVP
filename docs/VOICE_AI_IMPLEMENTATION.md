@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 7, 2026 - background noise fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 16, 2026 - iOS speaker routing fix)
 
 ## Overview
 
@@ -474,9 +474,14 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - Session automatically records usage when ended
 
 ### Known Limitations
-- iOS not yet tested
 - Quota tracking not fully verified
 - Add-on purchase flow not implemented
+
+### iOS Testing (January 2026)
+- ✅ Microphone permission works (requires Podfile GCC_PREPROCESSOR_DEFINITIONS)
+- ✅ Voice AI audio plays through speaker (not earpiece)
+- ✅ Real-time transcription displays correctly
+- ✅ AI responds audibly at normal volume
 
 See `docs/VOICE_AI_DEPLOYED.md` for complete deployment documentation.
 
@@ -600,3 +605,84 @@ Fixed WebRTC event handling in `voice_ai_service.dart`:
 - ✅ Background noise during AI speech is properly ignored
 
 See `docs/VOICE_AI_DEPLOYED.md` for complete implementation details.
+
+---
+
+## iOS Speaker Routing Fix (January 2026)
+
+### Problem
+
+On iOS, Voice AI audio played through the **earpiece** (receiver) instead of the **speaker**, making AI responses whisper-quiet even at maximum volume.
+
+### Root Cause
+
+Three issues combined to cause this problem:
+
+1. **Timing Issue**: The original code called `Helper.ensureAudioSession()` and `Helper.setSpeakerphoneOn(true)` **BEFORE** the WebRTC peer connection was established. When WebRTC created the connection, iOS automatically switched to earpiece mode for "voice call" behavior, overriding our settings.
+
+2. **Guard Check Bug**: In flutter_webrtc v0.12.12's `AudioUtils.m`, the `setSpeakerphoneOn()` method has a guard check that silently returns without doing anything if the audio session category isn't `PlayAndRecord`:
+   ```objc
+   if(enable && config.category != AVAudioSessionCategoryPlayAndRecord) {
+       NSLog(@"setSpeakerphoneOn: ... ignore.");
+       return;  // Does nothing!
+   }
+   ```
+
+3. **Missing Option**: `Helper.ensureAudioSession()` sets up the `PlayAndRecord` category but does NOT include the `defaultToSpeaker` category option that actually forces speaker routing.
+
+### Solution
+
+Move iOS audio configuration to **AFTER** the peer connection is established, and use `setAppleAudioConfiguration()` with explicit `defaultToSpeaker` option.
+
+**File Modified**: `lib/src/services/voice_ai_service.dart`
+
+**New Imports Added**:
+```dart
+import 'dart:io' show Platform;
+import 'package:flutter_webrtc/src/native/ios/audio_configuration.dart';
+```
+
+**Code Added** (after `onConnectionState` handler, around line 416):
+```dart
+// iOS-specific: Force speaker output AFTER peer connection is established
+// This must happen AFTER WebRTC setup to override iOS's default earpiece routing
+if (Platform.isIOS) {
+  await Helper.setAppleAudioConfiguration(AppleAudioConfiguration(
+    appleAudioCategory: AppleAudioCategory.playAndRecord,
+    appleAudioCategoryOptions: {
+      AppleAudioCategoryOption.defaultToSpeaker,  // KEY: Forces speaker!
+      AppleAudioCategoryOption.allowBluetooth,
+      AppleAudioCategoryOption.allowBluetoothA2DP,
+      AppleAudioCategoryOption.allowAirPlay,
+    },
+    appleAudioMode: AppleAudioMode.voiceChat,
+  ));
+
+  await Helper.setSpeakerphoneOn(true);
+  debugPrint('[VOICE-AI] iOS audio configured for speaker output');
+}
+```
+
+### Why This Works
+
+| Factor | Explanation |
+|--------|-------------|
+| **Timing** | Calling after peer connection ensures iOS doesn't override our settings |
+| **Explicit Configuration** | `setAppleAudioConfiguration()` bypasses the guard check in `setSpeakerphoneOn()` |
+| **defaultToSpeaker** | This iOS AVAudioSession category option explicitly routes audio to the speaker |
+| **voiceChat Mode** | Optimized audio mode for two-way voice communication |
+
+### Testing Results (January 16, 2026)
+
+- ✅ AI voice responses play through iPhone speaker at normal volume
+- ✅ User can still speak to AI via microphone
+- ✅ Bluetooth audio routing still works when headphones connected
+- ✅ Volume control works as expected
+
+### iOS User Settings to Check
+
+If audio still routes to earpiece, verify these iPhone settings:
+- **Settings > Accessibility > Touch > Call Audio Routing**: Should be "Automatic"
+- **Settings > Accessibility > Audio & Visual > Mono Audio**: Should be OFF
+
+See `docs/iOS_IMPLEMENTATION.md` for complete iOS configuration documentation.

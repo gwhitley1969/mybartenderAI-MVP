@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:msal_auth/msal_auth.dart';
 import 'package:workmanager/workmanager.dart';
@@ -69,6 +70,12 @@ Future<bool> _performTokenRefresh() async {
         configFilePath: 'assets/msal_config.json',
         redirectUri: 'msauth://ai.mybartender.mybartenderai/callback',
       ),
+      // iOS configuration for CIAM (Entra External ID)
+      // Authority format for CIAM: https://<tenant>.ciamlogin.com/<tenant>.onmicrosoft.com/
+      appleConfig: AppleConfig(
+        authority: 'https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/',
+        authorityType: AuthorityType.b2c,
+      ),
     );
     print('[BG-TOKEN] MSAL initialized');
 
@@ -83,12 +90,14 @@ Future<bool> _performTokenRefresh() async {
 
     // Attempt silent token refresh
     print('[BG-TOKEN] Attempting acquireTokenSilent...');
-    final scopes = [
-      'https://graph.microsoft.com/User.Read',
-      'openid',
-      'profile',
-      'email',
-    ];
+    // CIAM scope rules:
+    // - iOS: User.Read only (msal_auth requires non-empty, MSAL adds reserved scopes automatically)
+    // - Android: Only openid and offline_access (valid CIAM scopes)
+    // - 'email' and 'profile' are NOT valid CIAM scopes (they're ID token claims)
+    // - User.Read is the only allowed Graph scope for CIAM (besides reserved ones)
+    final scopes = Platform.isIOS
+        ? ['User.Read']
+        : ['openid', 'offline_access'];
 
     final result = await msalAuth.acquireTokenSilent(scopes: scopes);
 

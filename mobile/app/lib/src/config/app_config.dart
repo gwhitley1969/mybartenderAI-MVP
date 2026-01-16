@@ -24,7 +24,7 @@ class AppConfig {
   static const String recommendEndpoint = '/v1/recommend';
 
   // App Settings
-  static const String appName = 'MyBartenderAI';
+  static const String appName = 'My AI Bartender';
   static const String appVersion = '1.0.0';
 
   // Feature Flags

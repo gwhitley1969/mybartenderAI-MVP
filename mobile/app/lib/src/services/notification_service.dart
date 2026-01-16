@@ -84,9 +84,9 @@ class NotificationService {
     // iOS notification settings
     // Using final instead of const because DarwinNotificationAction.plain is not const
     final darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: false,
-      requestBadgePermission: false,
-      requestSoundPermission: false,
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
       notificationCategories: [
         DarwinNotificationCategory(
           'todays_special',
@@ -536,8 +536,17 @@ class NotificationService {
       icon: '@mipmap/ic_launcher',
     );
 
+    // iOS notification details
+    const darwinDetails = DarwinNotificationDetails(
+      categoryIdentifier: 'todays_special',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     final notificationDetails = NotificationDetails(
       android: androidDetails,
+      iOS: darwinDetails,
     );
 
     try {
@@ -625,8 +634,17 @@ class NotificationService {
       category: AndroidNotificationCategory.reminder,
     );
 
+    // iOS notification details
+    const darwinDetails = DarwinNotificationDetails(
+      categoryIdentifier: 'todays_special',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     final notificationDetails = NotificationDetails(
       android: androidDetails,
+      iOS: darwinDetails,
     );
 
     await _plugin.show(

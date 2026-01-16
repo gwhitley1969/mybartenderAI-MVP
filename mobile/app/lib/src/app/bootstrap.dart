@@ -2,8 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/background_token_service.dart';
+import '../services/notification_service.dart';
+
+/// SharedPreferences key for pending notification navigation (must match main.dart)
+const String _pendingNavigationKey = 'pending_cocktail_navigation';
 
 /// Environment configuration for the app
 ///
@@ -95,6 +100,10 @@ Future<void> bootstrap(
   // Using JWT-only authentication - APIM validates JWT token
   // Backend looks up user tier from database
 
+  // CRITICAL: Check for notification launch details BEFORE runApp()
+  // This is required for iOS to properly capture the notification that launched the app
+  await _checkNotificationLaunchDetails();
+
   // Initialize background token refresh service
   // This runs every 8 hours as a BACKUP to keep the refresh token active
   // The PRIMARY mechanism is AppLifecycleService (foreground refresh on app resume)
@@ -112,4 +121,34 @@ Future<void> bootstrap(
       child: appBuilder(),
     ),
   );
+}
+
+/// Check if app was launched from a notification and save the payload for later navigation.
+/// This MUST be called before runApp() for iOS to properly capture launch details.
+Future<void> _checkNotificationLaunchDetails() async {
+  try {
+    debugPrint('[BOOTSTRAP] Checking notification launch details...');
+
+    // Initialize the notification plugin (minimal init, just to get launch details)
+    await NotificationService.instance.initialize();
+
+    // Get the notification that launched the app (if any)
+    final launchDetails = await NotificationService.instance.getNotificationAppLaunchDetails();
+
+    debugPrint('[BOOTSTRAP] Launch details: didNotificationLaunchApp=${launchDetails?.didNotificationLaunchApp}');
+    debugPrint('[BOOTSTRAP] Launch payload: ${launchDetails?.notificationResponse?.payload}');
+
+    if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
+      final payload = launchDetails.notificationResponse?.payload;
+      if (payload != null && payload.isNotEmpty && payload != 'TOKEN_REFRESH_TRIGGER') {
+        debugPrint('[BOOTSTRAP] App launched from notification! Saving payload: $payload');
+        // Save to SharedPreferences so the app can navigate after UI is ready
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_pendingNavigationKey, payload);
+        debugPrint('[BOOTSTRAP] Saved pending navigation to SharedPreferences');
+      }
+    }
+  } catch (e) {
+    debugPrint('[BOOTSTRAP] Error checking notification launch details: $e');
+  }
 }

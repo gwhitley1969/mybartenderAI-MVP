@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app/bootstrap.dart';
 import 'src/features/academy/academy_screen.dart';
@@ -25,6 +26,9 @@ final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 /// Global router instance for notification navigation when app is already running
 GoRouter? _globalRouter;
+
+/// SharedPreferences key for persisting pending notification navigation
+const String _pendingNavigationKey = 'pending_cocktail_navigation';
 
 /// Notifier that triggers GoRouter redirect re-evaluation when auth state changes.
 ///
@@ -87,74 +91,153 @@ class MyBartenderApp extends ConsumerStatefulWidget {
 class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
   // Store pending cocktail ID for navigation after app is fully loaded
   static String? _pendingCocktailId;
+  // Track retry attempts
+  static int _navigationRetryCount = 0;
+  static const int _maxNavigationRetries = 5;
 
   @override
   void initState() {
     super.initState();
     _initializeNotifications();
+    _checkPendingNavigation();
+  }
+
+  /// Check SharedPreferences for any pending navigation from a previous launch
+  Future<void> _checkPendingNavigation() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final pendingId = prefs.getString(_pendingNavigationKey);
+      if (pendingId != null && pendingId.isNotEmpty) {
+        debugPrint('[NAV] Found pending navigation in SharedPreferences: $pendingId');
+        _pendingCocktailId = pendingId;
+        // Clear it from prefs immediately to prevent loops
+        await prefs.remove(_pendingNavigationKey);
+        // Try to navigate after a delay
+        _scheduleNavigationRetry(pendingId, delayMs: 1500);
+      }
+    } catch (e) {
+      debugPrint('[NAV] Error checking pending navigation: $e');
+    }
   }
 
   Future<void> _initializeNotifications() async {
     await NotificationService.instance.initialize(
       onTap: (cocktailId) {
         // Navigate to cocktail detail when notification is tapped
-        debugPrint('Notification tap callback received: $cocktailId');
+        debugPrint('[NAV] Notification tap callback received: $cocktailId');
         // Filter out token refresh notifications - they're not cocktail IDs
         if (cocktailId != null && cocktailId != 'TOKEN_REFRESH_TRIGGER') {
-          // Use a slight delay to ensure we're not in the middle of a build
-          Future.microtask(() => _navigateToCocktail(cocktailId));
+          _handleNotificationTap(cocktailId);
         }
       },
     );
 
     // Check if app was launched from a notification
     final launchDetails = await NotificationService.instance.getNotificationAppLaunchDetails();
+    debugPrint('[NAV] Launch details: didNotificationLaunchApp=${launchDetails?.didNotificationLaunchApp}, payload=${launchDetails?.notificationResponse?.payload}');
     if (launchDetails != null && launchDetails.didNotificationLaunchApp) {
       final payload = launchDetails.notificationResponse?.payload;
       // Filter out token refresh notifications - they're not cocktail IDs
       if (payload != null && payload != 'TOKEN_REFRESH_TRIGGER') {
-        _pendingCocktailId = payload;
-        // Delay navigation to ensure router is ready
-        Future.delayed(const Duration(milliseconds: 500), () {
-          _navigateToCocktail(payload);
-        });
+        debugPrint('[NAV] App launched from notification with payload: $payload');
+        _handleNotificationTap(payload);
       }
     }
   }
 
-  void _navigateToCocktail(String cocktailId) {
-    debugPrint('Attempting to navigate to cocktail: $cocktailId');
+  /// Handle notification tap with retry logic
+  void _handleNotificationTap(String cocktailId) {
+    debugPrint('[NAV] Handling notification tap for: $cocktailId');
+    _navigationRetryCount = 0;
+    _pendingCocktailId = cocktailId;
+
+    // Save to SharedPreferences as backup
+    _savePendingNavigation(cocktailId);
+
+    // Try immediate navigation
+    if (_navigateToCocktail(cocktailId)) {
+      _clearPendingNavigation();
+      return;
+    }
+
+    // Schedule retries with increasing delays
+    _scheduleNavigationRetry(cocktailId, delayMs: 500);
+  }
+
+  /// Schedule a navigation retry with the given delay
+  void _scheduleNavigationRetry(String cocktailId, {required int delayMs}) {
+    if (_navigationRetryCount >= _maxNavigationRetries) {
+      debugPrint('[NAV] Max retries reached, giving up on navigation to $cocktailId');
+      return;
+    }
+
+    _navigationRetryCount++;
+    debugPrint('[NAV] Scheduling retry #$_navigationRetryCount in ${delayMs}ms');
+
+    Future.delayed(Duration(milliseconds: delayMs), () {
+      if (_pendingCocktailId == cocktailId) {
+        if (_navigateToCocktail(cocktailId)) {
+          _clearPendingNavigation();
+        } else {
+          // Try again with longer delay
+          _scheduleNavigationRetry(cocktailId, delayMs: delayMs + 500);
+        }
+      }
+    });
+  }
+
+  /// Save pending navigation to SharedPreferences
+  Future<void> _savePendingNavigation(String cocktailId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_pendingNavigationKey, cocktailId);
+      debugPrint('[NAV] Saved pending navigation to SharedPreferences');
+    } catch (e) {
+      debugPrint('[NAV] Error saving pending navigation: $e');
+    }
+  }
+
+  /// Clear pending navigation from SharedPreferences
+  Future<void> _clearPendingNavigation() async {
+    _pendingCocktailId = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_pendingNavigationKey);
+      debugPrint('[NAV] Cleared pending navigation');
+    } catch (e) {
+      debugPrint('[NAV] Error clearing pending navigation: $e');
+    }
+  }
+
+  /// Attempt to navigate to cocktail. Returns true if navigation succeeded.
+  bool _navigateToCocktail(String cocktailId) {
+    debugPrint('[NAV] Attempting to navigate to cocktail: $cocktailId');
+    debugPrint('[NAV] _globalRouter is ${_globalRouter != null ? "set" : "null"}');
 
     // Method 1: Use the global router directly (most reliable when app is running)
     if (_globalRouter != null) {
-      debugPrint('Using global router to navigate');
+      debugPrint('[NAV] Using global router to navigate');
       _globalRouter!.push('/cocktail/$cocktailId');
-      debugPrint('Navigation pushed via global router');
-      return;
+      debugPrint('[NAV] Navigation pushed via global router - SUCCESS');
+      return true;
     }
 
     // Method 2: Try using the navigator key's current state
     final navigatorState = _rootNavigatorKey.currentState;
+    debugPrint('[NAV] Navigator state is ${navigatorState != null ? "available" : "null"}');
     if (navigatorState != null) {
-      debugPrint('Using navigator state to push route');
       final context = _rootNavigatorKey.currentContext;
       if (context != null) {
+        debugPrint('[NAV] Using navigator context');
         GoRouter.of(context).push('/cocktail/$cocktailId');
-        debugPrint('Navigation pushed successfully');
-        return;
+        debugPrint('[NAV] Navigation pushed via context - SUCCESS');
+        return true;
       }
     }
 
-    // Method 3: Fallback - try context directly
-    final context = _rootNavigatorKey.currentContext;
-    if (context != null) {
-      debugPrint('Using context.push fallback');
-      context.push('/cocktail/$cocktailId');
-    } else {
-      // Store for later if context not ready
-      debugPrint('Context not ready, storing for later');
-      _pendingCocktailId = cocktailId;
-    }
+    // Navigation failed
+    debugPrint('[NAV] Router not ready, navigation failed');
+    return false;
   }
 
   @override
@@ -165,12 +248,15 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
     _globalRouter = router;
 
     // FIX: Check for pending navigation after router is ready
-    if (_pendingCocktailId != null) {
+    if (_pendingCocktailId != null && _globalRouter != null) {
       final cocktailId = _pendingCocktailId!;
-      _pendingCocktailId = null;
-      debugPrint('Processing pending cocktail navigation: $cocktailId');
-      // Use microtask to avoid building during build
-      Future.microtask(() => _navigateToCocktail(cocktailId));
+      debugPrint('[NAV] Processing pending cocktail navigation from build(): $cocktailId');
+      // Use post-frame callback to ensure UI is fully rendered
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_navigateToCocktail(cocktailId)) {
+          _clearPendingNavigation();
+        }
+      });
     }
 
     return MaterialApp.router(

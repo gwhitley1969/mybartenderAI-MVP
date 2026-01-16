@@ -517,5 +517,138 @@ This bypasses Flutter's build script which can introduce extended attributes tha
 
 ---
 
+## Local Notifications & Deep Linking
+
+### Problem
+
+iOS notifications for "Today's Special" display correctly, but tapping them only opens the app without navigating to the cocktail detail screen. This works correctly on Android.
+
+### Root Cause
+
+The `flutter_local_notifications` plugin's `getNotificationAppLaunchDetails()` method doesn't reliably capture notification tap data on iOS cold starts. By the time the Flutter engine initializes and checks for launch details, iOS has already "consumed" the notification response.
+
+### Solution
+
+Handle notification taps at the **native iOS level** in AppDelegate.swift, storing the payload in UserDefaults before Flutter even starts. Flutter then reads this on startup.
+
+**Location**: `ios/Runner/AppDelegate.swift`
+
+```swift
+import Flutter
+import UIKit
+import UserNotifications
+
+@main
+@objc class AppDelegate: FlutterAppDelegate {
+
+  // Key must include "flutter." prefix to match SharedPreferences on iOS
+  private let pendingNotificationKey = "flutter.pending_cocktail_navigation"
+
+  override func application(
+    _ application: UIApplication,
+    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+  ) -> Bool {
+    // Set ourselves as notification delegate BEFORE plugin registration
+    UNUserNotificationCenter.current().delegate = self
+
+    GeneratedPluginRegistrant.register(with: self)
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  // Handle notification tap when app is in foreground
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    completionHandler([.banner, .badge, .sound])
+  }
+
+  // Handle notification tap - called when user taps a notification
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+  ) {
+    let userInfo = response.notification.request.content.userInfo
+
+    // Extract payload (flutter_local_notifications stores it in userInfo)
+    if let payload = userInfo["payload"] as? String {
+      // Store in UserDefaults for Flutter to read via SharedPreferences
+      UserDefaults.standard.set(payload, forKey: pendingNotificationKey)
+    }
+
+    // Call super to let flutter_local_notifications handle it too
+    super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
+  }
+}
+```
+
+### Flutter Side Implementation
+
+**Location**: `lib/src/app/bootstrap.dart`
+
+The notification service is initialized **before** `runApp()` to capture launch details early:
+
+```dart
+Future<void> bootstrap(...) async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Check for notification launch details BEFORE runApp()
+  await _checkNotificationLaunchDetails();
+
+  runApp(...);
+}
+```
+
+**Location**: `lib/main.dart`
+
+The app checks SharedPreferences on startup and retries navigation multiple times:
+
+```dart
+Future<void> _checkPendingNavigation() async {
+  final prefs = await SharedPreferences.getInstance();
+  final pendingId = prefs.getString('pending_cocktail_navigation');
+  if (pendingId != null && pendingId.isNotEmpty) {
+    _pendingCocktailId = pendingId;
+    await prefs.remove('pending_cocktail_navigation');
+    _scheduleNavigationRetry(pendingId, delayMs: 1500);
+  }
+}
+```
+
+### Key Insights
+
+| Factor | Explanation |
+|--------|-------------|
+| Native Handling | iOS notification taps must be captured in AppDelegate.swift before Flutter starts |
+| UserDefaults Key | Must use `flutter.` prefix to match SharedPreferences on iOS |
+| Delegate Timing | Set `UNUserNotificationCenter.delegate` BEFORE plugin registration |
+| Retry Logic | Multiple navigation attempts with increasing delays handles timing issues |
+
+### DarwinInitializationSettings
+
+The notification plugin must request iOS permissions during initialization:
+
+```dart
+final darwinSettings = DarwinInitializationSettings(
+  requestAlertPermission: true,   // Must be true for iOS
+  requestBadgePermission: true,
+  requestSoundPermission: true,
+  notificationCategories: [
+    DarwinNotificationCategory(
+      'todays_special',
+      actions: [
+        DarwinNotificationAction.plain('view', 'View Recipe'),
+      ],
+    ),
+  ],
+);
+```
+
+**Critical**: Setting these to `false` will prevent iOS from ever requesting notification permissions, causing all local notifications to be silently blocked.
+
+---
+
 **Last Updated**: January 16, 2026
 **Implementation Status**: Complete and Tested

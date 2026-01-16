@@ -727,7 +727,7 @@ class ProfileScreen extends ConsumerWidget {
       child: Column(
         children: [
           Text(
-            'MyBartenderAI',
+            'My AI Bartender',
             style: AppTypography.caption.copyWith(
               color: AppColors.textSecondary,
             ),

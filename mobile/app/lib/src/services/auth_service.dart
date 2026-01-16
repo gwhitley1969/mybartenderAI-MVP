@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:msal_auth/msal_auth.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -33,6 +34,44 @@ class AuthService {
     required TokenStorageService tokenStorage,
   }) : _tokenStorage = tokenStorage;
 
+  /// Get the appropriate scopes for the current platform.
+  ///
+  /// IMPORTANT: For Entra External ID (CIAM), the scope rules are different from workforce tenants:
+  ///
+  /// 1. CIAM only allows these Microsoft Graph permissions: offline_access, openid, User.Read
+  ///    - 'email' is NOT a valid scope for CIAM (it's an ID token claim, not a scope)
+  ///    - 'profile' is NOT a valid scope for CIAM (it's an ID token claim, not a scope)
+  ///    - User info comes from ID token claims configured in Entra admin center
+  ///
+  /// 2. iOS MSAL automatically includes OIDC reserved scopes (openid, profile, offline_access)
+  ///    and throws an error if you explicitly specify them.
+  ///
+  /// 3. This app uses ID tokens for APIM authentication (not Microsoft Graph),
+  ///    so we don't actually need Microsoft Graph scopes.
+  ///
+  /// References:
+  /// - https://learn.microsoft.com/en-us/entra/external-id/customers/concept-supported-features-customers
+  /// - "The allowed permissions: Microsoft Graph offline_access, openid, and User.Read"
+  List<String> _getAuthScopes() {
+    if (Platform.isIOS) {
+      // iOS with CIAM: Use User.Read as the only valid Graph scope
+      // - MSAL iOS automatically adds reserved scopes (openid, profile, offline_access)
+      // - Do NOT pass 'email' or 'profile' (not valid CIAM scopes - they're ID token claims)
+      // - msal_auth package requires at least one scope (can't be empty)
+      // - User.Read is the ONLY allowed Graph scope for CIAM besides reserved ones
+      return ['User.Read'];
+    } else {
+      // Android with CIAM: Only pass valid CIAM scopes
+      // - openid and offline_access are valid CIAM scopes
+      // - 'email' and 'profile' are NOT valid (they're ID token claims in CIAM)
+      // - We don't need Graph API access
+      return [
+        'openid',
+        'offline_access',
+      ];
+    }
+  }
+
   /// Log with timestamp for diagnostic purposes
   /// Using print() instead of developer.log() so output appears in logcat as "I flutter :"
   void _diagLog(String message, {Object? error, StackTrace? stackTrace}) {
@@ -66,10 +105,14 @@ class AuthService {
           configFilePath: 'assets/msal_config.json',
           redirectUri: 'msauth://ai.mybartender.mybartenderai/callback',
         ),
-        // iOS configuration would go here if needed
-        // appleConfig: AppleConfig(
-        //   authorityType: AuthorityType.aad,
-        // ),
+        // iOS configuration for CIAM (Entra External ID)
+        // Authority format for CIAM: https://<tenant>.ciamlogin.com (no tenant path!)
+        // Uses B2C authority type because msal_auth package doesn't have CIAM type
+        // Ref: https://learn.microsoft.com/en-us/entra/external-id/customers/concept-supported-features-customers
+        appleConfig: AppleConfig(
+          authority: 'https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/',
+          authorityType: AuthorityType.b2c,
+        ),
       );
 
       developer.log('MSAL initialization successful', name: 'AuthService');
@@ -101,17 +144,9 @@ class AuthService {
       // This prevents the current_account_mismatch error
       await _clearStaleAccountIfExists();
 
-      // Use Microsoft Graph scopes
-      // Note: For MSAL, we need to use the full URL format for Graph API scopes
-      // offline_access might be automatically handled by MSAL
-      final scopes = [
-        'https://graph.microsoft.com/User.Read',  // Capital U and R
-        'openid',
-        'profile',
-        'email',
-        // Try without offline_access - MSAL might handle it automatically
-        // 'offline_access',
-      ];
+      // Use platform-specific scopes
+      // iOS MSAL automatically includes OIDC reserved scopes and errors if you specify them
+      final scopes = _getAuthScopes();
 
       developer.log('Requesting scopes: $scopes', name: 'AuthService');
 
@@ -545,12 +580,7 @@ class AuthService {
       }
 
       _diagLog('Calling acquireTokenSilent...');
-      final scopes = [
-        'https://graph.microsoft.com/User.Read',
-        'openid',
-        'profile',
-        'email',
-      ];
+      final scopes = _getAuthScopes();
       _diagLog('Requested scopes: $scopes');
 
       // Try to acquire token silently
@@ -681,12 +711,7 @@ class AuthService {
       // Try silent auth first (may work if Azure session is still valid)
       try {
         _diagLog('Attempting silent re-login first...');
-        final scopes = [
-          'https://graph.microsoft.com/User.Read',
-          'openid',
-          'profile',
-          'email',
-        ];
+        final scopes = _getAuthScopes();
 
         final result = await _msalAuth!.acquireTokenSilent(scopes: scopes);
         if (result != null) {
@@ -699,12 +724,7 @@ class AuthService {
       }
 
       // Interactive login with login hint to pre-fill email
-      final scopes = [
-        'https://graph.microsoft.com/User.Read',
-        'openid',
-        'profile',
-        'email',
-      ];
+      final scopes = _getAuthScopes();
 
       _diagLog('Starting interactive re-login with loginHint');
 

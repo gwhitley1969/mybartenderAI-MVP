@@ -114,7 +114,7 @@ class AgeVerificationScreen extends ConsumerWidget {
 
               // Description
               Text(
-                'MyBartenderAI is for adults 21 and over.',
+                'My AI Bartender is for adults 21 and over.',
                 style: AppTypography.bodyLarge,
                 textAlign: TextAlign.center,
               ),
@@ -180,7 +180,7 @@ class AgeVerificationScreen extends ConsumerWidget {
                           style: AppTypography.heading3,
                         ),
                         content: Text(
-                          'You must be 21 or older to use MyBartenderAI. Please come back when you reach the legal drinking age.',
+                          'You must be 21 or older to use My AI Bartender. Please come back when you reach the legal drinking age.',
                           style: AppTypography.bodyMedium,
                         ),
                         actions: [

@@ -175,7 +175,7 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
 
     return MaterialApp.router(
       routerConfig: router,
-      title: 'MyBartenderAI',
+      title: 'My AI Bartender',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,

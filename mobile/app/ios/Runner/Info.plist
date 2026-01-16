@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Mybartenderai</string>
+	<string>My AI Bartender</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>mybartenderai</string>
+	<string>My AI Bartender</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -64,9 +64,43 @@
 				<string>mybartender</string>
 			</array>
 		</dict>
+		<!-- MSAL Authentication scheme (bundle ID based - REQUIRED for msal_auth plugin) -->
+		<!-- The msal_auth Flutter plugin passes redirectUri=nil to native MSAL, -->
+		<!-- which causes MSAL to generate: msauth.[Bundle_ID]://auth -->
+		<!-- This scheme MUST be registered in Entra ID as: msauth.ai.mybartender.mybartenderai://auth -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.ai.mybartender.mybartenderai</string>
+			</array>
+		</dict>
 	</array>
 	<!-- Universal Links for web URL deep linking -->
 	<key>FlutterDeepLinkingEnabled</key>
 	<true/>
+	<!-- Microsoft Authenticator app queries -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>msauthv2</string>
+		<string>msauthv3</string>
+	</array>
+	<!-- WebRTC Local Network Access -->
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>My AI Bartender uses local network access for voice conversations.</string>
+	<!-- Background Modes for token refresh -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
+	<!-- Background Task Scheduler -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.mybartenderai.tokenRefreshKeepalive</string>
+	</array>
 </dict>
 </plist>

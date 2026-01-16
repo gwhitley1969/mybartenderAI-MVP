@@ -2,12 +2,15 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 13, 2026
+**Last Updated**: January 16, 2026
 
-The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
+The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
 
+- **iOS Social Sharing Fix**: Fixed issue where share button showed "Unable to share recipe" error on iOS. Root cause was missing `sharePositionOrigin` parameter required by iOS `UIActivityViewController`. Solution: Wrap share button in `Builder` widget and calculate position from `RenderBox`. See `iOS_IMPLEMENTATION.md` Social Sharing section for details.
+- **iOS Voice AI Speaker Routing Fix**: Fixed critical issue where Voice AI audio played through iPhone earpiece instead of speaker. Root cause was timing—speaker settings called before WebRTC peer connection, then iOS overrode them. Solution: Use `setAppleAudioConfiguration()` with `defaultToSpeaker` option AFTER peer connection is established. See `iOS_IMPLEMENTATION.md` Voice AI Audio Routing section for details.
+- **iOS Platform Ready**: iOS authentication fully working with Entra External ID (CIAM). MSAL configured with B2C authority type, keychain entitlements, privacy manifest, and proper URL scheme handling. Tested on physical iPhone device with successful login flow.
 - **Token Refresh Notification Eliminated**: Removed the visible notification for background token refresh entirely. Users complained about seeing "Session Active" every 6 hours. Solution: Cancel the notification immediately after scheduling - the AlarmManager callback still fires, but no notification is displayed. See `NOTIFICATION_SYSTEM.md` for technical details.
 - **Today's Special Deep Link Fix**: Fixed critical regression where notification deep links would flash the cocktail card briefly then redirect to home. Root cause was `routerProvider` using `ref.watch()` which recreated the entire GoRouter on state changes. Fixed with `refreshListenable` pattern per GoRouter best practices. See `TODAYS_SPECIAL_FEATURE.md` Issue #5 REGRESSION for details.
 - **Voice AI Background Noise Fix**: Fixed critical issue where Voice AI would stop mid-sentence when TV dialogue or background conversations were detected. Root cause was premature state change in WebRTC `onTrack` handler and incorrect event names. See `VOICE_AI_DEPLOYED.md` for details.
@@ -23,10 +26,10 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ## Platform Status
 
-| Platform | Status  | Notes                                         |
-| -------- | ------- | --------------------------------------------- |
-| Android  | Ready   | Release APK builds successfully               |
-| iOS      | Pending | URL scheme configuration needed in Info.plist |
+| Platform | Status | Notes                                                |
+| -------- | ------ | ---------------------------------------------------- |
+| Android  | Ready  | Release APK builds successfully                      |
+| iOS      | Ready  | Authentication working, tested on physical device    |
 
 ---
 
@@ -346,7 +349,7 @@ PostgreSQL (users.tier updated)
 
 ## Build & Deployment
 
-### Mobile App
+### Mobile App (Android)
 
 ```bash
 # Development
@@ -358,6 +361,33 @@ flutter build apk --release
 
 # Output: mobile/app/build/app/outputs/flutter-apk/app-release.apk
 ```
+
+### Mobile App (iOS)
+
+```bash
+# Development (simulator)
+cd mobile/app
+flutter run -d "iPhone 16e"
+
+# Release build
+flutter clean
+flutter pub get
+cd ios && pod install && cd ..
+flutter build ios --release
+
+# Deploy to physical device
+cd ios
+xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -destination 'generic/platform=iOS' -archivePath build/Runner.xcarchive archive
+# Or use Xcode: Product > Archive
+
+# Note: Debug builds require debugger attachment; use Release for standalone testing
+```
+
+**iOS Build Requirements:**
+- Xcode 15+ with Command Line Tools
+- Valid Apple Developer Team ID in project.pbxproj
+- CocoaPods installed (`gem install cocoapods`)
+- Device must have Developer Mode enabled (iOS 16+)
 
 ### Azure Functions
 
@@ -374,10 +404,9 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 
 ## Known Limitations
 
-1. **iOS not configured**: Need URL scheme in Info.plist for OAuth redirect
-2. **No biometric auth**: Could add fingerprint/Face ID for better UX
-3. **No offline auth**: Requires network for initial sign-in
-4. **Single session**: No multi-device session management
+1. **No biometric auth**: Could add fingerprint/Face ID for better UX
+2. **No offline auth**: Requires network for initial sign-in
+3. **Single session**: No multi-device session management
 
 ---
 
@@ -414,9 +443,10 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `NOTIFICATION_SYSTEM.md`             | Notification architecture and token refresh    |
 | `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
 | `MY_BAR_SCANNER_INTEGRATION.md`      | Smart Scanner option in My Bar empty state     |
+| `iOS_IMPLEMENTATION.md`              | iOS platform-specific configuration            |
 | `CLAUDE.md`                          | Project context and conventions                |
 
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 13, 2026
+**Last Updated**: January 15, 2026

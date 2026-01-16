@@ -81,8 +81,25 @@ class NotificationService {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
 
+    // iOS notification settings
+    // Using final instead of const because DarwinNotificationAction.plain is not const
+    final darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+      notificationCategories: [
+        DarwinNotificationCategory(
+          'todays_special',
+          actions: [
+            DarwinNotificationAction.plain('view', 'View Recipe'),
+          ],
+        ),
+      ],
+    );
+
     final initializationSettings = InitializationSettings(
       android: androidSettings,
+      iOS: darwinSettings,
     );
 
     await _plugin.initialize(
@@ -413,8 +430,17 @@ class NotificationService {
       category: AndroidNotificationCategory.reminder,
     );
 
+    // iOS notification details
+    const darwinDetails = DarwinNotificationDetails(
+      categoryIdentifier: 'todays_special',
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     final notificationDetails = NotificationDetails(
       android: androidDetails,
+      iOS: darwinDetails,
     );
 
     // Get the notification time settings

@@ -31,7 +31,7 @@ class LoginScreen extends ConsumerWidget {
               ),
               SizedBox(height: AppSpacing.lg),
               Text(
-                'MyBartenderAI',
+                'My AI Bartender',
                 style: AppTypography.appTitle.copyWith(fontSize: 32),
                 textAlign: TextAlign.center,
               ),

@@ -2,7 +2,7 @@
 
 ## System Overview
 
-- Flutter app (feature-first clean architecture; Riverpod state; GoRouter)
+- Flutter app (feature-first clean architecture; Riverpod state; GoRouter) - Android and iOS
 - Azure API Management (`apim-mba-002`) as API gateway for tier management and security
 - **Azure Functions v4 Programming Model** - 34 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
@@ -481,7 +481,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 
 ### Overview
 
-Subscription management is handled via **RevenueCat** for unified subscription lifecycle across platforms (Android now, iOS future). The backend receives server-to-server webhooks to maintain authoritative subscription state in PostgreSQL.
+Subscription management is handled via **RevenueCat** for unified subscription lifecycle across platforms (Android and iOS). The backend receives server-to-server webhooks to maintain authoritative subscription state in PostgreSQL.
 
 ### Components
 
@@ -794,7 +794,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: January 1, 2026
-**Architecture Version**: 3.3 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + RevenueCat Subscriptions + Today's Special Notifications)
+**Last Updated**: January 15, 2026
+**Architecture Version**: 3.4 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform)
 **Programming Model**: Azure Functions v4
+**Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity

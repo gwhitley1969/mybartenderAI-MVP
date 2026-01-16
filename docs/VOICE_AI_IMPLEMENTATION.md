@@ -445,11 +445,14 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 
 - [x] Non-Pro user sees upgrade prompt when tapping "Talk"
 - [x] Pro user can start voice session
-- [x] Microphone permission flow works (Android tested)
+- [x] Microphone permission flow works (Android tested, iOS tested January 2026)
 - [x] Real-time transcription displays correctly
 - [x] AI responds audibly
-- [x] User can interrupt AI mid-response
-- [x] "Tap microphone to stop" instruction visible during active session
+- [x] ~~User can interrupt AI mid-response~~ (Replaced by push-to-talk)
+- [x] Push-to-talk: Hold button to speak, release for AI response ✅ January 16, 2026
+- [x] Push-to-talk: Quick tap ends session ✅ January 16, 2026
+- [x] Push-to-talk: Background noise ignored when not holding ✅ January 16, 2026
+- [x] "How to use" instructions updated for push-to-talk ✅ January 16, 2026
 - [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
 - [ ] "Minutes remaining" updates after each session
 - [ ] 80% warning toast appears at 6 minutes remaining
@@ -460,17 +463,19 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 
 ---
 
-## Implementation Notes (December 9, 2025)
+## Implementation Notes (December 9, 2025, updated January 16, 2026)
 
 ### User Interface
 - Voice AI screen accessible from home screen via "Voice" button in AI Cocktail Concierge section
-- Status indicator shows current state: "Tap to talk", "Listening...", "Thinking...", "Speaking..."
-- **"Tap microphone to stop"** text displayed below status when session is active
+- Status indicator shows current state: "Tap to start", "Hold to speak", "Listening...", "Thinking...", "AI Speaking..."
+- **Push-to-talk mode**: Hold button to speak, release to hear AI respond
 - Transcripts displayed in chat bubble format (user on right, AI on left)
 
-### Session Control
-- Tap microphone button to start voice session
-- Tap microphone button again to end session
+### Session Control (Push-to-Talk - January 2026)
+- Tap microphone button to **start** voice session
+- **Hold** button to speak (microphone active only while holding)
+- **Release** button to trigger AI response (immediate, no VAD delay)
+- **Quick tap** (<250ms) to end session
 - Session automatically records usage when ended
 
 ### Known Limitations
@@ -686,3 +691,155 @@ If audio still routes to earpiece, verify these iPhone settings:
 - **Settings > Accessibility > Audio & Visual > Mono Audio**: Should be OFF
 
 See `docs/iOS_IMPLEMENTATION.md` for complete iOS configuration documentation.
+
+---
+
+## Push-to-Talk Implementation (January 2026)
+
+### Overview
+
+Changed Voice AI from auto-detect mode to push-to-talk mode. Users must hold the microphone button to speak - when not pressed, the AI ignores audio input.
+
+### User Experience
+
+| Action | Result |
+|--------|--------|
+| **Tap button** (when idle) | Starts voice session, AI greets user |
+| **Hold button** | Microphone unmuted, user can speak |
+| **Release button** | Audio committed, AI responds immediately |
+| **Quick tap** (during session) | Ends the voice session |
+
+### Why Push-to-Talk?
+
+1. **Eliminates false triggers** - Background noise, TV, other people talking won't accidentally trigger the AI
+2. **User control** - User decides exactly when to speak and when to listen
+3. **Faster responses** - No VAD delay; AI responds instantly when button released
+4. **Better for noisy environments** - Works reliably in bars, parties, living rooms with TV
+
+### Technical Implementation
+
+#### Client-Side Only (No Azure Function Changes)
+
+The implementation uses WebRTC audio track muting - completely client-side with no backend changes required.
+
+#### Key Components
+
+**1. Audio Track Muting** (`voice_ai_service.dart`):
+```dart
+void setMicrophoneMuted(bool muted) {
+  _isMuted = muted;
+  if (_localStream != null) {
+    final audioTracks = _localStream!.getAudioTracks();
+    for (final track in audioTracks) {
+      track.enabled = !muted;  // Mute/unmute the WebRTC audio track
+    }
+  }
+
+  // When muting (user released button), commit buffer and request response
+  if (muted && _dataChannel?.state == RTCDataChannelState.RTCDataChannelOpen) {
+    _commitAudioBuffer();
+  }
+}
+```
+
+**2. Immediate Response Trigger** (`voice_ai_service.dart`):
+```dart
+void _commitAudioBuffer() {
+  // Step 1: Commit the audio buffer
+  _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
+    'type': 'input_audio_buffer.commit',
+  })));
+
+  // Step 2: Explicitly request response (bypasses VAD delay)
+  _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
+    'type': 'response.create',
+  })));
+
+  _setState(VoiceAIState.processing);
+}
+```
+
+**3. Gesture Detection** (`voice_button.dart`):
+
+Uses `Listener` widget for raw pointer events instead of `GestureDetector` to avoid gesture recognition conflicts:
+
+```dart
+Listener(
+  onPointerDown: _handlePointerDown,   // Start listening (unmute)
+  onPointerUp: _handlePointerUp,       // Stop listening (mute + commit)
+  onPointerCancel: _handlePointerCancel,
+  child: /* button widget */,
+)
+```
+
+Quick tap (<250ms) ends session; longer hold triggers push-to-talk.
+
+**4. State Management** (`voice_ai_provider.dart`):
+```dart
+class VoiceAISessionState {
+  final bool isMicMuted;  // true = not listening (default)
+  // ... other fields
+}
+```
+
+#### Session Flow
+
+```
+1. User taps button
+   └─> startSession() called
+   └─> WebRTC connection established
+   └─> Microphone starts MUTED (push-to-talk default)
+   └─> AI greets user
+
+2. User holds button
+   └─> onPointerDown fires
+   └─> setMicrophoneMuted(false) called
+   └─> Audio track enabled, user speaks
+
+3. User releases button
+   └─> onPointerUp fires
+   └─> setMicrophoneMuted(true) called
+   └─> Audio track disabled
+   └─> input_audio_buffer.commit sent
+   └─> response.create sent
+   └─> AI responds immediately
+
+4. Repeat steps 2-3 for conversation
+
+5. User quick-taps button
+   └─> endSession() called
+   └─> Usage recorded, connection closed
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `voice_ai_service.dart` | Added `setMicrophoneMuted()`, `_commitAudioBuffer()`, mic starts muted |
+| `voice_ai_provider.dart` | Added `isMicMuted` state field and `setMicrophoneMuted()` method |
+| `voice_button.dart` | Replaced GestureDetector with Listener, added press-and-hold logic |
+| `voice_ai_screen.dart` | Wired up `onMuteChanged` callback, updated status indicator |
+| `transcript_view.dart` | Updated "How to use" instructions for push-to-talk |
+
+### UI Instructions Updated
+
+**Before (auto-detect):**
+- "Tap the microphone and start talking"
+- "Tap button to start talking"
+- "Tap button again to stop"
+
+**After (push-to-talk):**
+- "Have a natural conversation about cocktails, recipes, and bar techniques!"
+- "Tap to start a session"
+- "Hold button to speak"
+- "Release to hear AI respond"
+- "Quick tap to end session"
+
+### Testing Results (January 16, 2026)
+
+- ✅ Hold button to speak works reliably
+- ✅ Release triggers immediate AI response (no VAD delay)
+- ✅ Quick tap correctly ends session
+- ✅ Background noise completely ignored when not holding button
+- ✅ Visual feedback (green ring) shows when listening
+- ✅ Haptic feedback on press/release

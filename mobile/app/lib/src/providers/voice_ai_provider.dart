@@ -148,6 +148,13 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
     state = const VoiceAISessionState();
   }
 
+  /// Set microphone muted state for push-to-talk
+  /// Called when user presses (muted=false) or releases (muted=true) the button
+  void setMicrophoneMuted(bool muted) {
+    _service.setMicrophoneMuted(muted);
+    state = state.copyWith(isMicMuted: muted);
+  }
+
   /// Get current session duration
   int get sessionDuration => _service.sessionDuration;
 }
@@ -161,6 +168,7 @@ class VoiceAISessionState {
   final VoiceQuota? quota;
   final List<VoiceTranscript> transcripts;
   final bool requiresUpgrade;
+  final bool isMicMuted; // Push-to-talk: true = not listening
 
   const VoiceAISessionState({
     this.voiceState = VoiceAIState.idle,
@@ -170,6 +178,7 @@ class VoiceAISessionState {
     this.quota,
     this.transcripts = const [],
     this.requiresUpgrade = false,
+    this.isMicMuted = true, // Start muted for push-to-talk
   });
 
   VoiceAISessionState copyWith({
@@ -180,6 +189,7 @@ class VoiceAISessionState {
     VoiceQuota? quota,
     List<VoiceTranscript>? transcripts,
     bool? requiresUpgrade,
+    bool? isMicMuted,
   }) {
     return VoiceAISessionState(
       voiceState: voiceState ?? this.voiceState,
@@ -189,6 +199,7 @@ class VoiceAISessionState {
       quota: quota ?? this.quota,
       transcripts: transcripts ?? this.transcripts,
       requiresUpgrade: requiresUpgrade ?? this.requiresUpgrade,
+      isMicMuted: isMicMuted ?? this.isMicMuted,
     );
   }
 
@@ -198,6 +209,12 @@ class VoiceAISessionState {
                           voiceState != VoiceAIState.quotaExhausted;
 
   bool get canStartSession => voiceState == VoiceAIState.idle && !isLoading;
+
+  /// Returns true if in an active session and ready for push-to-talk interaction
+  bool get canTalk => isConnected &&
+                      (voiceState == VoiceAIState.listening ||
+                       voiceState == VoiceAIState.speaking ||
+                       voiceState == VoiceAIState.processing);
 }
 
 /// Provider for voice AI session state

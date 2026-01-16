@@ -39,6 +39,9 @@ class VoiceAIService {
   DateTime? _sessionStartTime;
   int _durationSeconds = 0;
 
+  // Push-to-talk state - microphone starts muted
+  bool _isMuted = true;
+
   // Transcripts collected during the session
   final List<VoiceTranscript> _transcripts = [];
 
@@ -137,6 +140,58 @@ class VoiceAIService {
   Future<bool> hasMicrophonePermission() async {
     final status = await Permission.microphone.status;
     return status.isGranted;
+  }
+
+  /// Get current mute state for push-to-talk
+  bool get isMuted => _isMuted;
+
+  /// Set microphone mute state for push-to-talk
+  /// When muted (button released), also commits the audio buffer so AI responds immediately
+  void setMicrophoneMuted(bool muted) {
+    _isMuted = muted;
+
+    // Mute/unmute the local audio track
+    if (_localStream != null) {
+      final audioTracks = _localStream!.getAudioTracks();
+      for (final track in audioTracks) {
+        track.enabled = !muted;
+      }
+    }
+
+    debugPrint('[VOICE-AI] Microphone ${muted ? "MUTED" : "UNMUTED"} (push-to-talk)');
+
+    // When muting (user released button), commit the audio buffer
+    // This tells Azure to process the audio immediately without waiting for VAD
+    if (muted && _dataChannel?.state == RTCDataChannelState.RTCDataChannelOpen) {
+      _commitAudioBuffer();
+    }
+  }
+
+  /// Commit the audio buffer and request immediate AI response
+  /// Called when user releases the push-to-talk button
+  void _commitAudioBuffer() {
+    if (_dataChannel?.state != RTCDataChannelState.RTCDataChannelOpen) {
+      debugPrint('[VOICE-AI] Cannot commit - data channel not open');
+      return;
+    }
+
+    // Step 1: Commit the audio buffer (tells Azure we're done sending audio)
+    final commitEvent = jsonEncode({
+      'type': 'input_audio_buffer.commit',
+    });
+    _dataChannel!.send(RTCDataChannelMessage(commitEvent));
+    debugPrint('[VOICE-AI] Audio buffer committed');
+
+    // Step 2: Explicitly request a response (don't wait for VAD processing)
+    // This triggers immediate response generation without semantic VAD delay
+    final responseEvent = jsonEncode({
+      'type': 'response.create',
+    });
+    _dataChannel!.send(RTCDataChannelMessage(responseEvent));
+    debugPrint('[VOICE-AI] Response requested - AI will respond immediately');
+
+    // Update state to processing
+    _setState(VoiceAIState.processing);
   }
 
   /// Get current voice quota for the user
@@ -343,6 +398,12 @@ class VoiceAIService {
       // Add local audio track
       final audioTrack = _localStream!.getAudioTracks().first;
       await _peerConnection!.addTrack(audioTrack, _localStream!);
+
+      // Push-to-talk: Start with microphone muted
+      // User must press and hold the button to speak
+      _isMuted = true;
+      audioTrack.enabled = false;
+      debugPrint('[VOICE-AI] Push-to-talk: Microphone starts MUTED');
 
       // Handle incoming audio track from AI (for logging only)
       // NOTE: onTrack fires when the track is ADDED to the connection during setup,
@@ -694,6 +755,7 @@ class VoiceAIService {
       _dbSessionId = null;
       _realtimeSessionId = null;
       _sessionStartTime = null;
+      _isMuted = true; // Reset to muted for next session
     } catch (e) {
       debugPrint('VoiceAIService: Error during cleanup: $e');
     }

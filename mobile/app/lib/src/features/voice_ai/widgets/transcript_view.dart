@@ -94,7 +94,7 @@ class _TranscriptViewState extends State<TranscriptView> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 48),
                   child: Text(
-                    'Tap the microphone and start talking.\nAsk me about cocktails, recipes, or bar techniques!',
+                    'Have a natural conversation about cocktails, recipes, and bar techniques!',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.grey.shade600,
@@ -124,11 +124,13 @@ class _TranscriptViewState extends State<TranscriptView> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      _buildInstructionRow(Icons.mic, 'Tap button to start talking'),
+                      _buildInstructionRow(Icons.touch_app, 'Tap to start a session'),
                       const SizedBox(height: 8),
-                      _buildInstructionRow(Icons.stop_rounded, 'Tap button again to stop'),
+                      _buildInstructionRow(Icons.mic, 'Hold button to speak'),
                       const SizedBox(height: 8),
-                      _buildInstructionRow(Icons.arrow_back, 'Or press back to exit'),
+                      _buildInstructionRow(Icons.volume_up, 'Release to hear AI respond'),
+                      const SizedBox(height: 8),
+                      _buildInstructionRow(Icons.stop_circle_outlined, 'Quick tap to end session'),
                     ],
                   ),
                 ),

@@ -75,16 +75,22 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
               ),
             ),
 
-            // Status indicator
-            _buildStatusIndicator(voiceState.voiceState),
+            // Status indicator (updated for push-to-talk)
+            _buildStatusIndicator(voiceState.voiceState, voiceState.isMicMuted),
 
-            // Main voice button
+            // Main voice button with push-to-talk support
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
               child: VoiceButton(
                 state: voiceState.voiceState,
                 isLoading: voiceState.isLoading,
+                isMuted: voiceState.isMicMuted,
                 onTap: () => _handleVoiceButtonTap(voiceState),
+                onMuteChanged: (muted) {
+                  // Push-to-talk: control microphone mute state
+                  final notifier = ref.read(voiceAINotifierProvider.notifier);
+                  notifier.setMicrophoneMuted(muted);
+                },
               ),
             ),
 
@@ -117,56 +123,38 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
     );
   }
 
-  Widget _buildStatusIndicator(VoiceAIState state) {
+  Widget _buildStatusIndicator(VoiceAIState state, bool isMuted) {
+    // Push-to-talk: Show different status when in listening state based on mute
     final (icon, text, color) = switch (state) {
-      VoiceAIState.idle => (Icons.mic_off, 'Tap to talk', Colors.grey),
+      VoiceAIState.idle => (Icons.mic, 'Tap to start', Colors.grey),
       VoiceAIState.connecting => (Icons.sync, 'Connecting...', Colors.amber),
-      VoiceAIState.listening => (Icons.mic, 'Listening...', Colors.green),
+      VoiceAIState.listening => isMuted
+          ? (Icons.mic_off, 'Hold to speak', Colors.grey)
+          : (Icons.mic, 'Listening...', Colors.green),
       VoiceAIState.processing => (Icons.hourglass_empty, 'Thinking...', Colors.blue),
-      VoiceAIState.speaking => (Icons.volume_up, 'Speaking...', Colors.purple),
+      VoiceAIState.speaking => (Icons.volume_up, 'AI Speaking...', Colors.purple),
       VoiceAIState.error => (Icons.error, 'Error occurred', Colors.red),
       VoiceAIState.quotaExhausted => (Icons.timer_off, 'Quota exhausted', Colors.orange),
       VoiceAIState.tierRequired => (Icons.lock, 'Pro required', Colors.amber),
     };
 
-    // Show "tap microphone to stop" hint when session is active
-    final bool isActive = state == VoiceAIState.listening ||
-                          state == VoiceAIState.processing ||
-                          state == VoiceAIState.speaking;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-          decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(20),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                text,
-                style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-        ),
-        if (isActive)
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'Tap microphone to stop',
-              style: TextStyle(
-                color: Colors.grey.shade400,
-                fontSize: 13,
-              ),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 

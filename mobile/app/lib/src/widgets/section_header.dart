@@ -4,7 +4,7 @@ import '../theme/app_typography.dart';
 import '../theme/app_spacing.dart';
 
 /// Section Header Widget
-/// Header for sections like "Lounge Essentials", "Master Mixologist"
+/// Header for sections like "The Lounge", "Back Bar"
 /// Includes title and optional badge
 class SectionHeader extends StatelessWidget {
   final String title;

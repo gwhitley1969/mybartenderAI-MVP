@@ -52,7 +52,7 @@ class AppTypography {
     height: 1.4,
   );
 
-  // Section Titles (like "Lounge Essentials", "Master Mixologist")
+  // Section Titles (like "The Lounge", "Back Bar")
   static const TextStyle sectionTitle = TextStyle(
     fontSize: 22,
     fontWeight: FontWeight.bold,

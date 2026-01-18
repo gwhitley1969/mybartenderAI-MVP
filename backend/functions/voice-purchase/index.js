@@ -28,8 +28,8 @@ const AUDIENCE = '04551003-a57c-4dc2-97a1-37e0b3d1a2f6';
 
 // Google Play configuration
 const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
-const PRODUCT_ID = 'voice_minutes_10';
-const SECONDS_PER_PURCHASE = 600; // 10 minutes = 600 seconds
+const PRODUCT_ID = 'voice_minutes_20';
+const SECONDS_PER_PURCHASE = 1200; // 20 minutes = 1200 seconds ($4.99 for double the value!)
 const PRICE_CENTS = 499; // $4.99
 
 // JWKS client for token validation

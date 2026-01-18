@@ -3025,8 +3025,8 @@ app.http('voice-purchase', {
 
         // Configuration
         const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
-        const PRODUCT_ID = 'voice_minutes_10';
-        const SECONDS_PER_PURCHASE = 600; // 10 minutes
+        const PRODUCT_ID = 'voice_minutes_20';
+        const SECONDS_PER_PURCHASE = 1200; // 20 minutes ($4.99 for double the value!)
         const PRICE_CENTS = 499;
 
         try {

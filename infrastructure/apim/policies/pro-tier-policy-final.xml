@@ -1,8 +1,9 @@
 <!--
-  Pro Tier Policy for MyBartenderAI ($9.99/month)
+  Pro Tier Policy for MyBartenderAI ($7.99/month or $79.99/year)
   - Daily quota: 10,000 calls per day
   - Rate limit: 50 calls per minute
-  - Features: Unlimited AI, Voice (5 hours/month), Vision (50 scans/month)
+  - Features: Unlimited AI, Voice (60 min/month), Vision (50 scans/month)
+  - Voice Add-on: $4.99 for 20 minutes
   - Highest priority routing
   - Caching enabled for snapshots (5-minute cache)
 -->

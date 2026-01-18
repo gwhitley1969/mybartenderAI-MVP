@@ -198,7 +198,7 @@ BEGIN
     SELECT * FROM (VALUES
         -- Free tier
         ('ai_recommendation', CASE WHEN p_tier = 'free' THEN 10 WHEN p_tier = 'premium' THEN 100 ELSE -1 END, 'per_month'),
-        ('voice_minutes', CASE WHEN p_tier = 'free' THEN 0 WHEN p_tier = 'premium' THEN 30 ELSE 300 END, 'per_month'),
+        ('voice_minutes', CASE WHEN p_tier = 'free' THEN 0 WHEN p_tier = 'premium' THEN 0 ELSE 60 END, 'per_month'),
         ('vision_scan', CASE WHEN p_tier = 'free' THEN 0 WHEN p_tier = 'premium' THEN 5 ELSE 50 END, 'per_month'),
         ('custom_recipe', CASE WHEN p_tier = 'free' THEN 3 WHEN p_tier = 'premium' THEN 25 ELSE -1 END, 'total')
     ) AS quotas(feature, quota_limit, quota_unit);

@@ -11,7 +11,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **AI**: ✅ Azure OpenAI GPT-4o-mini + Claude Haiku (Smart Scanner)
 - **Authentication**: ✅ Entra External ID (Google, Facebook, Email) - JWT-only
 - **Vision**: ✅ Claude Haiku for bottle/ingredient identification
-- **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 45 min/month + top-ups)
+- **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 60 min/month + top-ups)
 - **Mobile**: 📱 Flutter app - All core features complete
 - **Social Sharing**: ✅ Friends via Code fully deployed
 - **Subscriptions**: ✅ RevenueCat integration ready (webhook, config, status endpoints)
@@ -32,7 +32,8 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ **Voice AI Bartender** - Real-time voice conversations (Pro tier only)
   - WebRTC-based audio streaming via Azure OpenAI Realtime API
   - Live transcription of user and AI speech
-  - 45 minutes/month quota for Pro users (+ $4.99 for 10 min top-up)
+  - 60 minutes/month quota for Pro users (+ $4.99 for 20 min top-up)
+  - Active speech time metering (only user + AI talking time counts)
   - Visual status indicators (listening, thinking, speaking)
   - Bar inventory integration - AI knows your ingredients via session.update
 
@@ -362,14 +363,14 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - ✅ Smart Scanner: 15 scans/month
 - ✅ Create Studio with AI Refine
 - ✅ Social sharing features
-- ✅ **Voice AI**: Available for purchase ($4.99/10 minutes)
+- ✅ **Voice AI**: Available for purchase ($4.99/20 minutes)
 
-### Pro Tier ($14.99/month or $99.99/year)
+### Pro Tier ($7.99/month or $79.99/year)
 
 - ✅ Everything in Premium
 - ✅ AI chat: 1,000,000 tokens/month
 - ✅ Smart Scanner: 50 scans/month
-- ✅ **Voice AI Bartender**: 45 minutes/month (+ $4.99/10 min top-up)
+- ✅ **Voice AI Bartender**: 60 minutes/month (+ $4.99/20 min top-up)
 - ✅ Unlimited custom recipes
 - ✅ Priority support
 
@@ -461,11 +462,11 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 ### Revenue Model
 
 - 1,000 Premium users @ $4.99 = $4,990/month
-- 200 Pro users @ $14.99 = $2,998/month
-- **Total Revenue**: $7,988/month
+- 200 Pro users @ $7.99 = $1,598/month
+- **Total Revenue**: $6,588/month
 - AI costs: ~$540/month
 - Infrastructure: ~$650/month
-- **Net Profit**: ~$6,798/month (~70% margin)
+- **Net Profit**: ~$5,398/month (~65% margin)
 
 ## 🔐 Security
 

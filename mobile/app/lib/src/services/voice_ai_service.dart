@@ -39,6 +39,13 @@ class VoiceAIService {
   DateTime? _sessionStartTime;
   int _durationSeconds = 0;
 
+  // Active speech time tracking (metered time = user + AI speaking only)
+  // This is FAIRER to users: pauses, network delays, and idle time are FREE!
+  int _userSpeakingSeconds = 0;
+  int _aiSpeakingSeconds = 0;
+  DateTime? _userSpeechStartTime;
+  // Note: _speakingStartTime (defined below) tracks AI speech start
+
   // Push-to-talk state - microphone starts muted
   bool _isMuted = true;
 
@@ -292,6 +299,11 @@ class VoiceAIService {
       _sessionStartTime = DateTime.now();
       _transcripts.clear();
       _currentAssistantResponse = StringBuffer(); // Clear any pending partial response
+
+      // Reset active speech time tracking for new session
+      _userSpeakingSeconds = 0;
+      _aiSpeakingSeconds = 0;
+      _userSpeechStartTime = null;
 
       final token = sessionData['token']['value'];
       final webrtcUrl = sessionData['webrtcUrl'];
@@ -568,6 +580,8 @@ class VoiceAIService {
           // This prevents TV dialogue/background noise from interrupting AI mid-response
           // Azure sends speech_started even with interrupt_response:false - we handle it client-side
           if (_state != VoiceAIState.speaking) {
+            // Start tracking user speech time for active metering
+            _userSpeechStartTime = DateTime.now();
             _setState(VoiceAIState.listening);
           } else {
             // Calculate how long the AI has been speaking
@@ -591,6 +605,13 @@ class VoiceAIService {
           // STATE GUARD: Only transition to processing if we were actually listening
           // Prevents false speech_stopped from background noise affecting state
           if (_state == VoiceAIState.listening) {
+            // Accumulate user speech time for active metering
+            if (_userSpeechStartTime != null) {
+              final speechDuration = DateTime.now().difference(_userSpeechStartTime!).inSeconds;
+              _userSpeakingSeconds += speechDuration;
+              debugPrint('[VOICE-AI] User speech: +${speechDuration}s (total: ${_userSpeakingSeconds}s)');
+              _userSpeechStartTime = null;
+            }
             _setState(VoiceAIState.processing);
           } else {
             debugPrint('[VOICE-AI] IGNORED speech_stopped - was not in listening state (state: $_state)');
@@ -614,6 +635,13 @@ class VoiceAIService {
                 ? DateTime.now().difference(_speakingStartTime!)
                 : Duration.zero;
             debugPrint('[VOICE-AI] AI stopped speaking (audio playback ended) - duration: ${speakingDuration.inMilliseconds}ms');
+
+            // Accumulate AI speech time for active metering
+            if (_speakingStartTime != null) {
+              final aiSpeechSeconds = speakingDuration.inSeconds;
+              _aiSpeakingSeconds += aiSpeechSeconds;
+              debugPrint('[VOICE-AI] AI speech: +${aiSpeechSeconds}s (total: ${_aiSpeakingSeconds}s)');
+            }
 
             // Check if this might be a premature end due to background noise
             if (_ignoringBackgroundNoise && speakingDuration < _minSpeakingDuration) {
@@ -705,8 +733,24 @@ class VoiceAIService {
       return;
     }
 
-    // Calculate duration
-    _durationSeconds = DateTime.now().difference(_sessionStartTime!).inSeconds;
+    // If user was speaking when session ended, finalize their speech time
+    if (_userSpeechStartTime != null) {
+      final finalUserSpeech = DateTime.now().difference(_userSpeechStartTime!).inSeconds;
+      _userSpeakingSeconds += finalUserSpeech;
+      _userSpeechStartTime = null;
+    }
+
+    // If AI was speaking when session ended, finalize AI speech time
+    if (_speakingStartTime != null) {
+      final finalAiSpeech = DateTime.now().difference(_speakingStartTime!).inSeconds;
+      _aiSpeakingSeconds += finalAiSpeech;
+    }
+
+    // Calculate ACTIVE speech duration (user + AI talking only)
+    // This is FAIRER to users: pauses, network delays, and idle time are FREE!
+    _durationSeconds = _userSpeakingSeconds + _aiSpeakingSeconds;
+    final connectedTime = DateTime.now().difference(_sessionStartTime!).inSeconds;
+    debugPrint('[VOICE-AI] Active speech metering: user=${_userSpeakingSeconds}s + AI=${_aiSpeakingSeconds}s = ${_durationSeconds}s (connected: ${connectedTime}s)');
 
     try {
       // Record usage on backend
@@ -756,6 +800,11 @@ class VoiceAIService {
       _realtimeSessionId = null;
       _sessionStartTime = null;
       _isMuted = true; // Reset to muted for next session
+
+      // Reset active speech time tracking
+      _userSpeakingSeconds = 0;
+      _aiSpeakingSeconds = 0;
+      _userSpeechStartTime = null;
     } catch (e) {
       debugPrint('VoiceAIService: Error during cleanup: $e');
     }
@@ -913,7 +962,7 @@ class VoiceQuota {
       remainingSeconds: quota['remainingSeconds'] ?? 0,
       remainingMinutes: quota['remainingMinutes'] ?? 0,
       monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 7200,
+      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 3600,  // 60 min default
       addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
       percentUsed: quota['percentUsed'] ?? 0,
       showWarning: json['showWarning'] ?? false,
@@ -929,7 +978,7 @@ class VoiceQuota {
       remainingSeconds: quota['remainingSeconds'] ?? 0,
       remainingMinutes: ((quota['remainingSeconds'] ?? 0) / 60).floor(),
       monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 7200,
+      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 3600,  // 60 min default
       addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
       percentUsed: quota['monthlyLimitSeconds'] != null && quota['monthlyLimitSeconds'] > 0
           ? ((quota['monthlyUsedSeconds'] ?? 0) / quota['monthlyLimitSeconds'] * 100).round()

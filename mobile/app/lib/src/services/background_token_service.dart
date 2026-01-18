@@ -92,12 +92,17 @@ Future<bool> _performTokenRefresh() async {
     print('[BG-TOKEN] Attempting acquireTokenSilent...');
     // CIAM scope rules:
     // - iOS: User.Read only (msal_auth requires non-empty, MSAL adds reserved scopes automatically)
-    // - Android: Only openid and offline_access (valid CIAM scopes)
-    // - 'email' and 'profile' are NOT valid CIAM scopes (they're ID token claims)
-    // - User.Read is the only allowed Graph scope for CIAM (besides reserved ones)
+    // - Android: Use the working scope pattern - DO NOT explicitly request 'offline_access'
+    //   MSAL handles offline_access automatically. Explicitly requesting it causes
+    //   MsalDeclinedScopeException in CIAM tenants.
     final scopes = Platform.isIOS
         ? ['User.Read']
-        : ['openid', 'offline_access'];
+        : [
+            'https://graph.microsoft.com/User.Read',
+            'openid',
+            'profile',
+            'email',
+          ];
 
     final result = await msalAuth.acquireTokenSilent(scopes: scopes);
 

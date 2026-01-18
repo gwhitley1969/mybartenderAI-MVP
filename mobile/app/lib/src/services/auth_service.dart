@@ -61,13 +61,15 @@ class AuthService {
       // - User.Read is the ONLY allowed Graph scope for CIAM besides reserved ones
       return ['User.Read'];
     } else {
-      // Android with CIAM: Only pass valid CIAM scopes
-      // - openid and offline_access are valid CIAM scopes
-      // - 'email' and 'profile' are NOT valid (they're ID token claims in CIAM)
-      // - We don't need Graph API access
+      // Android with CIAM: Use the working scope pattern
+      // CRITICAL: Do NOT explicitly request 'offline_access' - MSAL handles it automatically
+      // Explicitly requesting it causes MsalDeclinedScopeException in CIAM tenants.
+      // Use Microsoft Graph's User.Read as a valid resource scope.
       return [
+        'https://graph.microsoft.com/User.Read',
         'openid',
-        'offline_access',
+        'profile',
+        'email',
       ];
     }
   }

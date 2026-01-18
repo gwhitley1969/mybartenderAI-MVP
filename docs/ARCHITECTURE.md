@@ -25,7 +25,7 @@
 - ✅ JWT-only authentication (APIM validates JWT, no subscription keys on client)
 - ✅ AI Bartender Chat (all tiers, including Free with limited quota)
 - ✅ Smart Scanner (Claude Haiku for bottle detection - Premium/Pro)
-- ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 45 min/month + top-ups)
+- ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 60 min/month + top-ups)
 - ✅ User tier validation (backend checks tier in PostgreSQL)
 - ✅ Rate limiting per user
 - ✅ Monitoring and alerting (Application Insights)
@@ -238,22 +238,23 @@ const result = await client.getChatCompletions(deployment, messages, options);
   - ~$0.007 per cocktail conversation
   - **SDK**: Official Azure package for better integration and support
 - **Voice**: Azure OpenAI Realtime API (direct voice-to-voice)
-  - Pro tier only: 45 minutes/month included (+ $4.99 for 10 min top-up)
+  - Pro tier only: 60 minutes/month included (+ $4.99 for 20 min top-up)
+  - Active speech time metering (only user + AI talking time counts)
   - WebRTC-based low-latency streaming
 - **Vision/Smart Scanner**: Claude Haiku (Anthropic) via Azure - bottle detection for inventory
 - **Prompt Optimization**: Structured prompts for GPT-4o-mini efficiency
 
 ## Tier Quotas (Monthly) - UPDATED
 
-| Feature            | Free      | Premium              | Pro                    |
-| ------------------ | --------- | -------------------- | ---------------------- |
-| AI Tokens          | 10,000    | 300,000              | 1,000,000              |
-| Scanner (Vision)   | 2 scans   | 15 scans             | 50 scans               |
-| Voice Assistant    | 0         | $4.99/10 min purchase | 45 min + $4.99 top-ups |
-| Custom Recipes     | 3         | 25                   | Unlimited              |
-| Snapshot Downloads | Unlimited | Unlimited            | Unlimited              |
-| Price              | Free      | $4.99/mo             | $14.99/mo              |
-| Annual (Upfront)   | Free      | $39.99/yr            | $99.99/yr              |
+| Feature            | Free      | Premium               | Pro                     |
+| ------------------ | --------- | --------------------- | ----------------------- |
+| AI Tokens          | 10,000    | 300,000               | 1,000,000               |
+| Scanner (Vision)   | 2 scans   | 15 scans              | 50 scans                |
+| Voice Assistant    | 0         | $4.99/20 min purchase | 60 min + $4.99/20 min   |
+| Custom Recipes     | 3         | 25                    | Unlimited               |
+| Snapshot Downloads | Unlimited | Unlimited             | Unlimited               |
+| Price              | Free      | $4.99/mo              | $7.99/mo                |
+| Annual (Upfront)   | Free      | $39.99/yr             | $79.99/yr               |
 
 **Key Change**: Free tier now includes 10,000 AI tokens per month to enable a freemium model and drive conversion.
 
@@ -311,15 +312,15 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 
 - Rate limit: 1,000 calls/day
 - Features: AI recommendations (300,000 tokens/30 days), Scanner (15 scans/30 days)
-- Voice AI: Available as $4.99/10 min purchase (no included minutes)
+- Voice AI: Available as $4.99/20 min purchase (no included minutes)
 - Price: $4.99/month or $39.99/year (paid upfront)
 - Priority routing
 
 **Pro Tier Product:**
 
 - Rate limit: Unlimited
-- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (50 scans/30 days), Voice AI (45 minutes/30 days)
-- Price: $14.99/month or $99.99/year (paid upfront)
+- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (50 scans/30 days), Voice AI (60 minutes/30 days)
+- Price: $7.99/month or $79.99/year (paid upfront)
 - Highest priority, dedicated support
 
 ### Backend Integration
@@ -452,7 +453,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 - **Low Latency**: Real-time streaming via WebRTC (UDP-based)
 - **Natural Conversation**: AI bartender with cocktail expertise
 - **Pacing Control**: System prompt instructions for relaxed, clear speech
-- **Pro Tier Only**: 45 minutes/month included (+ $4.99/10 min top-up available)
+- **Pro Tier Only**: 60 minutes/month included (+ $4.99/20 min top-up available)
 
 ### Voice Assistant Functions (v4)
 
@@ -789,7 +790,7 @@ flutter build apk --release
 
 - **Free ($0/month)**: Limited AI access drives conversion (10K tokens)
 - **Premium ($4.99/month)**: Covers AI + Speech costs ($0.40-0.50/user/month)
-- **Pro ($8.99/month)**: Higher limits, improved margins
+- **Pro ($7.99/month)**: Higher limits, 60 min voice, improved margins
 - **Target**: 1,000 Premium users = $5,000 revenue, ~$500 AI costs = **90% margin**
 
 ---

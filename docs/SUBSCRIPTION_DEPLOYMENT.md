@@ -72,7 +72,7 @@ PostgreSQL (pg-mybartenderdb)
 | Analytics (MRR, churn, LTV) | Build custom | Dashboard included |
 | Total effort | 13+ hours + maintenance | ~5 hours |
 
-**Note:** Voice minute consumables ($4.99/10 min) remain custom via the existing `voice-purchase` function.
+**Note:** Voice minute consumables ($4.99/20 min) remain custom via the existing `voice-purchase` function.
 
 ---
 
@@ -321,8 +321,8 @@ These files were already implemented and work with the new backend:
 |------------|------|-------|--------|
 | `premium_monthly` | premium | $4.99 | month |
 | `premium_yearly` | premium | $39.99 | year |
-| `pro_monthly` | pro | $14.99 | month |
-| `pro_yearly` | pro | $99.99 | year |
+| `pro_monthly` | pro | $7.99 | month |
+| `pro_yearly` | pro | $79.99 | year |
 
 ### RevenueCat Entitlements
 

@@ -13,10 +13,11 @@
 Real-time voice conversations with an AI bartender using Azure OpenAI GPT-4o-mini Realtime API via WebRTC. Users can speak naturally and receive spoken responses with live transcription.
 
 ### Business Model
-- **Pro Tier**: 30 minutes/month included ($14.99/month)
-- **Add-on Packs**: 20 minutes for $4.99 (non-expiring, future feature)
-- **Estimated Cost**: ~$0.03/minute (~$0.90 for 30 min usage)
-- **Margin**: ~$9.50+ per Pro user after 30% app store cut
+- **Pro Tier**: 60 minutes/month included ($7.99/month)
+- **Add-on Packs**: 20 minutes for $4.99 (non-expiring)
+- **Voice Metering**: Active speech time only (user + AI talking, not idle time)
+- **Estimated Cost**: ~$0.03/minute (~$1.80 for 60 min usage)
+- **Margin**: ~$3.50+ per Pro user after 30% app store cut
 
 ---
 
@@ -503,9 +504,9 @@ Never provide:
 ## Quota Constants
 
 ```javascript
-const MONTHLY_VOICE_SECONDS = 1800;  // 30 minutes for Pro
-const ADDON_VOICE_SECONDS = 1200;    // 20 minutes per add-on pack
-const WARNING_THRESHOLD = 360;       // Show warning at 6 minutes remaining (80% used)
+const MONTHLY_VOICE_SECONDS = 3600;  // 60 minutes for Pro at $7.99/mo
+const ADDON_VOICE_SECONDS = 1200;    // 20 minutes per add-on pack ($4.99)
+const WARNING_THRESHOLD = 720;       // Show warning at 12 minutes remaining (80% used)
 ```
 
 ---

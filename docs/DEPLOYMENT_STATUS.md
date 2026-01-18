@@ -92,15 +92,15 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 
 ## Subscription Tiers
 
-| Tier    | Monthly | Annual | AI Tokens | Scans | Voice                  |
-| ------- | ------- | ------ | --------- | ----- | ---------------------- |
-| Free    | $0      | -      | 10,000    | 2     | -                      |
-| Premium | $4.99   | $39.99 | 300,000   | 15    | $4.99/10 min purchase  |
-| Pro     | $14.99  | $99.99 | 1,000,000 | 50    | 45 min + $4.99 top-ups |
+| Tier    | Monthly | Annual | AI Tokens | Scans | Voice                   |
+| ------- | ------- | ------ | --------- | ----- | ----------------------- |
+| Free    | $0      | -      | 10,000    | 2     | -                       |
+| Premium | $4.99   | $39.99 | 300,000   | 15    | $4.99/20 min purchase   |
+| Pro     | $7.99   | $79.99 | 1,000,000 | 50    | 60 min + $4.99/20 min   |
 
 Tier validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
-**Voice Minutes:** Premium users can purchase voice minutes at $4.99 for 10 minutes. Pro users get 45 minutes included per month and can purchase additional minutes at the same rate.
+**Voice Minutes:** Premium users can purchase voice minutes at $4.99 for 20 minutes. Pro users get 60 minutes included per month and can purchase additional minutes at the same rate. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 
 **Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.tier` updates via PostgreSQL trigger.
 

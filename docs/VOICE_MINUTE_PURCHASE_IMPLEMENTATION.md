@@ -9,15 +9,15 @@
 
 ## Overview
 
-Enable Premium and Pro users to purchase additional voice minutes ($4.99 for 10 minutes) via Google Play Billing.
+Enable Premium and Pro users to purchase additional voice minutes ($4.99 for 20 minutes) via Google Play Billing.
 
 ### Business Rules
 
 | User Tier | Included Minutes | Can Purchase | Notes |
 |-----------|------------------|--------------|-------|
 | Free | 0 | No | Must upgrade to Premium first |
-| Premium | 0 | Yes | $4.99 per 10 minutes |
-| Pro | 45/month | Yes | $4.99 per 10 minutes top-up |
+| Premium | 0 | Yes | $4.99 per 20 minutes |
+| Pro | 60/month | Yes | $4.99 per 20 minutes top-up |
 
 ### Key Policies
 
@@ -607,7 +607,7 @@ class PurchaseResult {
 }
 
 class PurchaseService {
-  static const String voiceMinutesProductId = 'voice_minutes_10';
+  static const String voiceMinutesProductId = 'voice_minutes_20';
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;

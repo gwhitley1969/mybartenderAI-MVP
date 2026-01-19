@@ -27,6 +27,17 @@ class MyBarScreen extends ConsumerWidget {
         ),
         title: Text('My Bar', style: AppTypography.heading2),
         actions: [
+          // Scanner button (pink, matching home screen)
+          IconButton(
+            icon: Icon(Icons.camera_alt, color: AppColors.iconCirclePink),
+            onPressed: () {
+              context.push('/smart-scanner').then((_) {
+                // Refresh inventory after scanning
+                ref.invalidate(inventoryProvider);
+              });
+            },
+          ),
+          // Add button (purple, existing)
           IconButton(
             icon: Icon(Icons.add, color: AppColors.primaryPurple),
             onPressed: () {

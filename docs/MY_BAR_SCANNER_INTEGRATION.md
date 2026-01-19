@@ -1,27 +1,103 @@
 # My Bar Smart Scanner Integration
 
 **Date**: January 2026
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Status**: Implemented
 
 ## Overview
 
-The My Bar empty state now offers users two ways to start building their bar inventory:
-1. **Add Manually** - Search and add ingredients one by one
-2. **Smart Scanner** - Use the AI-powered camera to quickly identify bottles
+My Bar provides users two ways to access the Smart Scanner:
 
-This enhancement provides a faster path for users to populate their bar, especially when they have multiple bottles to add.
+1. **AppBar Scanner Button** (v1.1) - Always visible pink camera icon in the top-right, regardless of inventory state
+2. **Empty State Buttons** (v1.0) - "Add" and "Scanner" buttons shown when inventory is empty
+
+This ensures users can quickly scan bottles at any time without navigating back to the home screen.
 
 ## Feature Description
 
 ### Problem Solved
 
-When users first access My Bar, their inventory is empty. Previously, the only option was to manually search and add ingredients one at a time. For users with a full bar of bottles, this was tedious.
+**Original Problem (v1.0)**: When users first access My Bar, their inventory is empty. Previously, the only option was to manually search and add ingredients one at a time.
 
-The Smart Scanner option allows users to:
+**Additional Problem (v1.1)**: Once users had items in their inventory, the empty state buttons disappeared, forcing them to navigate back to the home screen to access the Scanner.
+
+The Smart Scanner integration allows users to:
 - Point their camera at bottles
 - Let AI (Claude Haiku) identify the spirits/ingredients
 - Quickly add multiple items to their inventory
+- **Access Scanner from anywhere in My Bar** (v1.1)
+
+---
+
+## AppBar Scanner Button (v1.1)
+
+### Overview
+
+A persistent Scanner button in the My Bar AppBar ensures users can always scan bottles, regardless of whether their inventory is empty or populated.
+
+### UI Layout
+
+```
+┌─────────────────────────────────────────────┐
+│  ←    My Bar                      📷   +    │
+│       Title                      Pink Purple│
+│                                   ↑     ↑   │
+│                              Scanner  Add   │
+└─────────────────────────────────────────────┘
+```
+
+### Implementation
+
+**File**: `mobile/app/lib/src/features/my_bar/my_bar_screen.dart`
+
+**AppBar Actions**:
+```dart
+actions: [
+  // Scanner button (pink, matching home screen)
+  IconButton(
+    icon: Icon(Icons.camera_alt, color: AppColors.iconCirclePink),
+    onPressed: () {
+      context.push('/smart-scanner').then((_) {
+        // Refresh inventory after scanning
+        ref.invalidate(inventoryProvider);
+      });
+    },
+  ),
+  // Add button (purple, existing)
+  IconButton(
+    icon: Icon(Icons.add, color: AppColors.primaryPurple),
+    onPressed: () {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const AddIngredientScreen(),
+        ),
+      ).then((_) {
+        ref.invalidate(inventoryProvider);
+      });
+    },
+  ),
+],
+```
+
+### Key Details
+
+| Property | Scanner Button | Add Button |
+|----------|----------------|------------|
+| Icon | `Icons.camera_alt` | `Icons.add` |
+| Color | `AppColors.iconCirclePink` (#EC4899) | `AppColors.primaryPurple` (#7C3AED) |
+| Navigation | `context.push('/smart-scanner')` | `Navigator.push()` |
+| Post-nav | `ref.invalidate(inventoryProvider)` | `ref.invalidate(inventoryProvider)` |
+
+### Benefits
+
+1. **Always accessible** - Scanner available whether inventory is empty or full
+2. **Consistent styling** - Pink color matches home screen Scanner button
+3. **Auto-refresh** - Inventory updates automatically when returning from Scanner
+
+---
+
+## Empty State Buttons (v1.0)
 
 ### UI Changes
 
@@ -214,6 +290,15 @@ When users tap the Scanner button, they're taken to the same Smart Scanner scree
 
 ## Testing Checklist
 
+### AppBar Scanner Button (v1.1)
+- [x] AppBar shows Scanner (pink) and Add (purple) icons
+- [x] Scanner icon visible when inventory is empty
+- [x] Scanner icon visible when inventory has items
+- [x] Scanner button opens SmartScannerScreen
+- [x] Inventory refreshes after returning from Scanner
+- [x] Pink color matches home screen Scanner button (#EC4899)
+
+### Empty State (v1.0)
 - [x] Empty state shows two buttons side by side
 - [x] Buttons are evenly sized
 - [x] "Add" button is purple
@@ -223,7 +308,14 @@ When users tap the Scanner button, they're taken to the same Smart Scanner scree
 - [x] Back from AddIngredient returns to My Bar
 - [x] Back from Scanner returns to My Bar
 - [x] Layout looks good on narrow screens
-- [x] Clean debug APK builds successfully
+- [x] Clean release APK builds successfully
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.1.0 | January 2026 | Added AppBar Scanner button (always visible) |
+| 1.0.0 | January 2026 | Initial empty state with Add/Scanner buttons |
 
 ## Future Enhancements
 

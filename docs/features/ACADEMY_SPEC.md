@@ -77,11 +77,12 @@ Implement these categories with 3-5 placeholder lessons each. Use real YouTube v
    - Herb garnishes
 
 4. **Advanced Techniques**
-   
+
    - Layering drinks
    - Fat washing
    - Clarified cocktails
    - Smoking cocktails
+   - Bar tricks (flair bartending)
 
 ## UI Requirements
 

@@ -193,6 +193,16 @@
           "youtubeVideoId": "0pJtGs3bma4",
           "tags": ["smoke", "presentation", "flavor"],
           "sortOrder": 4
+        },
+        {
+          "id": "bar-tricks",
+          "title": "9 BAR TRICKS in 90 Seconds",
+          "description": "Learn 9 impressive bar tricks in under 2 minutes. Perfect for entertaining guests and adding flair to your bartending skills.",
+          "duration": "1:30",
+          "difficulty": "advanced",
+          "youtubeVideoId": "J_hjZYEiv5U",
+          "tags": ["tricks", "flair", "showmanship", "entertainment"],
+          "sortOrder": 5
         }
       ]
     }

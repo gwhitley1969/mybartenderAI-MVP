@@ -511,7 +511,7 @@ May need to add to Info.plist:
 mobile/app/
 ├── assets/
 │   └── data/
-│       └── academy_content.json           # 16 curated YouTube lessons
+│       └── academy_content.json           # 17 curated YouTube lessons
 ├── lib/
 │   └── src/
 │       └── features/
@@ -561,7 +561,7 @@ _controller = YoutubePlayerController.fromVideoId(
 
 ### Curated Video Content
 
-The 16 lessons use curated YouTube videos from professional bartending channels:
+The 17 lessons use curated YouTube videos from professional bartending channels:
 
 **Fundamentals (4 lessons):**
 - How to Use a Jigger - Vu2CkQwA19M
@@ -581,11 +581,12 @@ The 16 lessons use curated YouTube videos from professional bartending channels:
 - Flaming a Peel - w-vJpeIwVwk
 - Herb Garnishes - liHlEbfgDug
 
-**Advanced Techniques (4 lessons):**
+**Advanced Techniques (5 lessons):**
 - Layering Drinks - QENCJN9Z6vY
 - Fat Washing - 9M4mBhJg6C4
 - Clarified Cocktails - EyToyAVim2k
 - Smoking Cocktails - 0pJtGs3bma4
+- 9 BAR TRICKS in 90 Seconds - J_hjZYEiv5U
 
 ### Category Icon Colors
 

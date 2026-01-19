@@ -156,7 +156,7 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
                   ),
                   SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Take a photo of your bottles and we\'ll identify them for you',
+                    'Take a photo of the bottles (labels facing front) and we\'ll identify them for you',
                     style: AppTypography.bodyMedium.copyWith(
                       color: AppColors.textSecondary,
                     ),

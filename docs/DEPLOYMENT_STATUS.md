@@ -8,6 +8,10 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (January 2026)
 
+- **Version Number Relocated**: Moved app version from Profile screen to Home screen footer, now displayed below "21+ | Drink Responsibly" message. Profile screen footer simplified to show only "My AI Bartender".
+- **Help & Support Section Added**: New "Help & Support" card on Profile screen (below Account Information) with tappable "Contact Support" that opens email client with `support@xtend-ai.com` pre-filled.
+- **Android 11+ Email Fix**: Fixed Contact Support email link not working on Android 11+ (API 30+). Root cause was missing `<queries>` declaration for `mailto:` scheme in AndroidManifest.xml. Android 11's Package Visibility filtering requires apps to declare which external intents they query. Added `<intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="mailto"/></intent>` to fix `canLaunchUrl()` returning false.
+- **Profile Screen Cleanup**: Removed redundant profile header (avatar + name box) since name already appears in Account Information. Saves vertical space and reduces duplication.
 - **iOS Social Sharing Fix**: Fixed issue where share button showed "Unable to share recipe" error on iOS. Root cause was missing `sharePositionOrigin` parameter required by iOS `UIActivityViewController`. Solution: Wrap share button in `Builder` widget and calculate position from `RenderBox`. See `iOS_IMPLEMENTATION.md` Social Sharing section for details.
 - **iOS Voice AI Speaker Routing Fix**: Fixed critical issue where Voice AI audio played through iPhone earpiece instead of speaker. Root cause was timing—speaker settings called before WebRTC peer connection, then iOS overrode them. Solution: Use `setAppleAudioConfiguration()` with `defaultToSpeaker` option AFTER peer connection is established. See `iOS_IMPLEMENTATION.md` Voice AI Audio Routing section for details.
 - **iOS Platform Ready**: iOS authentication fully working with Entra External ID (CIAM). MSAL configured with B2C authority type, keychain entitlements, privacy manifest, and proper URL scheme handling. Tested on physical iPhone device with successful login flow.
@@ -20,7 +24,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 - **Academy AI Concierge**: Added Chat and Voice CTA at bottom of Academy screen
 - **Pro Tools AI Concierge**: Added Chat and Voice CTA at bottom of Pro Tools screen
 - **Favorites Create Prompt**: Added "Create your own signature cocktails" with Create button in empty state
-- **Home Screen Footer**: Added "21+ | Drink Responsibly" responsible drinking message
+- **Home Screen Footer**: Shows "21+ | Drink Responsibly" message and "Version: 1.0.0"
 
 ---
 
@@ -254,9 +258,11 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 Cleaned up for release:
 
 - Account information (name only, email removed)
+- Help & Support (tappable email link to `support@xtend-ai.com`)
 - Notification settings (Today's Special Reminder)
 - Measurement preferences (oz/ml)
 - Sign out with confirmation
+- App branding footer ("My AI Bartender")
 - Developer tools removed
 
 ---

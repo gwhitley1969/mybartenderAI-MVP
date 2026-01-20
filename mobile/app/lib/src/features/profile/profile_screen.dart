@@ -39,10 +39,6 @@ class ProfileScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Profile Header
-                  _buildProfileHeader(user.displayName ?? user.email),
-                  SizedBox(height: AppSpacing.xl),
-
                   // Account Information Section
                   _buildSectionTitle('Account Information'),
                   SizedBox(height: AppSpacing.md),
@@ -59,6 +55,12 @@ class ProfileScreen extends ConsumerWidget {
                         '${user.givenName ?? ''} ${user.familyName ?? ''}'.trim(),
                       ),
                   ]),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Help & Support Section
+                  _buildSectionTitle('Help & Support'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildHelpSupportCard(context),
                   SizedBox(height: AppSpacing.xl),
 
                   // Age Verification Section
@@ -106,8 +108,8 @@ class ProfileScreen extends ConsumerWidget {
       child: Column(
         children: [
           Container(
-            width: 80,
-            height: 80,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
               color: AppColors.primaryPurple.withOpacity(0.2),
               shape: BoxShape.circle,
@@ -118,7 +120,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: Icon(
               Icons.person,
-              size: 40,
+              size: 30,
               color: AppColors.primaryPurple,
             ),
           ),
@@ -723,41 +725,69 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildAppInfo() {
-    return Center(
-      child: Column(
-        children: [
-          Text(
-            'My AI Bartender',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-            ),
+  Widget _buildHelpSupportCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _launchSupportEmail(context),
+      child: Container(
+        padding: EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+          border: Border.all(
+            color: AppColors.cardBorder,
+            width: AppSpacing.borderWidthThin,
           ),
-          SizedBox(height: AppSpacing.xs),
-          Text(
-            'Version 1.0.0',
-            style: AppTypography.caption.copyWith(
-              color: AppColors.textSecondary,
-              fontSize: 11,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.email_outlined,
+              color: AppColors.iconCircleCyan,
+              size: 24,
             ),
-          ),
-          SizedBox(height: AppSpacing.md),
-          GestureDetector(
-            onTap: _launchSupportEmail,
-            child: Text(
-              'Support: support@xtend-ai.com',
-              style: AppTypography.caption.copyWith(
-                color: AppColors.iconCircleCyan,
-                decoration: TextDecoration.underline,
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Contact Support',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'support@xtend-ai.com',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.iconCircleCyan,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _launchSupportEmail() async {
+  Widget _buildAppInfo() {
+    return Center(
+      child: Text(
+        'My AI Bartender',
+        style: AppTypography.caption.copyWith(
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchSupportEmail(BuildContext context) async {
     final Uri emailUri = Uri(
       scheme: 'mailto',
       path: 'support@xtend-ai.com',
@@ -768,6 +798,15 @@ class ProfileScreen extends ConsumerWidget {
 
     if (await canLaunchUrl(emailUri)) {
       await launchUrl(emailUri);
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No email app found. Please email support@xtend-ai.com'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 }

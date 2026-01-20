@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -740,8 +741,33 @@ class ProfileScreen extends ConsumerWidget {
               fontSize: 11,
             ),
           ),
+          SizedBox(height: AppSpacing.md),
+          GestureDetector(
+            onTap: _launchSupportEmail,
+            child: Text(
+              'Support: support@xtend-ai.com',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.iconCircleCyan,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _launchSupportEmail() async {
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'support@xtend-ai.com',
+      queryParameters: {
+        'subject': 'My AI Bartender Support',
+      },
+    );
+
+    if (await canLaunchUrl(emailUri)) {
+      await launchUrl(emailUri);
+    }
   }
 }

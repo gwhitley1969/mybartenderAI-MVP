@@ -2,7 +2,7 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 16, 2026
+**Last Updated**: January 20, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
@@ -356,11 +356,36 @@ PostgreSQL (users.tier updated)
 cd mobile/app
 flutter run
 
-# Release APK
+# Release APK (incremental build)
 flutter build apk --release
 
 # Output: mobile/app/build/app/outputs/flutter-apk/app-release.apk
 ```
+
+**Clean Build (Recommended)**
+
+When doing a fresh build or after `flutter clean`, use this sequence to avoid the libs.jar Gradle transform error:
+
+```bash
+cd mobile/app
+
+# Step 1: Clean everything
+flutter clean
+flutter pub get
+
+# Step 2: Build profile first (creates libs.jar)
+flutter build apk --profile
+
+# Step 3: Copy libs.jar to release directory
+# Windows (Git Bash):
+mkdir -p build/app/intermediates/flutter/release
+cp build/app/intermediates/flutter/profile/libs.jar build/app/intermediates/flutter/release/
+
+# Step 4: Build release
+flutter build apk --release
+```
+
+> **Why?** Flutter/Gradle 4.0+ has a known issue ([#58247](https://github.com/flutter/flutter/issues/58247)) where the release build doesn't create `libs.jar`, causing `JetifyTransform` to fail. Building profile first creates the file, which can then be copied to the release directory.
 
 ### Mobile App (iOS)
 
@@ -449,4 +474,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 15, 2026
+**Last Updated**: January 20, 2026

@@ -102,10 +102,15 @@ class NotificationService {
       iOS: darwinSettings,
     );
 
+    // iOS COLD START FIX: Don't register background notification handler on iOS
+    // flutter_local_notifications Issue #2025: iOS crashes when app is launched from
+    // terminated state if onDidReceiveBackgroundNotificationResponse is registered.
+    // On iOS, we use getNotificationAppLaunchDetails() instead to capture launch notifications.
     await _plugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: _onNotificationTap,
-      onDidReceiveBackgroundNotificationResponse: notificationTapBackground,
+      // Only register background handler on Android - iOS uses launch details instead
+      onDidReceiveBackgroundNotificationResponse: Platform.isIOS ? null : notificationTapBackground,
     );
 
     await _requestNotificationPermission();

@@ -15,6 +15,9 @@ class TokenStorageService {
               aOptions: AndroidOptions(
                 encryptedSharedPreferences: true,
               ),
+              iOptions: IOSOptions(
+                accessibility: KeychainAccessibility.first_unlock,
+              ),
             );
 
   // Token management
@@ -53,7 +56,13 @@ class TokenStorageService {
   Future<DateTime?> getExpiresAt() async {
     final value = await _storage.read(key: AuthConfig.expiresAtKey);
     if (value == null) return null;
-    return DateTime.parse(value);
+    try {
+      return DateTime.parse(value);
+    } catch (e) {
+      // Corrupted data - clear it and return null to prevent crash on iOS restart
+      await _storage.delete(key: AuthConfig.expiresAtKey);
+      return null;
+    }
   }
 
   /// Check if access token is expired
@@ -76,7 +85,13 @@ class TokenStorageService {
   Future<DateTime?> getLastRefreshTime() async {
     final value = await _storage.read(key: AuthConfig.lastRefreshTimeKey);
     if (value == null) return null;
-    return DateTime.parse(value);
+    try {
+      return DateTime.parse(value);
+    } catch (e) {
+      // Corrupted data - clear it and return null to prevent crash on iOS restart
+      await _storage.delete(key: AuthConfig.lastRefreshTimeKey);
+      return null;
+    }
   }
 
   /// Check how long since last token refresh
@@ -97,7 +112,13 @@ class TokenStorageService {
   Future<User?> getUserProfile() async {
     final jsonString = await _storage.read(key: AuthConfig.userProfileKey);
     if (jsonString == null) return null;
-    return User.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+    try {
+      return User.fromJson(jsonDecode(jsonString) as Map<String, dynamic>);
+    } catch (e) {
+      // Corrupted data - clear it and return null to prevent crash on iOS restart
+      await _storage.delete(key: AuthConfig.userProfileKey);
+      return null;
+    }
   }
 
   // Clear all stored data (logout)

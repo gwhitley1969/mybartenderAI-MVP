@@ -261,6 +261,14 @@ authority: 'https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/'
 
 **Solution:** Build and deploy Release configuration instead of Debug
 
+#### 2a. App Crashes on Restart (Release Build)
+
+**Symptom:** App works after fresh install, but crashes with white screen when reopened after being terminated
+
+**Cause:** Background services (NotificationService, WorkManager) initializing before Flutter engine is fully ready on iOS cold start
+
+**Solution:** See "iOS Cold Start Crash Fix" section below for comprehensive fix
+
 #### 3. Device Not Detected in Xcode
 
 **Symptom:** iPhone not appearing in Devices list
@@ -650,5 +658,131 @@ final darwinSettings = DarwinInitializationSettings(
 
 ---
 
-**Last Updated**: January 16, 2026
+## iOS Cold Start Crash Fix
+
+### Problem
+
+After installing the app fresh, it works correctly. However, if the user closes the app completely (swipe up to terminate) and then reopens it, the app crashes immediately - white screen flashes and returns to the iOS home screen. This issue does not occur on Android.
+
+### Root Cause
+
+**Multiple factors combined to cause this crash:**
+
+1. **Early Background Service Initialization**: `NotificationService` and `BackgroundTokenService` (WorkManager) were initialized in `bootstrap.dart` BEFORE `runApp()`. On iOS cold start from terminated state, this causes crashes because the Flutter engine isn't fully attached to the iOS view hierarchy yet.
+
+2. **Background Notification Handler**: The `onDidReceiveBackgroundNotificationResponse: notificationTapBackground` callback in `flutter_local_notifications` is a known crash source on iOS (Issue #2025). When iOS launches from terminated state, this handler can be invoked before Flutter is ready.
+
+3. **Keychain Data Corruption**: iOS Keychain can occasionally return corrupted data on cold start. Without try-catch handling around `DateTime.parse()` and `jsonDecode()` calls in `TokenStorageService`, this causes unhandled exceptions that crash the app before the UI renders.
+
+### Solution
+
+#### 1. Defer Background Initialization on iOS (`bootstrap.dart`)
+
+Skip early notification/background initialization on iOS. These services initialize AFTER `runApp()` instead.
+
+```dart
+if (!Platform.isIOS) {
+  // CRITICAL: Check for notification launch details BEFORE runApp()
+  // This is required for Android to properly capture the notification that launched the app
+  await _checkNotificationLaunchDetails();
+
+  // Initialize background token refresh service
+  try {
+    await BackgroundTokenService.instance.initialize();
+    debugPrint('BackgroundTokenService initialized');
+  } catch (e) {
+    debugPrint('Failed to initialize BackgroundTokenService: $e');
+  }
+} else {
+  debugPrint('[iOS] Skipping early background service initialization to prevent cold start crash');
+}
+```
+
+#### 2. Initialize BackgroundTokenService After App Starts (`main.dart`)
+
+For iOS, initialize the background service in `initState()` after the app is running:
+
+```dart
+@override
+void initState() {
+  super.initState();
+  _initializeNotifications();
+  _checkPendingNavigation();
+  // iOS-specific: Initialize BackgroundTokenService here (after app is running)
+  if (Platform.isIOS) {
+    _initializeBackgroundServicesIOS();
+  }
+}
+
+Future<void> _initializeBackgroundServicesIOS() async {
+  try {
+    debugPrint('[iOS] Initializing BackgroundTokenService after app started...');
+    await BackgroundTokenService.instance.initialize();
+    debugPrint('[iOS] BackgroundTokenService initialized successfully');
+  } catch (e) {
+    debugPrint('[iOS] Failed to initialize BackgroundTokenService: $e');
+  }
+}
+```
+
+#### 3. Disable Background Notification Handler on iOS (`notification_service.dart`)
+
+The `onDidReceiveBackgroundNotificationResponse` callback causes iOS crashes. On iOS, use `getNotificationAppLaunchDetails()` to capture launch notifications instead.
+
+```dart
+await _plugin.initialize(
+  initializationSettings,
+  onDidReceiveNotificationResponse: _onNotificationTap,
+  // Only register background handler on Android - iOS uses launch details instead
+  onDidReceiveBackgroundNotificationResponse: Platform.isIOS ? null : notificationTapBackground,
+);
+```
+
+#### 4. Error Handling in TokenStorageService (`token_storage_service.dart`)
+
+Add try-catch blocks around all parsing operations to handle corrupted Keychain data gracefully:
+
+```dart
+Future<DateTime?> getExpiresAt() async {
+  final value = await _storage.read(key: AuthConfig.expiresAtKey);
+  if (value == null) return null;
+  try {
+    return DateTime.parse(value);
+  } catch (e) {
+    // Corrupted data - clear it and return null to prevent crash on iOS restart
+    await _storage.delete(key: AuthConfig.expiresAtKey);
+    return null;
+  }
+}
+```
+
+Apply the same pattern to `getLastRefreshTime()` and `getUserProfile()`.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `lib/src/app/bootstrap.dart` | Skip early init on iOS, add Platform import |
+| `lib/main.dart` | Add iOS-specific `_initializeBackgroundServicesIOS()` |
+| `lib/src/services/notification_service.dart` | Conditionally disable background handler on iOS |
+| `lib/src/services/token_storage_service.dart` | Add try-catch error handling, iOS Keychain options |
+
+### Why This Works
+
+| Factor | Explanation |
+|--------|-------------|
+| Deferred Initialization | iOS gets time to fully initialize Flutter engine before background services start |
+| No Background Handler | Avoids flutter_local_notifications Issue #2025 crash on iOS |
+| Error Handling | Corrupted Keychain data triggers graceful logout instead of crash |
+| Platform-Specific | Changes only affect iOS - Android behavior unchanged |
+
+### Related Issues
+
+- [flutter_local_notifications #2025](https://github.com/MaikuB/flutter_local_notifications/issues/2025) - iOS crash from terminated state
+- [flutter_secure_storage #794](https://github.com/juliansteenbakker/flutter_secure_storage/issues/794) - iOS 18/Xcode 16 startup crashes
+- [Flutter #66422](https://github.com/flutter/flutter/issues/66422) - Flutter crashing after app kill/restart on iOS
+
+---
+
+**Last Updated**: January 21, 2026
 **Implementation Status**: Complete and Tested

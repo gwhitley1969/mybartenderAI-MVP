@@ -1,9 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'src/app/bootstrap.dart';
+import 'src/services/background_token_service.dart';
 import 'src/features/academy/academy_screen.dart';
 import 'src/features/pro_tools/pro_tools_screen.dart';
 import 'src/features/ask_bartender/chat_screen.dart';
@@ -100,6 +103,24 @@ class _MyBartenderAppState extends ConsumerState<MyBartenderApp> {
     super.initState();
     _initializeNotifications();
     _checkPendingNavigation();
+    // iOS-specific: Initialize BackgroundTokenService here (after app is running)
+    // to avoid cold start crash. On Android, this is done in bootstrap.dart.
+    if (Platform.isIOS) {
+      _initializeBackgroundServicesIOS();
+    }
+  }
+
+  /// iOS-specific deferred initialization of background services.
+  /// This is called AFTER runApp() to avoid cold start crashes.
+  Future<void> _initializeBackgroundServicesIOS() async {
+    try {
+      debugPrint('[iOS] Initializing BackgroundTokenService after app started...');
+      await BackgroundTokenService.instance.initialize();
+      debugPrint('[iOS] BackgroundTokenService initialized successfully');
+    } catch (e) {
+      debugPrint('[iOS] Failed to initialize BackgroundTokenService: $e');
+      // Don't rethrow - background refresh is a nice-to-have, not critical for app function
+    }
   }
 
   /// Check SharedPreferences for any pending navigation from a previous launch

@@ -8,6 +8,13 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (January 2026)
 
+- **iOS Cold Start Crash Fix** (Jan 21): Fixed critical issue where iOS app crashed on restart (white screen, immediate exit to home screen). App worked after fresh install but crashed on subsequent cold starts. Root cause: `NotificationService` and `BackgroundTokenService` (WorkManager) were initialized BEFORE `runApp()` in `bootstrap.dart`. On iOS cold start from terminated state, this caused crashes because the Flutter engine wasn't fully attached to the iOS view hierarchy. Also related to flutter_local_notifications Issue #2025 (background notification handler crashes on iOS). **Solution:**
+  1. Skip early notification/background initialization on iOS in `bootstrap.dart`
+  2. Initialize `BackgroundTokenService` AFTER `runApp()` in `main.dart` for iOS only
+  3. Disable `onDidReceiveBackgroundNotificationResponse` handler on iOS (use `getNotificationAppLaunchDetails()` instead)
+  4. Added try-catch error handling in `TokenStorageService` for corrupted Keychain data
+  See `iOS_IMPLEMENTATION.md` Cold Start Crash Fix section for details.
+
 - **Azure OpenAI Model Migration** (Jan 21): Migrated from retiring models to GA replacements:
   - Chat: `gpt-4o-mini` → `gpt-4.1-mini` (South Central US)
   - Voice AI: `gpt-4o-mini-realtime-preview` → `gpt-realtime-mini` (East US 2)

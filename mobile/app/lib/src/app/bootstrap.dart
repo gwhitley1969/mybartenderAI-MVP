@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -100,19 +102,33 @@ Future<void> bootstrap(
   // Using JWT-only authentication - APIM validates JWT token
   // Backend looks up user tier from database
 
-  // CRITICAL: Check for notification launch details BEFORE runApp()
-  // This is required for iOS to properly capture the notification that launched the app
-  await _checkNotificationLaunchDetails();
+  // iOS COLD START FIX: Skip early notification/background initialization on iOS
+  // On iOS, initializing flutter_local_notifications and WorkManager BEFORE runApp()
+  // can cause crashes when the app is cold-started from terminated state because:
+  // 1. The Flutter engine isn't fully attached to the iOS view hierarchy
+  // 2. iOS may try to deliver pending background tasks before Flutter is ready
+  // 3. Known issues: flutter_local_notifications #2025, workmanager iOS race conditions
+  //
+  // On iOS, these services are initialized AFTER runApp() in main.dart's initState()
+  // which gives Flutter time to fully initialize first.
+  if (!Platform.isIOS) {
+    // CRITICAL: Check for notification launch details BEFORE runApp()
+    // This is required for Android to properly capture the notification that launched the app
+    await _checkNotificationLaunchDetails();
 
-  // Initialize background token refresh service
-  // This runs every 8 hours as a BACKUP to keep the refresh token active
-  // The PRIMARY mechanism is AppLifecycleService (foreground refresh on app resume)
-  // which is initialized in AuthNotifier when providers are ready
-  try {
-    await BackgroundTokenService.instance.initialize();
-    debugPrint('BackgroundTokenService initialized');
-  } catch (e) {
-    debugPrint('Failed to initialize BackgroundTokenService: $e');
+    // Initialize background token refresh service
+    // This runs every 8 hours as a BACKUP to keep the refresh token active
+    // The PRIMARY mechanism is AppLifecycleService (foreground refresh on app resume)
+    // which is initialized in AuthNotifier when providers are ready
+    try {
+      await BackgroundTokenService.instance.initialize();
+      debugPrint('BackgroundTokenService initialized');
+    } catch (e) {
+      debugPrint('Failed to initialize BackgroundTokenService: $e');
+    }
+  } else {
+    debugPrint('[iOS] Skipping early background service initialization to prevent cold start crash');
+    debugPrint('[iOS] NotificationService and BackgroundTokenService will initialize after runApp()');
   }
 
   runApp(

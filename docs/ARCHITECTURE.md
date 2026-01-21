@@ -67,7 +67,7 @@
 
 ### Current (MVP)
 
-- AI-powered cocktail recommendations based on inventory (GPT-4o-mini via @azure/openai SDK)
+- AI-powered cocktail recommendations based on inventory (GPT-4.1-mini via @azure/openai SDK)
 - **Azure Functions v4 Programming Model** with code-centric registration
 - **34 Backend Functions**: 33 HTTP triggers + 1 timer trigger
 - Offline-first mobile experience with local SQLite
@@ -90,14 +90,14 @@ sequenceDiagram
   participant APIM as API Management
   participant F as Azure Functions (HTTP)
   participant DB as PostgreSQL
-  participant AI as Azure OpenAI (GPT-4o-mini)
+  participant AI as Azure OpenAI (GPT-4.1-mini)
 
   Note over M,AI: AI Chat Flow (JWT-Only Authentication)
   M->>APIM: HTTPS /v1/ask-bartender (JWT only)
   APIM->>APIM: Validate JWT (signature, expiration, audience)
   APIM->>F: Forward request with X-User-Id header
   F->>DB: Lookup user tier
-  F->>AI: GPT-4o-mini processing
+  F->>AI: GPT-4.1-mini processing
   F-->>M: AI response
 
   Note over M,AI: Voice Flow (Pro Tier)
@@ -232,7 +232,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 ## AI Model & Cost Strategy
 
-- **Recommendations**: GPT-4o-mini via @azure/openai SDK (cost/latency optimized)
+- **Recommendations**: GPT-4.1-mini via @azure/openai SDK (cost/latency optimized)
   - Input: $0.15 per 1M tokens
   - Output: $0.60 per 1M tokens
   - ~$0.007 per cocktail conversation
@@ -457,7 +457,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 
 ### Voice Assistant Functions (v4)
 
-- `ask-bartender`: Main conversational endpoint (v4, @azure/openai SDK, GPT-4o-mini)
+- `ask-bartender`: Main conversational endpoint (v4, @azure/openai SDK, GPT-4.1-mini)
 - `ask-bartender-simple`: Simplified for testing (v4, @azure/openai SDK)
 - `ask-bartender-test`: Non-auth testing endpoint (v4, @azure/openai SDK)
 - `voice-bartender`: Voice-guided cocktail making (v4, POST /api/v1/voice-bartender)
@@ -689,7 +689,7 @@ sequenceDiagram
 
 - Vision AI integration for inventory scanning (Azure Computer Vision)
 - Voice-guided cocktail making (Azure Speech Services)
-- Custom recipe creation with AI assistance (GPT-4o-mini)
+- Custom recipe creation with AI assistance (GPT-4.1-mini)
 
 ### Phase 3: Advanced
 
@@ -795,7 +795,7 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: January 15, 2026
+**Last Updated**: January 21, 2026
 **Architecture Version**: 3.4 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)

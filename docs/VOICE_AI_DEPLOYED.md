@@ -10,7 +10,7 @@
 
 ## Overview
 
-Real-time voice conversations with an AI bartender using Azure OpenAI GPT-4o-mini Realtime API via WebRTC. Users can speak naturally and receive spoken responses with live transcription.
+Real-time voice conversations with an AI bartender using Azure OpenAI GPT-realtime-mini API via WebRTC. Users can speak naturally and receive spoken responses with live transcription.
 
 ### Business Model
 - **Pro Tier**: 60 minutes/month included ($7.99/month)
@@ -29,7 +29,7 @@ Real-time voice conversations with an AI bartender using Azure OpenAI GPT-4o-min
 |-------------|-------|---------|
 | `AZURE-OPENAI-REALTIME-ENDPOINT` | `https://blueb-midjmnz5-eastus2.cognitiveservices.azure.com` | Azure OpenAI resource endpoint |
 | `AZURE-OPENAI-REALTIME-KEY` | `ExvZDQ...` (redacted) | API key for authentication |
-| `AZURE-OPENAI-REALTIME-DEPLOYMENT` | `gpt-4o-mini-realtime-preview` | Model deployment name |
+| `AZURE-OPENAI-REALTIME-DEPLOYMENT` | `gpt-realtime-mini` | Model deployment name |
 
 ### Function App Settings (`func-mba-fresh`)
 
@@ -180,7 +180,7 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
   "session": {
     "dbSessionId": "uuid-here",
     "realtimeSessionId": "sess_xxx",
-    "model": "gpt-4o-mini-realtime-preview",
+    "model": "gpt-realtime-mini",
     "voice": "alloy"
   },
   "token": {
@@ -297,7 +297,7 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
   "message": "Realtime API connection validated successfully!",
   "session": {
     "id": "sess_xxx",
-    "model": "gpt-4o-mini-realtime-preview",
+    "model": "gpt-realtime-mini",
     "voice": "alloy",
     "hasClientSecret": true,
     "expiresAt": 1733698800
@@ -659,7 +659,7 @@ flutter build apk --debug
 # Add Key Vault secrets
 az keyvault secret set --vault-name kv-mybartenderai-prod --name AZURE-OPENAI-REALTIME-ENDPOINT --value "https://blueb-midjmnz5-eastus2.cognitiveservices.azure.com"
 az keyvault secret set --vault-name kv-mybartenderai-prod --name AZURE-OPENAI-REALTIME-KEY --value "..."
-az keyvault secret set --vault-name kv-mybartenderai-prod --name AZURE-OPENAI-REALTIME-DEPLOYMENT --value "gpt-4o-mini-realtime-preview"
+az keyvault secret set --vault-name kv-mybartenderai-prod --name AZURE-OPENAI-REALTIME-DEPLOYMENT --value "gpt-realtime-mini"
 
 # Add Function App settings
 az functionapp config appsettings set --name func-mba-fresh --resource-group rg-mba-prod --settings "AZURE_OPENAI_REALTIME_ENDPOINT=@Microsoft.KeyVault(...)"
@@ -1162,4 +1162,4 @@ With the new logging, you can diagnose issues by watching for:
 
 ---
 
-**Last Updated**: January 7, 2026 (Fixed onTrack premature state change + correct event names)
+**Last Updated**: January 21, 2026 (Migrated to gpt-realtime-mini GA model)

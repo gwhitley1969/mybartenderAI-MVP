@@ -2,12 +2,17 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 20, 2026
+**Last Updated**: January 21, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
 
+- **Azure OpenAI Model Migration** (Jan 21): Migrated from retiring models to GA replacements:
+  - Chat: `gpt-4o-mini` → `gpt-4.1-mini` (South Central US)
+  - Voice AI: `gpt-4o-mini-realtime-preview` → `gpt-realtime-mini` (East US 2)
+  - Both Voice and Chat tested successfully after migration
+  - Key Vault secrets updated with new deployment names
 - **Version Number Relocated**: Moved app version from Profile screen to Home screen footer, now displayed below "21+ | Drink Responsibly" message. Profile screen footer simplified to show only "My AI Bartender".
 - **Help & Support Section Added**: New "Help & Support" card on Profile screen (below Account Information) with tappable "Contact Support" that opens email client with `support@xtend-ai.com` pre-filled.
 - **Android 11+ Email Fix**: Fixed Contact Support email link not working on Android 11+ (API 30+). Root cause was missing `<queries>` declaration for `mailto:` scheme in AndroidManifest.xml. Android 11's Package Visibility filtering requires apps to declare which external intents they query. Added `<intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="mailto"/></intent>` to fix `canLaunchUrl()` returning false.
@@ -49,14 +54,19 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 | Storage Account | `mbacocktaildb3`        | Standard            | South Central US |
 | Key Vault       | `kv-mybartenderai-prod` | Standard            | East US          |
 | Azure OpenAI    | `mybartenderai-scus`    | S0                  | South Central US |
+| Azure OpenAI    | `blueb-midjmnz5-eastus2`| S0                  | East US 2        |
 | Front Door      | `fd-mba-share`          | Standard            | Global           |
 
 ### Key Vault Secrets
 
 All sensitive configuration stored in `kv-mybartenderai-prod`:
 
-- `AZURE-OPENAI-API-KEY` - Azure OpenAI service key
-- `AZURE-OPENAI-ENDPOINT` - Azure OpenAI endpoint URL
+- `AZURE-OPENAI-API-KEY` - Azure OpenAI service key (South Central US)
+- `AZURE-OPENAI-ENDPOINT` - Azure OpenAI endpoint URL (South Central US)
+- `AZURE-OPENAI-DEPLOYMENT` - Chat model deployment name (`gpt-4.1-mini`)
+- `AZURE-OPENAI-REALTIME-KEY` - Azure OpenAI service key (East US 2)
+- `AZURE-OPENAI-REALTIME-ENDPOINT` - Azure OpenAI endpoint URL (East US 2)
+- `AZURE-OPENAI-REALTIME-DEPLOYMENT` - Voice AI model deployment name (`gpt-realtime-mini`)
 - `CLAUDE-API-KEY` - Anthropic Claude API key (Smart Scanner)
 - `POSTGRES-CONNECTION-STRING` - Database connection
 - `COCKTAILDB-API-KEY` - TheCocktailDB API key
@@ -173,35 +183,40 @@ All functions deployed to `func-mba-fresh`:
 
 ## AI Services
 
-### GPT-4o-mini (Azure OpenAI)
+### GPT-4.1-mini (Azure OpenAI)
 
 **Service**: `mybartenderai-scus` (South Central US)
+**Deployment**: `gpt-4.1-mini`
 
-| Feature                  | Function               | Model       |
-| ------------------------ | ---------------------- | ----------- |
-| AI Bartender Chat        | `ask-bartender-simple` | gpt-4o-mini |
-| Cocktail Recommendations | `recommend`            | gpt-4o-mini |
-| Recipe Refinement        | `refine-cocktail`      | gpt-4o-mini |
+| Feature                  | Function               | Model        |
+| ------------------------ | ---------------------- | ------------ |
+| AI Bartender Chat        | `ask-bartender-simple` | gpt-4.1-mini |
+| Cocktail Recommendations | `recommend`            | gpt-4.1-mini |
+| Recipe Refinement        | `refine-cocktail`      | gpt-4.1-mini |
 
-**Cost**: ~$0.15/1M input tokens, ~$0.60/1M output tokens
+**Cost**: Similar to gpt-4o-mini (~$0.15/1M input tokens, ~$0.60/1M output tokens)
+
+**Migration Note**: Upgraded from gpt-4o-mini (retiring March 31, 2026) on January 21, 2026.
 
 ### Claude Haiku (Anthropic)
 
 **Used for**: Smart Scanner (vision-analyze)
 
-| Feature                       | Function         | Model          |
-| ----------------------------- | ---------------- | -------------- |
-| Bottle/Ingredient Recognition | `vision-analyze` | Claude 3 Haiku |
+| Feature                       | Function         | Model            |
+| ----------------------------- | ---------------- | ---------------- |
+| Bottle/Ingredient Recognition | `vision-analyze` | Claude Haiku 4.5 |
 
 Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy.
 
-### Azure OpenAI Realtime API
+### GPT-realtime-mini (Azure OpenAI Realtime API)
 
+**Service**: `blueb-midjmnz5-eastus2` (East US 2)
+**Deployment**: `gpt-realtime-mini`
 **Used for**: Voice AI (Pro tier only)
 
-| Feature         | Function        | Technology                |
-| --------------- | --------------- | ------------------------- |
-| Voice Bartender | `voice-session` | Azure OpenAI Realtime API |
+| Feature         | Function        | Model            |
+| --------------- | --------------- | ---------------- |
+| Voice Bartender | `voice-session` | gpt-realtime-mini |
 
 **Architecture**:
 
@@ -211,6 +226,8 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 4. Real-time voice conversation with AI bartender
 
 **Cost**: ~$0.06/min input, ~$0.24/min output
+
+**Migration Note**: Upgraded from gpt-4o-mini-realtime-preview (retiring Feb 28, 2026) on January 21, 2026.
 
 ---
 
@@ -480,4 +497,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 20, 2026
+**Last Updated**: January 21, 2026

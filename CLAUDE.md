@@ -51,9 +51,9 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **API Gateway**: Azure API Management (`apim-mba-002`) - Basic V2 tier
 
-- **AI Services**: 
-  
-  - Azure OpenAI Service (GPT-4o-mini for text-based recommendations) (Claude Haiku for Smart Scanner)
+- **AI Services**:
+
+  - Azure OpenAI Service (GPT-4.1-mini for chat recommendations, GPT-realtime-mini for Voice AI) (Claude Haiku for Smart Scanner)
 
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
 
@@ -78,7 +78,9 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **Key Vault**: `kv-mybartenderai-prod` (in `rg-mba-dev` resource group)
 
-- **Azure OpenAI**: `mybartenderai-scus` (South Central US, gpt-4o-mini deployment)
+- **Azure OpenAI**:
+  - `mybartenderai-scus` (South Central US) - Chat: `gpt-4.1-mini` deployment
+  - `blueb-midjmnz5-eastus2` (East US 2) - Voice AI: `gpt-realtime-mini` deployment
 
 - **Azure Front Door**: `fd-mba-share` (Global) custom domain: `share.mybartenderai.com`
   
@@ -125,10 +127,14 @@ Located in `kv-mybartenderai-prod`:
 17. **META-FACEBOOK-APP-SECRET**
 
 18. **SOCIAL-ENCRYPTION-KEY**
-    
-    
-    
-    
+
+19. **AZURE-OPENAI-DEPLOYMENT**: Chat model deployment name (`gpt-4.1-mini`)
+
+20. **AZURE-OPENAI-REALTIME-DEPLOYMENT**: Voice AI model deployment name (`gpt-realtime-mini`)
+
+21. **AZURE-OPENAI-REALTIME-ENDPOINT**: East US 2 endpoint for Voice AI
+
+22. **AZURE-OPENAI-REALTIME-KEY**: API key for Voice AI (East US 2 resource)
 
 ## Architecture Highlights
 
@@ -138,10 +144,15 @@ Located in `kv-mybartenderai-prod`:
 
 **AI Model Strategy:**
 
-- **GPT-4o-mini**: Primary model for cocktail recommendations and instructions
-  - Cost: $0.15/1M input tokens, $0.60/1M output tokens
+- **GPT-4.1-mini** (South Central US): Primary model for cocktail chat recommendations
+  - Cost-effective replacement for GPT-4o-mini (retired March 2026)
   - Perfect for structured cocktail knowledge and conversational guidance
-  - Fast response times critical for voice interaction
+
+- **GPT-realtime-mini** (East US 2): Voice AI for real-time audio conversations
+  - GA replacement for gpt-4o-mini-realtime-preview (retired Feb 2026)
+  - Low-latency audio streaming for voice-guided cocktail making
+
+- **Claude Haiku 4.5**: Smart Scanner for bottle/ingredient recognition
     
     
 
@@ -226,7 +237,7 @@ Located in `kv-mybartenderai-prod`:
 
 **Deployed Functions:**
 
-- `ask-bartender`, `ask-bartender-simple`, `ask-bartender-test`: GPT-4o-mini cocktail recommendations
+- `ask-bartender`, `ask-bartender-simple`, `ask-bartender-test`: GPT-4.1-mini cocktail recommendations
 - `recommend`: AI-powered cocktail suggestions
 - `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
 - `download-images`, `download-images-mi`: Image asset management
@@ -240,7 +251,7 @@ Located in `kv-mybartenderai-prod`:
 - `validate-age`: Age verification for Entra External ID
 - `vision-analyze`: Smart Scanner using Claude Haiku
 - `voice-bartender`: Legacy voice (Azure Speech Services)
-- `voice-session`: Voice AI using Azure OpenAI Realtime API (Pro tier)
+- `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API (Pro tier)
 - `auth-exchange`, `auth-rotate`: Token management
 - `cocktail-preview`: Public cocktail preview for sharing
 - `test-keyvault`, `test-mi-access`, `test-write`: Diagnostic endpoints
@@ -254,15 +265,16 @@ Located in `kv-mybartenderai-prod`:
 
 ## Current Status & Known Issues
 
-### Completed (December 2025)
+### Completed (January 2026)
 
 **Infrastructure:**
-- ✅ Azure infrastructure (South Central US)
+- ✅ Azure infrastructure (South Central US + East US 2 for Voice AI)
 - ✅ PostgreSQL as authoritative source
 - ✅ Key Vault integration with Managed Identity + RBAC
-- ✅ Azure OpenAI service (mybartenderai-scus)
+- ✅ Azure OpenAI service (mybartenderai-scus for chat, blueb-midjmnz5-eastus2 for voice)
 - ✅ APIM Basic V2 with JWT validation
 - ✅ Azure Front Door (share.mybartenderai.com)
+- ✅ Model migration: GPT-4o-mini → GPT-4.1-mini, gpt-4o-mini-realtime-preview → gpt-realtime-mini
 
 **Authentication:**
 - ✅ Entra External ID (Email, Google, Facebook)
@@ -271,11 +283,11 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Token refresh and secure storage
 
 **Mobile App Features:**
-- ✅ AI Bartender Chat (GPT-4o-mini)
+- ✅ AI Bartender Chat (GPT-4.1-mini)
 - ✅ Recipe Vault with offline SQLite database
 - ✅ My Bar inventory management
 - ✅ Smart Scanner (Claude Haiku)
-- ✅ Voice AI (Azure OpenAI Realtime API, Pro tier)
+- ✅ Voice AI (GPT-realtime-mini via Azure OpenAI Realtime API, Pro tier)
 - ✅ Create Studio with AI refinement
 - ✅ Today's Special with notifications
 - ✅ Social sharing (Instagram/Facebook)
@@ -389,8 +401,9 @@ flutter test
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: January 2026
 **Project Phase**: Release Candidate
 **Primary Focus**: Play Store deployment preparation
+**Recent Changes**: Azure OpenAI model migration (GPT-4.1-mini, gpt-realtime-mini)
 
 

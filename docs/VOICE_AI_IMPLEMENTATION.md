@@ -2,11 +2,11 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 16, 2026 - iOS speaker routing fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 21, 2026 - gpt-realtime-mini migration)
 
 ## Overview
 
-Real-time voice conversations with an AI bartender using Azure OpenAI's GPT-4o-mini Realtime API via WebRTC. Pro tier only.
+Real-time voice conversations with an AI bartender using Azure OpenAI's GPT-realtime-mini Realtime API via WebRTC. Pro tier only.
 
 ## UI Location
 
@@ -105,7 +105,7 @@ app.http('voice-session', {
 
         // Ephemeral token request body
         const sessionConfig = {
-            model: process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT, // 'gpt-4o-mini-realtime-preview'
+            model: process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT, // 'gpt-realtime-mini'
             voice: 'alloy',
             instructions: getSystemPrompt(inventory), // See section 4
             input_audio_transcription: {
@@ -428,7 +428,7 @@ Add to Key Vault / environment:
 
 ```
 AZURE_OPENAI_REALTIME_RESOURCE=<your-aoai-resource-name>
-AZURE_OPENAI_REALTIME_DEPLOYMENT=gpt-4o-mini-realtime-preview
+AZURE_OPENAI_REALTIME_DEPLOYMENT=gpt-realtime-mini
 AZURE_OPENAI_REALTIME_REGION=eastus2
 ```
 

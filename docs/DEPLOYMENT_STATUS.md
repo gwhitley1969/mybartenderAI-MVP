@@ -2,11 +2,15 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 23, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
+
+- **Home Screen Header Icon Update** (Jan 23): Replaced the generic blue Material Design martini glass icon (`Icons.local_bar`) in the home screen header with the actual app icon (purple background with cyan martini glass). This creates visual consistency between the launcher icon and in-app branding. Changes:
+  1. `home_screen.dart`: Changed `Icon(Icons.local_bar)` to `Image.asset('assets/icon/icon.png')` in `_buildAppHeader()` method
+  2. `pubspec.yaml`: Added `assets/icon/` to the assets list for runtime loading
 
 - **iOS Bundle ID & Authentication Fix** (Jan 22): Changed iOS bundle ID from `ai.mybartender.mybartenderai` to `com.mybartenderai.mybartenderai` to match Apple Developer account configuration. Updated MSAL redirect URI to `msauth.com.mybartenderai.mybartenderai://auth`. **Azure Portal Note:** The portal UI rejected this redirect URI format, but it was successfully added via the **Manifest Editor** (App Registration > Manifest > edit `replyUrlsWithType` JSON directly). See `iOS_IMPLEMENTATION.md` for details.
 
@@ -515,4 +519,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 22, 2026
+**Last Updated**: January 23, 2026

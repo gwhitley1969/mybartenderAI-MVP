@@ -122,17 +122,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: AppColors.cardBackground,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: AppColors.cardBorder,
-              width: 1,
-            ),
           ),
-          child: Icon(
-            Icons.local_bar,
-            color: AppColors.iconCircleBlue,
-            size: 32,
+          clipBehavior: Clip.antiAlias,
+          child: Image.asset(
+            'assets/icon/icon.png',
+            fit: BoxFit.cover,
           ),
         ),
         SizedBox(width: AppSpacing.lg),

@@ -121,6 +121,7 @@ flutter:
     - assets/data/academy_content.json
     - assets/data/pro_tools_content.json
     - assets/images/pro_tools/
+    - assets/icon/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

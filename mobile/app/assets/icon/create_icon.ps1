@@ -13,12 +13,12 @@ $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
 $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
 $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
 
-# Fill background with magenta
-$backgroundColor = [System.Drawing.Color]::FromArgb(255, 236, 72, 153)  # #EC4899 - Magenta (pink-500)
+# Fill background with purple (brand primary)
+$backgroundColor = [System.Drawing.Color]::FromArgb(255, 124, 58, 237)  # #7C3AED - Purple (primary)
 $graphics.Clear($backgroundColor)
 
-# Add a subtle circular background for the icon (slightly darker magenta)
-$circleColor = [System.Drawing.Color]::FromArgb(255, 219, 39, 119)  # #DB2777 - Darker magenta (pink-600)
+# Add a subtle circular background for the icon (slightly darker purple)
+$circleColor = [System.Drawing.Color]::FromArgb(255, 109, 40, 217)  # #6D28D9 - Darker purple (purple-700)
 $circleBrush = New-Object System.Drawing.SolidBrush($circleColor)
 $graphics.FillEllipse($circleBrush, 56, 56, 400, 400)
 

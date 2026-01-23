@@ -12,6 +12,11 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   1. `home_screen.dart`: Changed `Icon(Icons.local_bar)` to `Image.asset('assets/icon/icon.png')` in `_buildAppHeader()` method
   2. `pubspec.yaml`: Added `assets/icon/` to the assets list for runtime loading
 
+- **Home Screen Header Icon Color Fix** (Jan 23): Fixed incorrect colors in `icon.png` - the background was pink/magenta (`#EC4899`) instead of the brand purple (`#7C3AED`). Updated `create_icon.ps1` PowerShell script with correct colors and regenerated icon files. Changes:
+  1. `assets/icon/create_icon.ps1`: Changed background color from `#EC4899` to `#7C3AED` (purple), circle accent from `#DB2777` to `#6D28D9` (darker purple)
+  2. `assets/icon/icon.png`: Regenerated with correct purple background
+  3. `assets/icon/icon_foreground.png`: Regenerated for consistency
+
 - **Chat/Voice Button Color Swap** (Jan 23): Swapped the colors of Chat and Voice buttons throughout the app for visual consistency. Chat buttons are now green (teal) and Voice buttons are now blue. Changes made in:
   1. `home_screen.dart`: Home screen AI Concierge section
   2. `recipe_vault_screen.dart`: Recipe Vault AI assistance buttons

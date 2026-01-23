@@ -270,7 +270,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: Icons.chat_bubble_outline,
                   title: 'Chat',
                   subtitle: 'Text conversation',
-                  color: AppColors.iconCircleBlue,
+                  color: AppColors.iconCircleTeal,
                   onTap: () => context.go('/ask-bartender'),
                 ),
               ),
@@ -281,7 +281,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   icon: Icons.mic,
                   title: 'Voice',
                   subtitle: 'Talk to AI',
-                  color: AppColors.iconCircleTeal, // Teal to match My Bar
+                  color: AppColors.iconCircleBlue,
                   onTap: () => context.go('/voice-ai'),
                 ),
               ),

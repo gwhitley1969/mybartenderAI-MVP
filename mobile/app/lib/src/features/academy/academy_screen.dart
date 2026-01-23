@@ -313,7 +313,7 @@ class _AcademyScreenState extends State<AcademyScreen> {
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.iconCircleBlue,
+                    backgroundColor: AppColors.iconCircleTeal,
                     foregroundColor: AppColors.textPrimary,
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(
@@ -330,7 +330,7 @@ class _AcademyScreenState extends State<AcademyScreen> {
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.iconCircleTeal,
+                    backgroundColor: AppColors.iconCircleBlue,
                     foregroundColor: AppColors.textPrimary,
                     padding: EdgeInsets.symmetric(vertical: AppSpacing.md),
                     shape: RoundedRectangleBorder(

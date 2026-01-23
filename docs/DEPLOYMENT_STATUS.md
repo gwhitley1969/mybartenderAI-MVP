@@ -12,6 +12,12 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   1. `home_screen.dart`: Changed `Icon(Icons.local_bar)` to `Image.asset('assets/icon/icon.png')` in `_buildAppHeader()` method
   2. `pubspec.yaml`: Added `assets/icon/` to the assets list for runtime loading
 
+- **Chat/Voice Button Color Swap** (Jan 23): Swapped the colors of Chat and Voice buttons throughout the app for visual consistency. Chat buttons are now green (teal) and Voice buttons are now blue. Changes made in:
+  1. `home_screen.dart`: Home screen AI Concierge section
+  2. `recipe_vault_screen.dart`: Recipe Vault AI assistance buttons
+  3. `academy_screen.dart`: Academy AI Concierge CTA
+  4. `pro_tools_screen.dart`: Pro Tools AI Concierge CTA
+
 - **iOS Bundle ID & Authentication Fix** (Jan 22): Changed iOS bundle ID from `ai.mybartender.mybartenderai` to `com.mybartenderai.mybartenderai` to match Apple Developer account configuration. Updated MSAL redirect URI to `msauth.com.mybartenderai.mybartenderai://auth`. **Azure Portal Note:** The portal UI rejected this redirect URI format, but it was successfully added via the **Manifest Editor** (App Registration > Manifest > edit `replyUrlsWithType` JSON directly). See `iOS_IMPLEMENTATION.md` for details.
 
 - **iOS Token Refresh Workaround** (Jan 22): Implemented iOS-specific token refresh strategy to address Entra External ID's 12-hour refresh token timeout. iOS uses 4-hour intervals (vs 6 hours on Android) because iOS background tasks are less reliable than Android's AlarmManager. Changes:

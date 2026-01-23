@@ -429,25 +429,29 @@ class AuthService {
 
       // Schedule background token refresh to keep refresh token active
       // This prevents the 12-hour inactivity timeout in Entra External ID
+      // iOS: 4-hour one-off tasks with chain scheduling (more reliable on iOS)
+      // Android: 8-hour periodic tasks via WorkManager
       try {
         await BackgroundTokenService.instance.scheduleTokenRefresh();
-        _diagLog('Background token refresh scheduled via WorkManager (every 8 hours)');
+        _diagLog('Background token refresh scheduled via WorkManager '
+            '(${Platform.isIOS ? "iOS: 4-hour one-off with chain scheduling" : "Android: every 8 hours"})');
       } catch (e) {
         _diagLog('Failed to schedule background token refresh: $e');
       }
 
-      // Schedule AlarmManager-based token refresh (more reliable backup)
-      // AlarmManager fires even in Doze mode, providing better reliability than WorkManager
+      // Schedule notification-based token refresh (more reliable backup)
+      // iOS: 4-hour interval; Android: 6-hour interval via AlarmManager
+      // AlarmManager fires even in Doze mode on Android, providing better reliability
       try {
         // Set up the callback to perform token refresh when alarm fires
         NotificationService.instance.onTokenRefreshNeeded = () async {
-          _diagLog('[ALARM-REFRESH] AlarmManager token refresh triggered');
+          _diagLog('[ALARM-REFRESH] Token refresh alarm triggered (${Platform.isIOS ? "iOS" : "Android"})');
           await refreshToken();
         };
         await NotificationService.instance.scheduleTokenRefreshAlarm();
-        _diagLog('AlarmManager token refresh scheduled (every 6 hours)');
+        _diagLog('Token refresh alarm scheduled (every ${Platform.isIOS ? 4 : 6} hours)');
       } catch (e) {
-        _diagLog('Failed to schedule AlarmManager token refresh: $e');
+        _diagLog('Failed to schedule token refresh alarm: $e');
       }
 
       _diagLog('User authenticated successfully: ${user.email}');

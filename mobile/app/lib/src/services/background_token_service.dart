@@ -128,6 +128,17 @@ Future<bool> _performTokenRefresh() async {
       await tokenStorage.saveLastRefreshTime(DateTime.now());
       print('[BG-TOKEN] Last refresh time saved');
 
+      // iOS: Re-schedule next refresh (chain scheduling)
+      // Unlike Android's periodic tasks, iOS one-off tasks must be rescheduled after each execution
+      if (Platform.isIOS) {
+        print('[BG-TOKEN] [iOS] Re-scheduling next token refresh (chain scheduling)');
+        try {
+          await BackgroundTokenService.instance.scheduleTokenRefresh();
+        } catch (e) {
+          print('[BG-TOKEN] [iOS] Failed to re-schedule: $e');
+        }
+      }
+
       print('[BG-TOKEN] === TOKEN REFRESH KEEPALIVE SUCCEEDED ===');
     } else {
       print('[BG-TOKEN] acquireTokenSilent returned null');
@@ -188,44 +199,72 @@ class BackgroundTokenService {
     print('[BG-TOKEN] BackgroundTokenService initialized');
   }
 
-  /// Schedule the periodic token refresh task
-  /// Runs every 8 hours to keep the refresh token active
+  /// Schedule the token refresh task
+  /// iOS: Uses one-off tasks with 4-hour delay (chain scheduling - re-schedules after each run)
+  /// Android: Uses periodic task every 8 hours (backup to AlarmManager)
   /// This serves as a BACKUP to the foreground refresh in AppLifecycleService
   Future<void> scheduleTokenRefresh() async {
-    print('[BG-TOKEN] Scheduling periodic token refresh task...');
+    print('[BG-TOKEN] Scheduling token refresh task...');
 
-    // Cancel any existing task first
-    await Workmanager().cancelByUniqueName(tokenRefreshTaskUniqueName);
+    if (Platform.isIOS) {
+      // iOS: Cancel any existing iOS task first
+      await Workmanager().cancelByUniqueName('${tokenRefreshTaskUniqueName}_ios');
 
-    // Schedule periodic task - runs approximately every 8 hours
-    // Note: Android has a minimum of 15 minutes for periodic tasks
-    // We use 8 hours to provide extra margin (4 hours before 12-hour timeout)
-    // Primary refresh happens in AppLifecycleService when app comes to foreground
-    await Workmanager().registerPeriodicTask(
-      tokenRefreshTaskUniqueName,
-      tokenRefreshTaskName,
-      frequency: const Duration(hours: 8),
-      constraints: Constraints(
-        networkType: NetworkType.connected, // Requires network connection
-        requiresBatteryNotLow: false, // Run even on low battery
-        requiresCharging: false, // Don't require charging
-        requiresDeviceIdle: false, // Don't wait for device idle
-        requiresStorageNotLow: false, // Don't require storage
-      ),
-      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
-      backoffPolicy: BackoffPolicy.linear,
-      backoffPolicyDelay: const Duration(minutes: 15),
-      tag: 'token_refresh',
-    );
+      // iOS: Use one-off task with 4-hour delay
+      // BGTaskScheduler is more reliable with one-off tasks than periodic
+      // Will be re-scheduled after each successful refresh (chain scheduling)
+      // 4-hour interval provides 8-hour margin before 12-hour Entra timeout
+      print('[BG-TOKEN] [iOS] Scheduling one-off token refresh in 4 hours');
+      await Workmanager().registerOneOffTask(
+        '${tokenRefreshTaskUniqueName}_ios',
+        tokenRefreshTaskName,
+        initialDelay: const Duration(hours: 4),
+        constraints: Constraints(
+          networkType: NetworkType.connected,
+        ),
+        existingWorkPolicy: ExistingWorkPolicy.replace,
+        tag: 'token_refresh_ios',
+      );
+      print('[BG-TOKEN] [iOS] One-off token refresh scheduled');
+    } else {
+      // Android: Cancel any existing task first
+      await Workmanager().cancelByUniqueName(tokenRefreshTaskUniqueName);
 
-    print('[BG-TOKEN] Periodic token refresh scheduled (every 8 hours, backup to foreground refresh)');
+      // Android: Schedule periodic task - runs approximately every 8 hours
+      // Note: Android has a minimum of 15 minutes for periodic tasks
+      // We use 8 hours to provide extra margin (4 hours before 12-hour timeout)
+      // Primary refresh happens in AppLifecycleService when app comes to foreground
+      print('[BG-TOKEN] [Android] Scheduling periodic token refresh (every 8 hours)');
+      await Workmanager().registerPeriodicTask(
+        tokenRefreshTaskUniqueName,
+        tokenRefreshTaskName,
+        frequency: const Duration(hours: 8),
+        constraints: Constraints(
+          networkType: NetworkType.connected, // Requires network connection
+          requiresBatteryNotLow: false, // Run even on low battery
+          requiresCharging: false, // Don't require charging
+          requiresDeviceIdle: false, // Don't wait for device idle
+          requiresStorageNotLow: false, // Don't require storage
+        ),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.linear,
+        backoffPolicyDelay: const Duration(minutes: 15),
+        tag: 'token_refresh',
+      );
+      print('[BG-TOKEN] [Android] Periodic token refresh scheduled');
+    }
   }
 
-  /// Cancel the periodic token refresh task
+  /// Cancel the token refresh task
   Future<void> cancelTokenRefresh() async {
     print('[BG-TOKEN] Cancelling token refresh task...');
-    await Workmanager().cancelByUniqueName(tokenRefreshTaskUniqueName);
-    print('[BG-TOKEN] Token refresh task cancelled');
+    if (Platform.isIOS) {
+      await Workmanager().cancelByUniqueName('${tokenRefreshTaskUniqueName}_ios');
+      print('[BG-TOKEN] [iOS] Token refresh task cancelled');
+    } else {
+      await Workmanager().cancelByUniqueName(tokenRefreshTaskUniqueName);
+      print('[BG-TOKEN] [Android] Token refresh task cancelled');
+    }
   }
 
   /// Run an immediate token refresh (for testing)

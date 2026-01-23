@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import workmanager_apple  // WorkManager plugin for iOS background tasks
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -18,7 +19,18 @@ import UserNotifications
     // This ensures we can capture notification taps even on cold start
     UNUserNotificationCenter.current().delegate = self
 
+    // Register all Flutter plugins FIRST
     GeneratedPluginRegistrant.register(with: self)
+
+    // CRITICAL: Register WorkManager periodic task for token refresh AFTER plugins are registered
+    // This enables iOS BGTaskScheduler to run our Dart background code
+    // Frequency: 4 hours (14400 seconds) - iOS may adjust this based on user patterns
+    // This addresses the Entra External ID 12-hour refresh token timeout issue
+    // See: ENTRA_REFRESH_TOKEN_WORKAROUND.md for full documentation
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "com.mybartenderai.tokenRefreshKeepalive",
+      frequency: NSNumber(value: 4 * 60 * 60) // 4 hours in seconds
+    )
 
     // Check if app was launched from a local notification
     if let notification = launchOptions?[.localNotification] as? UILocalNotification {

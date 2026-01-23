@@ -1,4 +1,5 @@
 import 'dart:developer' as developer;
+import 'dart:io' show Platform;
 
 import 'package:flutter/widgets.dart';
 
@@ -120,9 +121,11 @@ class AppLifecycleService with WidgetsBindingObserver {
         _log('Token age: ${tokenAge.inHours} hours (${tokenAge.inMinutes} minutes)');
       }
 
-      // Proactive refresh threshold: 6 hours
-      // This provides a 6-hour safety margin before the 12-hour Entra timeout
-      const refreshThreshold = Duration(hours: 6);
+      // Proactive refresh threshold: iOS 4 hours, Android 6 hours
+      // iOS: 4-hour threshold provides 8 hours margin (iOS background tasks unreliable)
+      // Android: 6-hour threshold provides 6 hours margin (AlarmManager is reliable)
+      // This addresses the 12-hour Entra External ID refresh token timeout
+      final refreshThreshold = Duration(hours: Platform.isIOS ? 4 : 6);
 
       // Decide if we should refresh
       bool shouldRefresh = false;
@@ -180,12 +183,12 @@ class AppLifecycleService with WidgetsBindingObserver {
         _log('SUCCESS! Token refreshed proactively');
         _log('User: ${user.email}');
 
-        // Reschedule the AlarmManager token refresh for the next interval
+        // Reschedule the token refresh for the next interval
         try {
           await NotificationService.instance.scheduleTokenRefreshAlarm();
-          _log('AlarmManager token refresh rescheduled (next in 6 hours)');
+          _log('Token refresh alarm rescheduled (next in ${Platform.isIOS ? 4 : 6} hours)');
         } catch (e) {
-          _log('Failed to reschedule AlarmManager token refresh: $e');
+          _log('Failed to reschedule token refresh alarm: $e');
         }
 
         _log('=== APP RESUMED CHECK COMPLETE - Token Refreshed ===');

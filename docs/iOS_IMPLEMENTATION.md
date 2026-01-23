@@ -6,6 +6,7 @@ This document details the iOS-specific configuration and implementation for My A
 
 **Status**: Ready (January 2026)
 **Tested**: Physical iPhone device with successful authentication flow
+**Last Updated**: January 22, 2026
 
 ---
 
@@ -15,13 +16,15 @@ This document details the iOS-specific configuration and implementation for My A
 
 | Configuration | Value |
 |--------------|-------|
-| Bundle Identifier | `ai.mybartender.mybartenderai` |
+| Bundle Identifier | `com.mybartenderai.mybartenderai` |
 | Client ID | `f9f7f159-b847-4211-98c9-18e5b8193045` |
 | Authority URL | `https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/` |
-| iOS Redirect URI | `msauth.ai.mybartender.mybartenderai://auth` |
+| iOS Redirect URI | `msauth.com.mybartenderai.mybartenderai://auth` |
 | Authority Type | `AuthorityType.b2c` (required for CIAM) |
 | Deployment Target | iOS 13.0 |
 | Development Team | `4ML27KY869` |
+
+> **Note (Jan 22, 2026):** Bundle ID was changed from `ai.mybartender.mybartenderai` to `com.mybartenderai.mybartenderai` to match Apple Developer account configuration.
 
 ---
 
@@ -39,13 +42,27 @@ Microsoft Entra External ID (CIAM) requires B2C-style authority configuration on
 
 ### Redirect URI Registration
 
-The iOS redirect URI `msauth.ai.mybartender.mybartenderai://auth` must be registered in Microsoft Entra ID:
+The iOS redirect URI `msauth.com.mybartenderai.mybartenderai://auth` must be registered in Microsoft Entra ID.
+
+**Important:** The Azure Portal UI may reject this redirect URI format with validation error "Must start with HTTPS, HTTP, or 'customScheme://'". If this happens, use the **Manifest Editor** instead:
 
 1. Navigate to Azure Portal > Entra ID > App Registrations
 2. Select the MyBartenderAI app registration
-3. Go to **Authentication** > **Mobile and desktop applications**
-4. Add the redirect URI: `msauth.ai.mybartender.mybartenderai://auth`
-5. Ensure **Allow public client flows** is set to **Yes**
+3. Go to **Manifest** in the left menu
+4. Find the `replyUrlsWithType` array
+5. Add the following entry:
+   ```json
+   {
+       "url": "msauth.com.mybartenderai.mybartenderai://auth",
+       "type": "InstalledClient"
+   }
+   ```
+6. Click **Save**
+
+**Alternative (if Portal UI accepts it):**
+1. Go to **Authentication** > **Mobile and desktop applications**
+2. Add the redirect URI: `msauth.com.mybartenderai.mybartenderai://auth`
+3. Ensure **Allow public client flows** is set to **Yes**
 
 ---
 
@@ -269,6 +286,19 @@ authority: 'https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/'
 
 **Solution:** See "iOS Cold Start Crash Fix" section below for comprehensive fix
 
+#### 2b. App Crashes After Adding WorkManager (Jan 22, 2026)
+
+**Symptom:** White screen flash, immediate crash on cold start after adding WorkManager support
+
+**Cause:** `WorkmanagerPlugin.registerPeriodicTask()` called BEFORE `GeneratedPluginRegistrant.register()` in AppDelegate.swift
+
+**Solution:** Always register Flutter plugins FIRST, then WorkManager:
+```swift
+// CORRECT ORDER:
+GeneratedPluginRegistrant.register(with: self)  // FIRST
+WorkmanagerPlugin.registerPeriodicTask(...)      // AFTER
+```
+
 #### 3. Device Not Detected in Xcode
 
 **Symptom:** iPhone not appearing in Devices list
@@ -306,8 +336,9 @@ xattr -cr /path/to/project
 |--------|-----|---------|
 | Authority Type | `AuthorityType.b2c` | CIAM type in config file |
 | Config Location | In-code `AppleConfig` | `assets/msal_config.json` |
-| Redirect URI | `msauth.{bundleId}://auth` | `msauth://{bundleId}/callback` |
+| Redirect URI | `msauth.{bundleId}://auth` (note: dot separator) | `msauth://{bundleId}/callback` |
 | Keychain | Requires entitlements | Automatic |
+| Token Refresh Interval | 4 hours (less reliable background tasks) | 6 hours (AlarmManager reliable) |
 
 ### Token Scopes
 
@@ -518,7 +549,7 @@ xcrun devicectl device install app --device <DEVICE_UDID> \
   ~/Library/Developer/Xcode/DerivedData/Runner-*/Build/Products/Release-iphoneos/Runner.app
 
 # Launch the app
-xcrun devicectl device process launch --device <DEVICE_UDID> ai.mybartender.mybartenderai
+xcrun devicectl device process launch --device <DEVICE_UDID> com.mybartenderai.mybartenderai
 ```
 
 This bypasses Flutter's build script which can introduce extended attributes that cause code signing failures on macOS 15+.
@@ -545,6 +576,7 @@ Handle notification taps at the **native iOS level** in AppDelegate.swift, stori
 import Flutter
 import UIKit
 import UserNotifications
+import workmanager_apple  // WorkManager plugin for iOS background tasks
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -559,7 +591,17 @@ import UserNotifications
     // Set ourselves as notification delegate BEFORE plugin registration
     UNUserNotificationCenter.current().delegate = self
 
+    // CRITICAL: Register Flutter plugins FIRST
     GeneratedPluginRegistrant.register(with: self)
+
+    // Register WorkManager periodic task for token refresh AFTER plugins are registered
+    // This enables iOS BGTaskScheduler to run our Dart background code
+    // Frequency: 4 hours - iOS may adjust this based on user patterns
+    WorkmanagerPlugin.registerPeriodicTask(
+      withIdentifier: "com.mybartenderai.tokenRefreshKeepalive",
+      frequency: NSNumber(value: 4 * 60 * 60) // 4 hours in seconds
+    )
+
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
@@ -784,5 +826,68 @@ Apply the same pattern to `getLastRefreshTime()` and `getUserProfile()`.
 
 ---
 
-**Last Updated**: January 21, 2026
+## iOS Token Refresh Workaround (Entra External ID)
+
+### Problem
+
+Microsoft Entra External ID (CIAM) has a hardcoded 12-hour inactivity timeout for refresh tokens. After 12 hours without token activity, users must re-authenticate. This is a known Microsoft limitation with no official fix.
+
+### iOS-Specific Challenges
+
+Unlike Android (which has reliable AlarmManager), iOS has stricter background execution limits:
+- **No AlarmManager equivalent**: iOS doesn't allow apps to schedule guaranteed wake-ups
+- **BGTaskScheduler limitations**: iOS controls timing, not the app (may delay hours or skip)
+- **30-second execution window**: Maximum background task duration before iOS suspends
+
+### Solution: 4-Layer Defense for iOS
+
+| Layer | Mechanism | Interval | Reliability |
+|-------|-----------|----------|-------------|
+| 1 | Foreground Refresh (AppLifecycleService) | 4 hours | High (when app opens) |
+| 2 | WorkManager One-Off Tasks | 4 hours | Medium (iOS controls timing) |
+| 3 | Notification Alarms | 4 hours | Medium (needs permission) |
+| 4 | Welcome Back Dialog | N/A | Fallback (graceful re-login) |
+
+### Key Implementation Details
+
+**Shorter Intervals than Android:** iOS uses 4-hour intervals (vs 6 hours on Android) because background tasks are less reliable. This provides 8 hours of safety margin before the 12-hour timeout.
+
+**Chain Scheduling:** iOS one-off tasks are more reliable than periodic tasks. After each successful refresh, the next task is re-scheduled (chain scheduling pattern).
+
+**Native WorkManager Registration:** Required in `AppDelegate.swift` for iOS BGTaskScheduler to recognize the task:
+
+```swift
+WorkmanagerPlugin.registerPeriodicTask(
+  withIdentifier: "com.mybartenderai.tokenRefreshKeepalive",
+  frequency: NSNumber(value: 4 * 60 * 60) // 4 hours
+)
+```
+
+**Info.plist Configuration:** Required entries for background task support:
+```xml
+<key>UIBackgroundModes</key>
+<array>
+    <string>fetch</string>
+    <string>processing</string>
+</array>
+<key>BGTaskSchedulerPermittedIdentifiers</key>
+<array>
+    <string>com.mybartenderai.tokenRefreshKeepalive</string>
+</array>
+```
+
+### Files Modified
+
+| File | Change |
+|------|--------|
+| `AppDelegate.swift` | Native WorkManager registration |
+| `app_lifecycle_service.dart` | Platform-aware 4-hour threshold |
+| `background_token_service.dart` | iOS one-off tasks with chain scheduling |
+| `notification_service.dart` | Platform-aware 4-hour alarm interval |
+
+See `ENTRA_REFRESH_TOKEN_WORKAROUND.md` for complete documentation.
+
+---
+
+**Last Updated**: January 22, 2026
 **Implementation Status**: Complete and Tested

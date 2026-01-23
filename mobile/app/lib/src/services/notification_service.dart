@@ -730,14 +730,23 @@ class NotificationService {
   /// Uses AlarmManager with exact alarms, which is more reliable than WorkManager
   /// for time-critical tasks. The alarm fires even in Doze mode.
   ///
-  /// Default interval: 6 hours (provides 2 opportunities before 12-hour timeout)
-  Future<void> scheduleTokenRefreshAlarm({Duration delay = const Duration(hours: 6)}) async {
+  /// Platform-aware default intervals:
+  /// - iOS: 4 hours (shorter because iOS background tasks are unreliable)
+  /// - Android: 6 hours (AlarmManager is more reliable, provides 2 opportunities before 12-hour timeout)
+  ///
+  /// This addresses the Microsoft Entra External ID 12-hour refresh token timeout.
+  Future<void> scheduleTokenRefreshAlarm({Duration? delay}) async {
     await initialize();
 
     // Cancel any existing token refresh alarm
     await _plugin.cancel(_tokenRefreshNotificationId);
 
-    final scheduledTime = tz.TZDateTime.now(tz.local).add(delay);
+    // Platform-aware delay:
+    // iOS: 4-hour interval (shorter because background tasks are unreliable)
+    // Android: 6-hour interval (AlarmManager is more reliable)
+    final effectiveDelay = delay ?? Duration(hours: Platform.isIOS ? 4 : 6);
+
+    final scheduledTime = tz.TZDateTime.now(tz.local).add(effectiveDelay);
 
     // Determine the best schedule mode for accuracy
     AndroidScheduleMode scheduleMode = AndroidScheduleMode.inexactAllowWhileIdle;
@@ -788,6 +797,7 @@ class NotificationService {
 
       if (kDebugMode) {
         print('[TOKEN-ALARM] Token refresh alarm scheduled for: $scheduledTime');
+        print('[TOKEN-ALARM] Platform: ${Platform.isIOS ? "iOS" : "Android"}, Interval: ${effectiveDelay.inHours} hours');
         print('[TOKEN-ALARM] Notification canceled immediately (invisible to user)');
         print('[TOKEN-ALARM] Schedule mode: ${scheduleMode == AndroidScheduleMode.exactAllowWhileIdle ? "EXACT" : "INEXACT"}');
       }

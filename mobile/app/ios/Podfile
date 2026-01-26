@@ -40,9 +40,15 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
 
-    # Enable permissions for permission_handler package
-    # See: https://pub.dev/packages/permission_handler#setup
+    # CRITICAL: Force consistent IPHONEOS_DEPLOYMENT_TARGET across all pods
+    # This fixes flutter_secure_storage crash on cold start (Issue #794, #901)
+    # Without this, pods may be compiled for different iOS versions causing
+    # Swift runtime symbol mismatches and EXC_BAD_ACCESS crashes
     target.build_configurations.each do |config|
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+
+      # Enable permissions for permission_handler package
+      # See: https://pub.dev/packages/permission_handler#setup
       config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
         '$(inherited)',
         # Microphone permission - required for Voice AI feature

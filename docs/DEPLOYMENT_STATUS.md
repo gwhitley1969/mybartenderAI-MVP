@@ -50,6 +50,8 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   4. `AppDelegate.swift`: Added native WorkManager registration for iOS BGTaskScheduler
   See `ENTRA_REFRESH_TOKEN_WORKAROUND.md` for full documentation.
 
+- **iOS Debug Build Cold Start Fix** (Jan 26): Identified root cause of iOS cold start crashes when launching from home screen. **Root cause:** Flutter debug builds require JIT (Just-In-Time) compilation, which iOS blocks unless a debugger is attached. When launching a debug build from the home screen (no debugger), the Flutter engine can't initialize properly, causing the registrar to be null and resulting in `EXC_BAD_ACCESS` crash during plugin registration. **Solution:** Always use Release builds (`flutter run --release` or `flutter build ios --release`) for iOS device testing. See Flutter Issue #149214 for details.
+
 - **iOS AppDelegate Cold Start Crash Fix** (Jan 22): Fixed crash caused by `WorkmanagerPlugin.registerPeriodicTask()` being called BEFORE `GeneratedPluginRegistrant.register()`. The WorkManager plugin must be registered AFTER Flutter plugins are initialized. Reordered initialization in `AppDelegate.swift`.
 
 - **iOS Cold Start Crash Fix** (Jan 21): Fixed critical issue where iOS app crashed on restart (white screen, immediate exit to home screen). App worked after fresh install but crashed on subsequent cold starts. Root cause: `NotificationService` and `BackgroundTokenService` (WorkManager) were initialized BEFORE `runApp()` in `bootstrap.dart`. On iOS cold start from terminated state, this caused crashes because the Flutter engine wasn't fully attached to the iOS view hierarchy. Also related to flutter_local_notifications Issue #2025 (background notification handler crashes on iOS). **Solution:**
@@ -465,23 +467,28 @@ flutter build apk --release
 
 ### Mobile App (iOS)
 
+**IMPORTANT: iOS Debug Build Limitation**
+
+Flutter debug builds crash when launched from the iOS home screen without a debugger attached. This is because debug builds require JIT (Just-In-Time) compilation, which iOS blocks for security reasons. The crash manifests as a white screen flash followed by immediate exit.
+
+**Always use Release builds for iOS device testing:**
+
 ```bash
-# Development (simulator)
+# Development (simulator only)
 cd mobile/app
 flutter run -d "iPhone 16e"
 
-# Release build
+# Physical device - MUST use Release build
 flutter clean
 flutter pub get
 cd ios && pod install && cd ..
-flutter build ios --release
+flutter run --release  # Run directly to device in Release mode
 
-# Deploy to physical device
+# Or build and deploy manually
+flutter build ios --release
 cd ios
 xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -destination 'generic/platform=iOS' -archivePath build/Runner.xcarchive archive
 # Or use Xcode: Product > Archive
-
-# Note: Debug builds require debugger attachment; use Release for standalone testing
 ```
 
 **iOS Build Requirements:**
@@ -489,6 +496,7 @@ xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -
 - Valid Apple Developer Team ID in project.pbxproj
 - CocoaPods installed (`gem install cocoapods`)
 - Device must have Developer Mode enabled (iOS 16+)
+- **Release build required for cold start testing** (Debug builds crash without debugger)
 
 ### Azure Functions
 

@@ -6,7 +6,7 @@ This document details the iOS-specific configuration and implementation for My A
 
 **Status**: Ready (January 2026)
 **Tested**: Physical iPhone device with successful authentication flow
-**Last Updated**: January 22, 2026
+**Last Updated**: January 26, 2026
 
 ---
 
@@ -237,10 +237,16 @@ flutter run -d "iPhone 16e"
 
 ### Deploy to Physical Device
 
-**Important:** Debug builds crash when launched from home screen (require debugger). Use Release builds for standalone testing.
+**CRITICAL: Debug builds crash on iOS cold start.** This is because Flutter debug builds require JIT compilation, which iOS blocks unless a debugger is attached. When you launch a debug build from the home screen (no Xcode/debugger), the app crashes immediately with a white screen.
+
+**Always use Release builds for physical device testing:**
 
 ```bash
-# Build Release
+# Option 1: Run directly in Release mode
+cd mobile/app
+flutter run --release
+
+# Option 2: Build Release archive
 cd mobile/app/ios
 xcodebuild -workspace Runner.xcworkspace \
   -scheme Runner \
@@ -251,6 +257,13 @@ xcodebuild -workspace Runner.xcworkspace \
 
 # Or use Xcode: Product > Archive
 ```
+
+**Why Debug Builds Crash (Technical):**
+- Flutter debug mode uses JIT (Just-In-Time) compilation for hot reload
+- iOS blocks JIT compilation for security (only AOT is allowed without debugger)
+- Without JIT, the Flutter engine fails to initialize, registrar becomes null
+- Plugin registration crashes with `EXC_BAD_ACCESS` at null address
+- Reference: [Flutter Issue #149214](https://github.com/flutter/flutter/issues/149214)
 
 ---
 
@@ -270,13 +283,28 @@ authority: 'https://mybartenderai.ciamlogin.com/mybartenderai.onmicrosoft.com/'
 // NOT: 'https://mybartenderai.ciamlogin.com'
 ```
 
-#### 2. App Crashes on Launch (Debug Build)
+#### 2. App Crashes on Launch (Debug Build) - CRITICAL
 
-**Symptom:** White screen flashes, app exits immediately
+**Symptom:** White screen flashes, app exits immediately when launched from iOS home screen
 
-**Cause:** Flutter debug builds require debugger attachment
+**Technical Details:**
+- Exception: `EXC_BAD_ACCESS` / `SIGSEGV` / `KERN_INVALID_ADDRESS at 0x0000000000000000`
+- Crash occurs in `swift_getObjectType` called from `SwiftFlutterSecureStoragePlugin.register(with:)`
+- Happens during `GeneratedPluginRegistrant.register(with: self)` - before any Dart code runs
+- The Flutter registrar becomes null because the Flutter engine can't initialize properly
 
-**Solution:** Build and deploy Release configuration instead of Debug
+**Root Cause:** Flutter debug builds require JIT (Just-In-Time) compilation for hot reload and debugging features. iOS blocks JIT compilation for security reasons unless a debugger is attached. When you launch a debug build from the home screen (without debugger), the Flutter engine cannot compile the Dart code, causing it to fail during plugin registration.
+
+**Solution:** Always use Release builds for iOS device testing:
+```bash
+# Correct - Release build works for cold start
+flutter run --release
+
+# Incorrect - Debug build crashes on cold start from home screen
+flutter run  # DON'T USE for standalone testing
+```
+
+**Reference:** [Flutter Issue #149214](https://github.com/flutter/flutter/issues/149214) - Plugin registration crash when registrar is null
 
 #### 2a. App Crashes on Restart (Release Build)
 
@@ -576,7 +604,6 @@ Handle notification taps at the **native iOS level** in AppDelegate.swift, stori
 import Flutter
 import UIKit
 import UserNotifications
-import workmanager_apple  // WorkManager plugin for iOS background tasks
 
 @main
 @objc class AppDelegate: FlutterAppDelegate {
@@ -591,16 +618,15 @@ import workmanager_apple  // WorkManager plugin for iOS background tasks
     // Set ourselves as notification delegate BEFORE plugin registration
     UNUserNotificationCenter.current().delegate = self
 
-    // CRITICAL: Register Flutter plugins FIRST
+    // Register all Flutter plugins
     GeneratedPluginRegistrant.register(with: self)
 
-    // Register WorkManager periodic task for token refresh AFTER plugins are registered
-    // This enables iOS BGTaskScheduler to run our Dart background code
-    // Frequency: 4 hours - iOS may adjust this based on user patterns
-    WorkmanagerPlugin.registerPeriodicTask(
-      withIdentifier: "com.mybartenderai.tokenRefreshKeepalive",
-      frequency: NSNumber(value: 4 * 60 * 60) // 4 hours in seconds
-    )
+    // Check if app was launched from a local notification (legacy iOS < 10)
+    if let notification = launchOptions?[.localNotification] as? UILocalNotification {
+      if let userInfo = notification.userInfo, let payload = userInfo["payload"] as? String {
+        UserDefaults.standard.set(payload, forKey: pendingNotificationKey)
+      }
+    }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -633,6 +659,8 @@ import workmanager_apple  // WorkManager plugin for iOS background tasks
   }
 }
 ```
+
+> **Note (Jan 26, 2026):** Native WorkManager registration was removed from AppDelegate. The WorkManager Dart-side initialization handles background task scheduling. The previous native registration was not the cause of cold start crashes - the actual issue was using Debug builds (which require JIT compilation that iOS blocks without debugger).
 
 ### Flutter Side Implementation
 
@@ -854,15 +882,6 @@ Unlike Android (which has reliable AlarmManager), iOS has stricter background ex
 
 **Chain Scheduling:** iOS one-off tasks are more reliable than periodic tasks. After each successful refresh, the next task is re-scheduled (chain scheduling pattern).
 
-**Native WorkManager Registration:** Required in `AppDelegate.swift` for iOS BGTaskScheduler to recognize the task:
-
-```swift
-WorkmanagerPlugin.registerPeriodicTask(
-  withIdentifier: "com.mybartenderai.tokenRefreshKeepalive",
-  frequency: NSNumber(value: 4 * 60 * 60) // 4 hours
-)
-```
-
 **Info.plist Configuration:** Required entries for background task support:
 ```xml
 <key>UIBackgroundModes</key>
@@ -880,14 +899,15 @@ WorkmanagerPlugin.registerPeriodicTask(
 
 | File | Change |
 |------|--------|
-| `AppDelegate.swift` | Native WorkManager registration |
 | `app_lifecycle_service.dart` | Platform-aware 4-hour threshold |
 | `background_token_service.dart` | iOS one-off tasks with chain scheduling |
 | `notification_service.dart` | Platform-aware 4-hour alarm interval |
+
+> **Note (Jan 26, 2026):** Native WorkManager registration in `AppDelegate.swift` was removed. The Dart-side BackgroundTokenService handles task scheduling via the workmanager plugin. Native registration is not required for the background tasks to function.
 
 See `ENTRA_REFRESH_TOKEN_WORKAROUND.md` for complete documentation.
 
 ---
 
-**Last Updated**: January 22, 2026
+**Last Updated**: January 26, 2026
 **Implementation Status**: Complete and Tested

@@ -2,11 +2,29 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 23, 2026
+**Last Updated**: January 26, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
+
+- **Privacy Policy & Terms of Service Website** (Jan 26): Deployed legal pages to Azure Static Web Apps for app store compliance. Changes:
+  1. Created `website/` folder with `index.html`, `privacy.html`, `terms.html`, and `styles.css`
+  2. Content converted from `PRIVACY_POLICY.md` and `services.md` source files
+  3. Created Azure Static Web App `swa-mba-legal` in `rg-mba-prod` (Free tier)
+  4. Configured custom domain `www.mybartenderai.com` with automatic SSL via Azure DNS
+  5. Added Xtend-AI corporate logo to page headers with cyan "By" text for visibility
+
+  **Live URLs:**
+  - https://www.mybartenderai.com/privacy.html
+  - https://www.mybartenderai.com/terms.html
+
+- **Legal Section in Profile Screen** (Jan 26): Added in-app access to legal documents via WebView. Changes:
+  1. `profile_screen.dart`: Added "Legal" section with Privacy Policy and Terms of Service links
+  2. `legal_webview_screen.dart`: New WebView screen for displaying legal documents in-app
+  3. `pubspec.yaml`: Added `webview_flutter: ^4.10.0` dependency
+
+  Users can tap Privacy Policy or Terms of Service in Profile to view documents without leaving the app.
 
 - **Home Screen Header Icon Update** (Jan 23): Replaced the generic blue Material Design martini glass icon (`Icons.local_bar`) in the home screen header with the actual app icon (purple background with cyan martini glass). This creates visual consistency between the launcher icon and in-app branding. Changes:
   1. `home_screen.dart`: Changed `Icon(Icons.local_bar)` to `Image.asset('assets/icon/icon.png')` in `_buildAppHeader()` method
@@ -89,6 +107,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 | Azure OpenAI    | `mybartenderai-scus`    | S0                  | South Central US |
 | Azure OpenAI    | `blueb-midjmnz5-eastus2`| S0                  | East US 2        |
 | Front Door      | `fd-mba-share`          | Standard            | Global           |
+| Static Web App  | `swa-mba-legal`         | Free                | Central US       |
 
 ### Key Vault Secrets
 
@@ -393,6 +412,7 @@ PostgreSQL (users.tier updated)
 | Service          | Purpose                                 | Status          |
 | ---------------- | --------------------------------------- | --------------- |
 | Azure Front Door | Custom domain `share.mybartenderai.com` | Active          |
+| Azure Static Web Apps | Legal pages `www.mybartenderai.com` | Active          |
 | TheCocktailDB    | Cocktail database source                | Sync disabled   |
 | Google OAuth     | Social sign-in                          | Configured      |
 | Facebook OAuth   | Social sign-in                          | Configured      |
@@ -530,4 +550,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 23, 2026
+**Last Updated**: January 26, 2026

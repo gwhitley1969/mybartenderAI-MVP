@@ -1,0 +1,247 @@
+/* My AI Bartender - Legal Pages Stylesheet */
+/* Brand Colors: Purple #7C3AED, Cyan #06B6D4, Pink #EC4899 */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  line-height: 1.6;
+  color: #1f2937;
+  background-color: #f9fafb;
+  padding: 0;
+  margin: 0;
+}
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 24px;
+}
+
+/* Header */
+header {
+  background: linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%);
+  color: white;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+header h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+header .subtitle {
+  font-size: 0.875rem;
+  color: #06B6D4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+header .company-logo {
+  height: 48px;
+  vertical-align: middle;
+}
+
+header .brand {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #06B6D4;
+}
+
+/* Navigation */
+nav {
+  background: white;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 12px 24px;
+  text-align: center;
+}
+
+nav a {
+  color: #7C3AED;
+  text-decoration: none;
+  margin: 0 16px;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+nav a:hover {
+  text-decoration: underline;
+}
+
+/* Main Content */
+main {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin: 24px auto;
+  max-width: 800px;
+}
+
+.content {
+  padding: 32px 24px;
+}
+
+/* Typography */
+h1 {
+  font-size: 1.5rem;
+  color: #111827;
+  margin-bottom: 8px;
+}
+
+h2 {
+  font-size: 1.25rem;
+  color: #7C3AED;
+  margin-top: 32px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+h3 {
+  font-size: 1.1rem;
+  color: #374151;
+  margin-top: 24px;
+  margin-bottom: 12px;
+}
+
+p {
+  margin-bottom: 16px;
+  color: #4b5563;
+}
+
+/* Lists */
+ul, ol {
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+li {
+  margin-bottom: 8px;
+  color: #4b5563;
+}
+
+/* Links */
+a {
+  color: #7C3AED;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Blockquotes / Notes */
+blockquote {
+  background: #f3f4f6;
+  border-left: 4px solid #7C3AED;
+  padding: 16px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+}
+
+blockquote p {
+  margin: 0;
+  font-style: italic;
+}
+
+/* Tables */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Strong / Bold */
+strong {
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Code */
+code {
+  background: #f3f4f6;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+/* Horizontal Rule */
+hr {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  margin: 32px 0;
+}
+
+/* Footer */
+footer {
+  text-align: center;
+  padding: 24px;
+  color: #6b7280;
+  font-size: 0.875rem;
+  border-top: 1px solid #e5e7eb;
+  margin-top: 40px;
+}
+
+footer a {
+  color: #7C3AED;
+}
+
+/* Last Updated Badge */
+.last-updated {
+  display: inline-block;
+  background: #f3f4f6;
+  color: #6b7280;
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 0.75rem;
+  margin-bottom: 24px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+  .container {
+    padding: 24px 16px;
+  }
+
+  header {
+    padding: 24px 16px;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  .content {
+    padding: 24px 16px;
+  }
+
+  h2 {
+    font-size: 1.125rem;
+  }
+
+  nav a {
+    display: block;
+    margin: 8px 0;
+  }
+}

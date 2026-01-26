@@ -10,6 +10,7 @@ import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../age_verification/age_verification_screen.dart';
 import '../home/providers/todays_special_provider.dart';
+import 'legal_webview_screen.dart';
 
 /// User profile screen
 class ProfileScreen extends ConsumerWidget {
@@ -61,6 +62,12 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Help & Support'),
                   SizedBox(height: AppSpacing.md),
                   _buildHelpSupportCard(context),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Legal Section
+                  _buildSectionTitle('Legal'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildLegalCard(context),
                   SizedBox(height: AppSpacing.xl),
 
                   // Age Verification Section
@@ -764,6 +771,88 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLegalCard(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: Column(
+        children: [
+          // Privacy Policy
+          _buildLegalRow(
+            context,
+            icon: Icons.privacy_tip_outlined,
+            title: 'Privacy Policy',
+            url: 'https://www.mybartenderai.com/privacy.html',
+          ),
+          Divider(
+            color: AppColors.cardBorder,
+            height: 1,
+            indent: AppSpacing.md,
+            endIndent: AppSpacing.md,
+          ),
+          // Terms of Service
+          _buildLegalRow(
+            context,
+            icon: Icons.description_outlined,
+            title: 'Terms of Service',
+            url: 'https://www.mybartenderai.com/terms.html',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegalRow(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String url,
+  }) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => LegalWebViewScreen(
+              title: title,
+              url: url,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              color: AppColors.iconCirclePurple,
+              size: 24,
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                title,
+                style: AppTypography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             Icon(

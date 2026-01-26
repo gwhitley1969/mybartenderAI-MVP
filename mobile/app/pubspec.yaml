@@ -75,6 +75,9 @@ dependencies:
   # URL launching (for support email link)
   url_launcher: ^6.2.0
 
+  # WebView for legal documents (Privacy Policy, Terms of Service)
+  webview_flutter: ^4.10.0
+
   # In-app purchases
   in_app_purchase: ^3.1.13
   purchases_flutter: ^8.4.2  # RevenueCat SDK for subscription management

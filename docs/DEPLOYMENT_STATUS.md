@@ -2,11 +2,20 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 26, 2026
+**Last Updated**: January 27, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
+
+- **Login Screen App Icon** (Jan 27): Replaced the generic Material Design `Icons.local_bar` with the actual app icon (`assets/icon/icon.png`) on the login screen, matching the Initial Sync screen. Changes:
+  1. `login_screen.dart`: Replaced `Icon(Icons.local_bar)` with `UnconstrainedBox` wrapping a 120×120 `Container` with `Image.asset('assets/icon/icon.png')`
+  2. `UnconstrainedBox` required because the Column's `CrossAxisAlignment.stretch` passes tight constraints that force children to full width — `UnconstrainedBox` breaks out of parent constraints so the icon renders at its intended 120×120 size
+
+- **Date of Birth Format Hint** (Jan 27): Updated the Entra External ID signup page "Date of Birth" field to show format guidance. Portal-only change (no code deployment):
+  1. Changed Display Name from `Date of Birth` to `Date of Birth (MM/DD/YYYY)` in User Flow page layout editor
+  2. Updates both the label above the field and the placeholder text inside the field
+  3. The `validate-age` function already accepts MM/DD/YYYY as its primary format and returns a helpful error message if the format doesn't match
 
 - **Privacy Policy & Terms of Service Website** (Jan 26): Deployed legal pages to Azure Static Web Apps for app store compliance. Changes:
   1. Created `website/` folder with `index.html`, `privacy.html`, `terms.html`, and `styles.css`
@@ -558,4 +567,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 26, 2026
+**Last Updated**: January 27, 2026

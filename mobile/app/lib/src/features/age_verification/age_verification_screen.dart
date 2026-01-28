@@ -89,17 +89,12 @@ class AgeVerificationScreen extends ConsumerWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppColors.cardBorder,
-                    width: 2,
-                  ),
+                  borderRadius: BorderRadius.circular(30),
                 ),
-                child: Icon(
-                  Icons.local_bar,
-                  size: 64,
-                  color: AppColors.iconCircleBlue,
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/icon/icon.png',
+                  fit: BoxFit.cover,
                 ),
               ),
               SizedBox(height: AppSpacing.xxl),

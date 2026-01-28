@@ -78,7 +78,6 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  gradient: AppColors.purpleGradient,
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
@@ -88,10 +87,10 @@ class _InitialSyncScreenState extends ConsumerState<InitialSyncScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.local_bar,
-                  size: 60,
-                  color: Colors.white,
+                clipBehavior: Clip.antiAlias,
+                child: Image.asset(
+                  'assets/icon/icon.png',
+                  fit: BoxFit.cover,
                 ),
               ),
 

@@ -250,20 +250,11 @@ class CreateStudioScreen extends ConsumerWidget {
                         : Container(
                             width: double.infinity,
                             height: double.infinity,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  AppColors.primaryPurple.withOpacity(0.3),
-                                  AppColors.iconCirclePurple.withOpacity(0.3),
-                                ],
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.local_bar,
-                              size: 48,
-                              color: AppColors.textPrimary.withOpacity(0.5),
+                            clipBehavior: Clip.antiAlias,
+                            decoration: const BoxDecoration(),
+                            child: Image.asset(
+                              'assets/icon/icon.png',
+                              fit: BoxFit.cover,
                             ),
                           ),
                   ),

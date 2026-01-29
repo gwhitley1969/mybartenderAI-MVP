@@ -58,6 +58,25 @@ class ProfileScreen extends ConsumerWidget {
                   ]),
                   SizedBox(height: AppSpacing.xl),
 
+                  // Preferences Section
+                  _buildSectionTitle('Preferences'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildMeasurementUnitCard(context, ref),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Notification Settings Section
+                  _buildSectionTitle('Notifications'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildNotificationSettingsCard(context, ref),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Age Verification Section
+                  _buildSectionTitle('Verification Status'),
+                  SizedBox(height: AppSpacing.md),
+                  // Use local age verification OR user profile verification
+                  _buildVerificationCard(localAgeVerified || user.ageVerified),
+                  SizedBox(height: AppSpacing.xl),
+
                   // Help & Support Section
                   _buildSectionTitle('Help & Support'),
                   SizedBox(height: AppSpacing.md),
@@ -68,25 +87,6 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Legal'),
                   SizedBox(height: AppSpacing.md),
                   _buildLegalCard(context),
-                  SizedBox(height: AppSpacing.xl),
-
-                  // Age Verification Section
-                  _buildSectionTitle('Verification Status'),
-                  SizedBox(height: AppSpacing.md),
-                  // Use local age verification OR user profile verification
-                  _buildVerificationCard(localAgeVerified || user.ageVerified),
-                  SizedBox(height: AppSpacing.xl),
-
-                  // Notification Settings Section
-                  _buildSectionTitle('Notifications'),
-                  SizedBox(height: AppSpacing.md),
-                  _buildNotificationSettingsCard(context, ref),
-                  SizedBox(height: AppSpacing.xl),
-
-                  // Preferences Section
-                  _buildSectionTitle('Preferences'),
-                  SizedBox(height: AppSpacing.md),
-                  _buildMeasurementUnitCard(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // Sign Out Button

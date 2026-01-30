@@ -60,7 +60,14 @@ module.exports = async function (context, req) {
         // ========================================
         context.log('[User] Looking up user in database...');
 
-        const user = await getOrCreateUser(userId, context);
+        // Read APIM-forwarded profile headers from JWT claims
+        const userEmail = req.headers?.['x-user-email'] || null;
+        const userName = req.headers?.['x-user-name'] || null;
+
+        const user = await getOrCreateUser(userId, context, {
+            email: userEmail,
+            displayName: userName
+        });
         userTier = user.tier;
         userDbId = user.id;
         context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);

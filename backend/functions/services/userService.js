@@ -51,9 +51,13 @@ const VALID_TIERS = ['free', 'premium', 'pro'];
  *
  * @param {string} azureAdSub - The `sub` claim from the JWT token
  * @param {object} context - Azure Functions context for logging
+ * @param {object} options - Optional profile data from APIM-forwarded JWT claims
+ * @param {string|null} options.email - User email from x-user-email header
+ * @param {string|null} options.displayName - User display name from x-user-name header
  * @returns {Promise<{id: string, azureAdSub: string, tier: string, email: string|null, displayName: string|null}>}
  */
-async function getOrCreateUser(azureAdSub, context = null) {
+async function getOrCreateUser(azureAdSub, context = null, options = {}) {
+    const { email = null, displayName = null } = options;
     const log = context?.log || console;
 
     if (!azureAdSub || typeof azureAdSub !== 'string') {
@@ -74,41 +78,48 @@ async function getOrCreateUser(azureAdSub, context = null) {
         if (selectResult.rows.length > 0) {
             const user = selectResult.rows[0];
 
-            // Update last_login_at timestamp
-            await pool.query(
-                `UPDATE users SET last_login_at = NOW(), updated_at = NOW() WHERE id = $1`,
-                [user.id]
+            // Update last_login_at and refresh email/display_name if provided
+            const updateResult = await pool.query(
+                `UPDATE users
+                 SET last_login_at = NOW(), updated_at = NOW(),
+                     email = COALESCE($2, email),
+                     display_name = COALESCE($3, display_name)
+                 WHERE id = $1
+                 RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at`,
+                [user.id, email, displayName]
             );
 
-            log.info?.(`[UserService] Found existing user: ${user.id}, tier: ${user.tier}`) ||
-                log(`[UserService] Found existing user: ${user.id}, tier: ${user.tier}`);
+            const updatedUser = updateResult.rows[0];
+
+            log.info?.(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`) ||
+                log(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`);
 
             return {
-                id: user.id,
-                azureAdSub: user.azure_ad_sub,
-                tier: user.tier,
-                email: user.email,
-                displayName: user.display_name,
-                createdAt: user.created_at,
-                lastLoginAt: user.last_login_at
+                id: updatedUser.id,
+                azureAdSub: updatedUser.azure_ad_sub,
+                tier: updatedUser.tier,
+                email: updatedUser.email,
+                displayName: updatedUser.display_name,
+                createdAt: updatedUser.created_at,
+                lastLoginAt: updatedUser.last_login_at
             };
         }
 
-        // User doesn't exist - create with default 'free' tier
+        // User doesn't exist - create with default 'pro' tier (beta testing)
         log.info?.(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`) ||
             log(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`);
 
         const insertResult = await pool.query(
-            `INSERT INTO users (azure_ad_sub, tier, created_at, updated_at, last_login_at)
-             VALUES ($1, 'free', NOW(), NOW(), NOW())
+            `INSERT INTO users (azure_ad_sub, tier, email, display_name, created_at, updated_at, last_login_at)
+             VALUES ($1, 'pro', $2, $3, NOW(), NOW(), NOW())
              RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at`,
-            [azureAdSub]
+            [azureAdSub, email, displayName]
         );
 
         const newUser = insertResult.rows[0];
 
-        log.info?.(`[UserService] Created new user: ${newUser.id}, tier: free`) ||
-            log(`[UserService] Created new user: ${newUser.id}, tier: free`);
+        log.info?.(`[UserService] Created new user: ${newUser.id}, tier: pro`) ||
+            log(`[UserService] Created new user: ${newUser.id}, tier: pro`);
 
         return {
             id: newUser.id,

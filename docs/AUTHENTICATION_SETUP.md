@@ -43,7 +43,14 @@ All backend functions are deployed and fully operational. Authentication flow:
 1. Mobile app authenticates with Entra External ID
 2. JWT token included in API requests (`Authorization: Bearer <token>`)
 3. APIM validates JWT via `validate-jwt` policy
-4. Backend functions receive validated requests with user ID
+4. APIM extracts JWT claims and forwards as headers:
+   - `X-User-Id` (from `sub` claim) — user identifier
+   - `X-User-Email` (from `email` / `preferred_username` claim) — user email
+   - `X-User-Name` (from `name` claim) — user display name
+5. Backend functions store email and display name in PostgreSQL `users` table via `getOrCreateUser()`
+6. Functions check user tier in PostgreSQL database
+
+See `ENTRA_EXTERNAL_ID_AUTH_FLOW.md` for full APIM policy details and backend consumption patterns.
 
 ### API Gateway
 
@@ -264,4 +271,4 @@ See `docs/TROUBLESHOOTING.md` for detailed troubleshooting of social login issue
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: January 2026

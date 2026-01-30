@@ -293,6 +293,67 @@ class AskBartenderService {
 </set-query-parameter>
 ```
 
+## Backend Consumption of APIM Headers
+
+### User Profile Population (January 2026)
+
+The APIM policy (shown above) extracts three headers from the JWT and forwards them to backend functions:
+
+| Header | JWT Claim | Purpose |
+| --- | --- | --- |
+| `X-User-Id` | `sub` | Azure AD subject (user identifier) |
+| `X-User-Email` | `email` or `preferred_username` | User's email address |
+| `X-User-Name` | `name` | User's display name |
+
+Backend functions read these headers and pass them to `getOrCreateUser()` in `services/userService.js`, which:
+
+1. **New users**: Stores `email` and `display_name` in the `users` table at creation time
+2. **Existing users**: Refreshes `email` and `display_name` on every login using `COALESCE()` (new value if provided, otherwise keep existing)
+
+This means existing users are automatically backfilled — no SQL migration needed. The next API call after deployment populates their profile data.
+
+### Endpoints That Populate User Profile
+
+| Endpoint | File | Header Access Pattern |
+| --- | --- | --- |
+| `ask-bartender-simple` | `ask-bartender-simple/index.js` | `req.headers['x-user-email']` |
+| `vision-analyze` | `vision-analyze/index.js` | `req.headers['x-user-email']` |
+| `voice-bartender` | `voice-bartender/index.js` | `req.headers['x-user-email']` |
+| `voice-session` | `index.js` | `request.headers.get('x-user-email')` |
+
+**Note**: The standalone function files (v3 programming model) use `req.headers['x-user-email']` syntax, while `index.js` (v4 programming model) uses `request.headers.get('x-user-email')`.
+
+### SQL Behavior
+
+```sql
+-- On existing user login, the UPDATE uses COALESCE to prevent overwriting with NULL:
+UPDATE users
+SET last_login_at = NOW(), updated_at = NOW(),
+    email = COALESCE($2, email),          -- keep existing if header missing
+    display_name = COALESCE($3, display_name)  -- keep existing if header missing
+WHERE id = $1
+RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at;
+
+-- On new user creation, email and display_name are included in the INSERT:
+INSERT INTO users (azure_ad_sub, tier, email, display_name, created_at, updated_at, last_login_at)
+VALUES ($1, 'pro', $2, $3, NOW(), NOW(), NOW())
+RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at;
+```
+
+### Verification
+
+After deployment, verify with:
+
+```sql
+-- Check that active users have email/display_name populated:
+SELECT id, email, display_name, tier, last_login_at
+FROM users
+ORDER BY last_login_at DESC
+LIMIT 10;
+```
+
+---
+
 ## Common Issues and Solutions
 
 ### Issue 1: 401 Unauthorized from APIM
@@ -343,6 +404,7 @@ $response = Invoke-RestMethod -Uri 'https://apim-mba-001.azure-api.net/api/v1/as
 - Mobile app using correct token scopes
 - Function key securely stored in APIM
 - Authentication flow fully functional
+- Backend functions populate user email and display_name from APIM-forwarded JWT claims (January 2026)
 
 ## APK Build Location
 
@@ -362,5 +424,5 @@ C:\backup dev02\mybartenderAI-MVP\MyBartenderAI-TodaysSpecial-nov10.apk
 
 ---
 
-*Last Updated: November 11, 2025*
+*Last Updated: January 29, 2026*
 *Authentication Method: Entra External ID (NOT Azure AD B2C)*

@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255),
     display_name VARCHAR(255),
     apim_subscription_key VARCHAR(100) UNIQUE,
-    tier VARCHAR(20) NOT NULL DEFAULT 'free',
+    tier VARCHAR(20) NOT NULL DEFAULT 'pro',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     last_login_at TIMESTAMP,

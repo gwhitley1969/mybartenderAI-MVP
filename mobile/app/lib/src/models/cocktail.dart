@@ -1,3 +1,5 @@
+import '../utils/db_type_helpers.dart';
+
 /// Cocktail data model matching backend schema
 class Cocktail {
   final String id;
@@ -86,27 +88,27 @@ class Cocktail {
   /// Create from SQLite database row
   factory Cocktail.fromDb(Map<String, dynamic> row) {
     return Cocktail(
-      id: row['id'] as String,
-      name: row['name'] as String,
-      alternateName: row['alternate_name'] as String?,
-      category: row['category'] as String?,
-      glass: row['glass'] as String?,
-      instructions: row['instructions'] as String?,
-      instructionsEs: row['instructions_es'] as String?,
-      instructionsDe: row['instructions_de'] as String?,
-      instructionsFr: row['instructions_fr'] as String?,
-      instructionsIt: row['instructions_it'] as String?,
-      imageUrl: row['image_url'] as String?,
-      imageAttribution: row['image_attribution'] as String?,
+      id: dbString(row['id']),
+      name: dbString(row['name']),
+      alternateName: dbStringOrNull(row['alternate_name']),
+      category: dbStringOrNull(row['category']),
+      glass: dbStringOrNull(row['glass']),
+      instructions: dbStringOrNull(row['instructions']),
+      instructionsEs: dbStringOrNull(row['instructions_es']),
+      instructionsDe: dbStringOrNull(row['instructions_de']),
+      instructionsFr: dbStringOrNull(row['instructions_fr']),
+      instructionsIt: dbStringOrNull(row['instructions_it']),
+      imageUrl: dbStringOrNull(row['image_url']),
+      imageAttribution: dbStringOrNull(row['image_attribution']),
       tags: row['tags'] != null
-          ? (row['tags'] as String).split(',').where((t) => t.isNotEmpty).toList()
+          ? dbString(row['tags']).split(',').where((t) => t.isNotEmpty).toList()
           : [],
-      videoUrl: row['video_url'] as String?,
-      iba: row['iba'] as String?,
-      alcoholic: row['alcoholic'] as String?,
-      createdAt: DateTime.parse(row['created_at'] as String),
-      updatedAt: DateTime.parse(row['updated_at'] as String),
-      source: row['source'] as String? ?? 'thecocktaildb',
+      videoUrl: dbStringOrNull(row['video_url']),
+      iba: dbStringOrNull(row['iba']),
+      alcoholic: dbStringOrNull(row['alcoholic']),
+      createdAt: DateTime.parse(dbString(row['created_at'])),
+      updatedAt: DateTime.parse(dbString(row['updated_at'])),
+      source: dbStringOrNull(row['source']) ?? 'thecocktaildb',
       isCustom: (row['is_custom'] as int?) == 1,
       ingredients: [], // Populated separately via join
     );
@@ -258,11 +260,11 @@ class DrinkIngredient {
 
   factory DrinkIngredient.fromDb(Map<String, dynamic> row) {
     return DrinkIngredient(
-      id: row['id'] as int?,
-      drinkId: row['drink_id'] as String,
-      ingredientName: row['ingredient_name'] as String,
-      measure: row['measure'] as String?,
-      ingredientOrder: row['ingredient_order'] as int,
+      id: dbIntOrNull(row['id']),
+      drinkId: dbString(row['drink_id']),
+      ingredientName: dbString(row['ingredient_name']),
+      measure: dbStringOrNull(row['measure']),
+      ingredientOrder: dbInt(row['ingredient_order']),
     );
   }
 

@@ -1,3 +1,5 @@
+import '../utils/db_type_helpers.dart';
+
 class FavoriteCocktail {
   final int? id;
   final String cocktailId;
@@ -14,10 +16,10 @@ class FavoriteCocktail {
   // Convert from database map
   factory FavoriteCocktail.fromDb(Map<String, dynamic> map) {
     return FavoriteCocktail(
-      id: map['id'] as int?,
-      cocktailId: map['cocktail_id'] as String,
-      addedAt: DateTime.fromMillisecondsSinceEpoch(map['added_at'] as int),
-      notes: map['notes'] as String?,
+      id: dbIntOrNull(map['id']),
+      cocktailId: dbString(map['cocktail_id']),
+      addedAt: DateTime.fromMillisecondsSinceEpoch(dbInt(map['added_at'])),
+      notes: dbStringOrNull(map['notes']),
     );
   }
 

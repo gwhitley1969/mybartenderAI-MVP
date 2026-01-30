@@ -1,3 +1,5 @@
+import '../utils/db_type_helpers.dart';
+
 /// User-owned ingredient in their bar inventory
 class UserIngredient {
   final int? id;
@@ -19,12 +21,12 @@ class UserIngredient {
   /// Create from database row
   factory UserIngredient.fromDb(Map<String, dynamic> map) {
     return UserIngredient(
-      id: map['id'] as int?,
-      ingredientName: map['ingredient_name'] as String,
-      category: map['category'] as String?,
-      notes: map['notes'] as String?,
-      addedAt: DateTime.parse(map['added_at'] as String),
-      updatedAt: DateTime.parse(map['updated_at'] as String),
+      id: dbIntOrNull(map['id']),
+      ingredientName: dbString(map['ingredient_name']),
+      category: dbStringOrNull(map['category']),
+      notes: dbStringOrNull(map['notes']),
+      addedAt: DateTime.parse(dbString(map['added_at'])),
+      updatedAt: DateTime.parse(dbString(map['updated_at'])),
     );
   }
 

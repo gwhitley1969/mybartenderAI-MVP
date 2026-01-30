@@ -8,6 +8,15 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (January 2026)
 
+- **Create Studio SQLite Type-Casting Bug Fix** (Jan 30): Fixed critical crash in Create Studio where saving a second custom cocktail displayed "Error loading cocktails" with `type '_UnmodifiableUint8ArrayView' is not a subtype of type 'String' in type cast`. Root cause: Flutter's `sqflite` package can return TEXT column values as `Uint8List` (binary bytes) instead of `String` under certain buffer management conditions. The unsafe `as String` cast in `Cocktail.fromDb()` at line 102 crashed when loading the custom cocktails list.
+  1. **Created** `lib/src/utils/db_type_helpers.dart`: 4 safe conversion functions (`dbString`, `dbStringOrNull`, `dbInt`, `dbIntOrNull`) that handle both `String` and `Uint8List` return types via `utf8.decode()`
+  2. **Fixed** `Cocktail.fromDb()` and `DrinkIngredient.fromDb()` in `cocktail.dart`: 22 unsafe casts replaced with safe helpers
+  3. **Fixed** `FavoriteCocktail.fromDb()` in `favorite_cocktail.dart`: 3 unsafe casts replaced
+  4. **Fixed** `UserIngredient.fromDb()` in `user_ingredient.dart`: 5 unsafe casts replaced
+  5. **Fixed** 9 inline `as String` casts in `database_service.dart` across 7 query methods (`getMetadata`, `getRandomCocktail`, `getCocktails`, `getCategories`, `getAlcoholicTypes`, `getAllIngredients`, `getCocktailsWithInventory`, `getFavoriteCocktailIds`)
+  6. **Unit tests**: 22 tests in `test/utils/db_type_helpers_test.dart` — all passing, including Uint8List simulation of the exact bug scenario
+  7. **Total**: 39 unsafe type casts eliminated across 4 files. Zero behavioral change — `dbString()` is a no-op passthrough for values already of type `String`
+
 - **Suggestive Cocktail Name Fix & System Prompt Upgrade** (Jan 30): Fixed critical issue where asking about cocktails with suggestive names (e.g., "How do you make a sex on the beach?") returned "Sorry, I encountered an error" instead of the recipe. Three-layer fix:
   1. **Azure Content Filter (Layer 1)**: Created custom RAI policy `BartenderAppFilter` on `mybartenderai-scus`. Changed Sexual category `severityThreshold` from default `Medium` to `High` (only blocks genuinely explicit content, allows cocktail names). Applied to `gpt-4.1-mini` deployment.
   2. **System Prompt Upgrades (Layer 2)**: Upgraded all 6 AI endpoint prompts with `COCKTAIL NAME CONTEXT` block that explicitly instructs the model to interpret all questions in a bartending context and lists common suggestive cocktail names as legitimate recipes. Endpoints updated: `ask-bartender-simple`, `ask-bartender`, `ask-bartender-test`, `voice-bartender`, `voice-session`, `refine-cocktail`.

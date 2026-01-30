@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../models/models.dart';
+import '../utils/db_type_helpers.dart';
 
 /// SQLite database service for offline cocktail storage
 class DatabaseService {
@@ -257,7 +258,7 @@ class DatabaseService {
     );
 
     if (result.isEmpty) return null;
-    return result.first['value'] as String;
+    return dbString(result.first['value']);
   }
 
   /// Set metadata value
@@ -377,7 +378,7 @@ class DatabaseService {
     }
 
     final cocktailRow = result.first;
-    final String cocktailId = cocktailRow['id'] as String;
+    final String cocktailId = dbString(cocktailRow['id']);
 
     final List<Map<String, dynamic>> ingredientsResult = await db.query(
       'drink_ingredients',
@@ -449,7 +450,7 @@ class DatabaseService {
     final Map<String, List<DrinkIngredient>> ingredientsMap = {};
 
     for (final row in result) {
-      final cocktailId = row['id'] as String;
+      final cocktailId = dbString(row['id']);
 
       // Create cocktail entry if not exists
       if (!cocktailsMap.containsKey(cocktailId)) {
@@ -508,7 +509,7 @@ class DatabaseService {
     ''');
 
     return result
-        .map((row) => row['category'] as String)
+        .map((row) => dbString(row['category']))
         .where((c) => c.isNotEmpty)
         .toList();
   }
@@ -524,7 +525,7 @@ class DatabaseService {
     ''');
 
     return result
-        .map((row) => row['alcoholic'] as String)
+        .map((row) => dbString(row['alcoholic']))
         .where((a) => a.isNotEmpty)
         .toList();
   }
@@ -628,7 +629,7 @@ class DatabaseService {
     ''');
 
     return result
-        .map((row) => row['ingredient_name'] as String)
+        .map((row) => dbString(row['ingredient_name']))
         .where((name) => name.isNotEmpty)
         .toList();
   }
@@ -646,7 +647,7 @@ class DatabaseService {
     // Get user's ingredients
     final inventoryResult = await db.query('user_inventory');
     final userIngredients = inventoryResult
-        .map((row) => row['ingredient_name'] as String)
+        .map((row) => dbString(row['ingredient_name']))
         .toSet();
 
     if (userIngredients.isEmpty) {
@@ -710,7 +711,7 @@ class DatabaseService {
     final Map<String, List<DrinkIngredient>> ingredientsMap = {};
 
     for (final row in result) {
-      final cocktailId = row['id'] as String;
+      final cocktailId = dbString(row['id']);
 
       // Create cocktail entry if not exists
       if (!cocktailsMap.containsKey(cocktailId)) {
@@ -801,7 +802,7 @@ class DatabaseService {
       columns: ['cocktail_id'],
       orderBy: 'added_at DESC',
     );
-    return result.map((row) => row['cocktail_id'] as String).toList();
+    return result.map((row) => dbString(row['cocktail_id'])).toList();
   }
 
   /// Update favorite notes

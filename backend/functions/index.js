@@ -1,5 +1,7 @@
 const { app } = require('@azure/functions');
 const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
+const { getOrCreateUser } = require('./services/userService');
+const { decodeJwtClaims } = require('./shared/auth/jwtDecode');
 
 // =============================================================================
 // 1. Health - GET /health
@@ -50,6 +52,19 @@ app.http('ask-bartender-simple', {
         }
 
         try {
+            // Fire-and-forget: sync user profile from JWT
+            const userId = request.headers.get('x-user-id');
+            const authHeader = request.headers.get('authorization');
+            const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
+            const effectiveUserId = userId || jwtClaims?.sub;
+            if (effectiveUserId) {
+                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
+                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
+                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+            }
+
             // Check for API key
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
@@ -937,6 +952,19 @@ app.http('voice-bartender', {
         }
 
         try {
+            // Fire-and-forget: sync user profile from JWT
+            const userId = request.headers.get('x-user-id');
+            const authHeader = request.headers.get('authorization');
+            const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
+            const effectiveUserId = userId || jwtClaims?.sub;
+            if (effectiveUserId) {
+                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
+                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
+                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+            }
+
             // Check for required Azure Speech Services configuration
             const speechKey = process.env.AZURE_SPEECH_KEY;
             const speechRegion = process.env.AZURE_SPEECH_REGION;
@@ -1431,6 +1459,19 @@ app.http('refine-cocktail', {
         }
 
         try {
+            // Fire-and-forget: sync user profile from JWT
+            const userId = request.headers.get('x-user-id');
+            const authHeader = request.headers.get('authorization');
+            const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
+            const effectiveUserId = userId || jwtClaims?.sub;
+            if (effectiveUserId) {
+                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
+                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
+                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+            }
+
             // Check for API key
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
@@ -1619,6 +1660,19 @@ app.http('vision-analyze', {
         }
 
         try {
+            // Fire-and-forget: sync user profile from JWT
+            const userId = request.headers.get('x-user-id');
+            const authHeader = request.headers.get('authorization');
+            const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
+            const effectiveUserId = userId || jwtClaims?.sub;
+            if (effectiveUserId) {
+                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
+                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
+                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+            }
+
             // Validate request
             const body = await request.json();
             const { image, imageUrl } = body;
@@ -2500,26 +2554,15 @@ app.http('voice-session', {
 
             context.log('Checking user tier for azure_ad_sub:', userId);
 
-            // Check user tier - look up by azure_ad_sub (the JWT sub claim)
-            let userResult = await db.query(
-                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
-                [userId]
-            );
+            // Read APIM-forwarded profile headers from JWT claims
+            const userEmail = request.headers.get('x-user-email') || null;
+            const userName = request.headers.get('x-user-name') || null;
 
-            // Auto-create user if not found (first-time voice feature access)
-            if (userResult.rows.length === 0) {
-                context.log('User not found, auto-creating with free tier');
-                const insertResult = await db.query(
-                    `INSERT INTO users (azure_ad_sub, tier, created_at, updated_at)
-                     VALUES ($1, 'free', NOW(), NOW())
-                     RETURNING id, tier`,
-                    [userId]
-                );
-                userResult = insertResult;
-                context.log('Created new user:', insertResult.rows[0]);
-            }
-
-            const user = userResult.rows[0];
+            // Look up or create user with email/display_name from APIM headers
+            const user = await getOrCreateUser(userId, context, {
+                email: userEmail,
+                displayName: userName
+            });
 
             if (user.tier !== 'pro') {
                 return {

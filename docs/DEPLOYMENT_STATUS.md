@@ -2,11 +2,38 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 27, 2026
+**Last Updated**: January 30, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (January 2026)
+
+- **APIM Security Audit & JWT Decode Deployment — Phase 1** (Jan 30): Comprehensive APIM security audit revealed 13 of 30 operations lack JWT validation at the gateway. Phase 1 deployed a safe backend-only fix to populate user email and display_name by decoding the JWT token directly in function code. See `docs/APIM_SECURITY_USER_PROFILE_PLAN.md` for the full multi-phase plan.
+  1. **Created** `shared/auth/jwtDecode.js`: Lightweight JWT payload decoder (base64 only, no crypto verification — APIM handles that)
+  2. **Updated** `index.js`: 4 fire-and-forget blocks (ask-bartender-simple, voice-bartender, refine-cocktail, vision-analyze) now decode the `Authorization` header directly when APIM-forwarded `X-User-Id` header is absent
+  3. **Belt-and-suspenders**: Code prefers APIM headers (future Phase 2), falls back to JWT decode (current)
+  4. **Zero risk**: Fire-and-forget pattern — cannot block responses, all failures caught and logged
+  5. **No APIM changes**: No mobile app changes, no new npm dependencies
+  6. **Deployed**: 2026-01-30 17:11 UTC, health check passed, 33 functions synced
+
+  **Remaining phases** (see `APIM_SECURITY_USER_PROFILE_PLAN.md`):
+  - Phase 2: Deploy `validate-jwt` APIM policies to 13 unprotected operations (requires audience ID investigation first)
+  - Phase 3: Standardize dual-audience IDs (`f9f7f159` vs `04551003`)
+  - Phase 4: Tier simplification ($9.99/month, 20 voice min) — deferred until after Apple approval
+
+  **Verification**: `SELECT id, email, display_name, tier, last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 10;`
+
+- **User Email & Display Name Population from JWT** (Jan 29): Backend functions now read `X-User-Email` and `X-User-Name` headers (forwarded by APIM from JWT claims) and store them in the PostgreSQL `users` table. Changes:
+  1. `services/userService.js`: `getOrCreateUser()` now accepts optional `{ email, displayName }` options parameter
+  2. **Existing users**: Email and display_name refreshed on every API call via `COALESCE()` (preserves existing data if header is absent)
+  3. **New users**: Email and display_name stored at account creation
+  4. **Callers updated**: `ask-bartender-simple`, `vision-analyze`, `voice-bartender`, and `voice-session` (in `index.js`) all extract and pass the APIM headers
+  5. **voice-session refactored**: Replaced inline user SELECT/INSERT with centralized `getOrCreateUser()` call
+  6. **No schema migration needed**: `email` and `display_name` columns already exist in the `users` table
+  7. **Automatic backfill**: Existing users get populated on their next API call after deployment
+
+  **Deployment**: `func azure functionapp publish func-mba-fresh`
+  **Verification**: `SELECT id, email, display_name, tier, last_login_at FROM users ORDER BY last_login_at DESC;`
 
 - **Login Screen App Icon** (Jan 27): Replaced the generic Material Design `Icons.local_bar` with the actual app icon (`assets/icon/icon.png`) on the login screen, matching the Initial Sync screen. Changes:
   1. `login_screen.dart`: Replaced `Icon(Icons.local_bar)` with `UnconstrainedBox` wrapping a 120×120 `Container` with `Image.asset('assets/icon/icon.png')`
@@ -373,11 +400,14 @@ Mobile App
 Entra External ID (mybartenderai.ciamlogin.com)
     ↓ (JWT token)
 APIM (apim-mba-002.azure-api.net)
-    ↓ (validate-jwt policy)
+    ↓ (validate-jwt policy on 17/30 operations, extract claims)
 Azure Function (func-mba-fresh)
-    ↓ (X-User-Id header)
-PostgreSQL (tier lookup)
+    ↓ Primary: X-User-Id header (from APIM validate-jwt + set-header)
+    ↓ Fallback: JWT decode from Authorization header (jwtDecode.js)
+PostgreSQL (tier lookup + email/display_name storage)
 ```
+
+**Note**: 13 APIM operations currently lack `validate-jwt` policies (Phase 2 of APIM security plan). The JWT decode fallback in `jwtDecode.js` ensures user profile sync works regardless. See `APIM_SECURITY_USER_PROFILE_PLAN.md`.
 
 ### Voice AI Flow (Pro Tier)
 
@@ -562,9 +592,10 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
 | `MY_BAR_SCANNER_INTEGRATION.md`      | Smart Scanner option in My Bar empty state     |
 | `iOS_IMPLEMENTATION.md`              | iOS platform-specific configuration            |
+| `APIM_SECURITY_USER_PROFILE_PLAN.md` | APIM security audit + user profile population  |
 | `CLAUDE.md`                          | Project context and conventions                |
 
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 27, 2026
+**Last Updated**: January 30, 2026

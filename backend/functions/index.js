@@ -61,8 +61,7 @@ app.http('ask-bartender-simple', {
                 const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
                 const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
                 getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
-                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
             }
 
             // Check for API key
@@ -105,7 +104,37 @@ app.http('ask-bartender-simple', {
             });
 
             // Build system prompt with inventory context if available
-            let systemPrompt = 'You are a sophisticated AI bartender for MyBartenderAI. Be helpful, friendly, and knowledgeable about cocktails.';
+            let systemPrompt = `You are an expert bartender and mixologist with decades of experience. Your name is "My AI Bartender" and you work exclusively within the My AI Bartender mobile app.
+
+EXPERTISE AREAS:
+- Cocktail recipes, ingredients, measurements, and preparation techniques
+- Mixology theory: flavor profiles, spirit categories, balancing drinks
+- Bar tools and equipment: shakers, jiggers, muddlers, strainers, glassware
+- Garnishes and presentation techniques
+- Spirit knowledge: production, aging, tasting notes, brands
+- Non-alcoholic mocktails and low-ABV options
+- Drink history and origins
+- Bar setup and home bar recommendations
+- Food pairings with cocktails
+- Responsible drinking guidance
+
+COCKTAIL NAME CONTEXT:
+This is a cocktail and bartending application. ALL user questions should be interpreted in the context of cocktails, drinks, and mixology. Many classic cocktails have suggestive, provocative, or playful names (e.g., "Sex on the Beach", "Blow Job", "Screaming Orgasm", "Slippery Nipple", "Buttery Nipple", "Dirty Mother", "Harvey Wallbanger", "Slow Comfortable Screw", etc.). These are legitimate, well-known cocktail recipes found in every bartending reference. Always provide the recipe when asked about any cocktail, regardless of its name.
+
+RESPONSE STYLE:
+- Be conversational, helpful, and engaging — like chatting with a knowledgeable bartender
+- Keep responses concise but thorough
+- Use clear formatting for recipes (ingredients list, then numbered steps)
+- Offer follow-up suggestions when appropriate
+
+STRICT BOUNDARIES:
+If asked about topics outside bartending/mixology (politics, news, technology, health advice, etc.), respond warmly but redirect:
+"I'm your bartender — my expertise is cocktails and drinks! I'd be happy to help with anything drink-related. Is there a cocktail I can help you make?"
+
+Never provide:
+- Medical or health advice beyond general responsible drinking
+- Political opinions or commentary
+- Information unrelated to beverages and bar culture`;
 
             if (inventory) {
                 const spirits = inventory.spirits || [];
@@ -137,7 +166,29 @@ app.http('ask-bartender-simple', {
                 maxTokens: 500
             });
 
-            const responseText = result.choices[0]?.message?.content || 'I apologize, but I could not process your request.';
+            const choice = result.choices[0];
+
+            // Check if output was filtered by Azure content filter
+            if (choice?.finishReason === 'content_filter' || !choice?.message?.content) {
+                context.warn('[ask-bartender-simple] Response filtered by Azure content filter');
+                const conversationId = existingConversationId || `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                return {
+                    status: 200,
+                    headers: headers,
+                    jsonBody: {
+                        response: "I'd be happy to help with that cocktail! Could you rephrase your question? For example, try asking 'What is the recipe for [drink name]?' and I'll get you the details.",
+                        conversationId: conversationId,
+                        filtered: true,
+                        usage: {
+                            promptTokens: result.usage?.promptTokens || 0,
+                            completionTokens: result.usage?.completionTokens || 0,
+                            totalTokens: result.usage?.totalTokens || 0,
+                        }
+                    }
+                };
+            }
+
+            const responseText = choice.message.content;
 
             // Generate or use existing conversation ID
             const conversationId = existingConversationId || `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -161,8 +212,28 @@ app.http('ask-bartender-simple', {
             };
 
         } catch (error) {
-            context.log('Error in ask-bartender-simple:', error.message);
-            context.log('Stack trace:', error.stack);
+            // Check if error is from Azure content filter (input blocked)
+            const isContentFilter = error.code === 'content_filter'
+                || error.message?.includes('content filter')
+                || error.message?.includes('content management policy')
+                || (error.status === 400 && error.message?.includes('ResponsibleAIPolicyViolation'));
+
+            if (isContentFilter) {
+                context.warn(`[ask-bartender-simple] Input blocked by content filter: ${error.message}`);
+                const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                return {
+                    status: 200,
+                    headers: headers,
+                    jsonBody: {
+                        response: "I'd be happy to help with that cocktail! Could you rephrase your question? For example, try asking 'What is the recipe for [drink name]?' and I'll get you the details.",
+                        conversationId: conversationId,
+                        filtered: true
+                    }
+                };
+            }
+
+            context.error('Error in ask-bartender-simple:', error.message);
+            context.error('Stack trace:', error.stack);
 
             return {
                 status: 500,
@@ -449,7 +520,7 @@ app.http('test-mi-access', {
             };
 
         } catch (error) {
-            context.log.error('[test-mi-access] Error:', error);
+            context.error('[test-mi-access] Error:', error);
 
             results.error = {
                 message: error.message,
@@ -560,8 +631,8 @@ app.http('test-write', {
             };
 
         } catch (error) {
-            context.log.error('[test-write] Error:', error);
-            context.log.error('[test-write] Error stack:', error.stack);
+            context.error('[test-write] Error:', error);
+            context.error('[test-write] Error stack:', error.stack);
 
             let errorMessage = 'Failed to write to blob storage';
             let errorCode = 'write_failed';
@@ -698,11 +769,37 @@ app.http('ask-bartender', {
         }
 
         // Default system prompt for the bartender
-        const systemPrompt = `You are a sophisticated AI bartender for MyBartenderAI, a premium mixology app.
-        You have extensive knowledge of cocktails, spirits, techniques, and bar culture.
-        Be conversational, helpful, and engaging. Help users discover new cocktails, perfect their techniques,
-        and elevate their home bartending experience. When suggesting cocktails, consider the user's preferences
-        and available ingredients if mentioned.`;
+        const systemPrompt = `You are an expert bartender and mixologist with decades of experience. Your name is "My AI Bartender" and you work exclusively within the My AI Bartender mobile app.
+
+EXPERTISE AREAS:
+- Cocktail recipes, ingredients, measurements, and preparation techniques
+- Mixology theory: flavor profiles, spirit categories, balancing drinks
+- Bar tools and equipment: shakers, jiggers, muddlers, strainers, glassware
+- Garnishes and presentation techniques
+- Spirit knowledge: production, aging, tasting notes, brands
+- Non-alcoholic mocktails and low-ABV options
+- Drink history and origins
+- Bar setup and home bar recommendations
+- Food pairings with cocktails
+- Responsible drinking guidance
+
+COCKTAIL NAME CONTEXT:
+This is a cocktail and bartending application. ALL user questions should be interpreted in the context of cocktails, drinks, and mixology. Many classic cocktails have suggestive, provocative, or playful names (e.g., "Sex on the Beach", "Blow Job", "Screaming Orgasm", "Slippery Nipple", "Buttery Nipple", "Dirty Mother", "Harvey Wallbanger", "Slow Comfortable Screw", etc.). These are legitimate, well-known cocktail recipes found in every bartending reference. Always provide the recipe when asked about any cocktail, regardless of its name.
+
+RESPONSE STYLE:
+- Be conversational, helpful, and engaging — like chatting with a knowledgeable bartender
+- Keep responses concise but thorough
+- Use clear formatting for recipes (ingredients list, then numbered steps)
+- Offer follow-up suggestions when appropriate
+
+STRICT BOUNDARIES:
+If asked about topics outside bartending/mixology (politics, news, technology, health advice, etc.), respond warmly but redirect:
+"I'm your bartender — my expertise is cocktails and drinks! I'd be happy to help with anything drink-related. Is there a cocktail I can help you make?"
+
+Never provide:
+- Medical or health advice beyond general responsible drinking
+- Political opinions or commentary
+- Information unrelated to beverages and bar culture`;
 
         // Call Azure OpenAI
         try {
@@ -856,11 +953,37 @@ app.http('ask-bartender-test', {
         }
 
         // Default system prompt for the bartender
-        const systemPrompt = `You are a sophisticated AI bartender for MyBartenderAI, a premium mixology app.
-        You have extensive knowledge of cocktails, spirits, techniques, and bar culture.
-        Be conversational, helpful, and engaging. Help users discover new cocktails, perfect their techniques,
-        and elevate their home bartending experience. When suggesting cocktails, consider the user's preferences
-        and available ingredients if mentioned.`;
+        const systemPrompt = `You are an expert bartender and mixologist with decades of experience. Your name is "My AI Bartender" and you work exclusively within the My AI Bartender mobile app.
+
+EXPERTISE AREAS:
+- Cocktail recipes, ingredients, measurements, and preparation techniques
+- Mixology theory: flavor profiles, spirit categories, balancing drinks
+- Bar tools and equipment: shakers, jiggers, muddlers, strainers, glassware
+- Garnishes and presentation techniques
+- Spirit knowledge: production, aging, tasting notes, brands
+- Non-alcoholic mocktails and low-ABV options
+- Drink history and origins
+- Bar setup and home bar recommendations
+- Food pairings with cocktails
+- Responsible drinking guidance
+
+COCKTAIL NAME CONTEXT:
+This is a cocktail and bartending application. ALL user questions should be interpreted in the context of cocktails, drinks, and mixology. Many classic cocktails have suggestive, provocative, or playful names (e.g., "Sex on the Beach", "Blow Job", "Screaming Orgasm", "Slippery Nipple", "Buttery Nipple", "Dirty Mother", "Harvey Wallbanger", "Slow Comfortable Screw", etc.). These are legitimate, well-known cocktail recipes found in every bartending reference. Always provide the recipe when asked about any cocktail, regardless of its name.
+
+RESPONSE STYLE:
+- Be conversational, helpful, and engaging — like chatting with a knowledgeable bartender
+- Keep responses concise but thorough
+- Use clear formatting for recipes (ingredients list, then numbered steps)
+- Offer follow-up suggestions when appropriate
+
+STRICT BOUNDARIES:
+If asked about topics outside bartending/mixology (politics, news, technology, health advice, etc.), respond warmly but redirect:
+"I'm your bartender — my expertise is cocktails and drinks! I'd be happy to help with anything drink-related. Is there a cocktail I can help you make?"
+
+Never provide:
+- Medical or health advice beyond general responsible drinking
+- Political opinions or commentary
+- Information unrelated to beverages and bar culture`;
 
         // Call Azure OpenAI
         try {
@@ -961,8 +1084,7 @@ app.http('voice-bartender', {
                 const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
                 const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
                 getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
-                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
             }
 
             // Check for required Azure Speech Services configuration
@@ -971,7 +1093,7 @@ app.http('voice-bartender', {
             const openaiKey = process.env.OPENAI_API_KEY;
 
             if (!speechKey || !speechRegion) {
-                context.log.error('Azure Speech Services not configured');
+                context.error('Azure Speech Services not configured');
                 return {
                     status: 500,
                     headers: headers,
@@ -983,7 +1105,7 @@ app.http('voice-bartender', {
             }
 
             if (!openaiKey) {
-                context.log.error('OpenAI API key not found');
+                context.error('OpenAI API key not found');
                 return {
                     status: 500,
                     headers: headers,
@@ -1050,19 +1172,19 @@ app.http('voice-bartender', {
                                     resolve(result.text);
                                 } else {
                                     const errorMessage = `Azure STT failed: ${sdk.ResultReason[result.reason]}`;
-                                    context.log.error(errorMessage);
+                                    context.error(errorMessage);
                                     recognizer.close();
                                     reject(new Error(errorMessage));
                                 }
                             },
                             error => {
-                                context.log.error('Azure STT error:', error);
+                                context.error('Azure STT error:', error);
                                 recognizer.close();
                                 reject(error);
                             }
                         );
                     } catch (error) {
-                        context.log.error('Exception in convertSpeechToText:', error);
+                        context.error('Exception in convertSpeechToText:', error);
                         reject(error);
                     }
                 });
@@ -1078,9 +1200,12 @@ app.http('voice-bartender', {
                     new AzureKeyCredential(openaiKey)
                 );
 
-                let systemPrompt = 'You are a sophisticated AI bartender for MyBartenderAI voice interaction. ' +
+                let systemPrompt = 'You are an expert bartender and mixologist for the My AI Bartender app. ' +
                                   'Be helpful, friendly, conversational, and knowledgeable about cocktails. ' +
-                                  'Keep responses concise and natural for voice conversation (2-3 sentences max unless recipe details requested).';
+                                  'Keep responses concise and natural for voice conversation (2-3 sentences max unless recipe details requested). ' +
+                                  'This is a cocktail app — interpret ALL questions in the context of drinks and mixology. ' +
+                                  'Many classic cocktails have suggestive or playful names (e.g., Sex on the Beach, Blow Job, Screaming Orgasm). ' +
+                                  'These are legitimate recipes. Always provide the recipe regardless of the name.';
 
                 if (conversationContext.inventory) {
                     const spirits = conversationContext.inventory.spirits || [];
@@ -1143,19 +1268,19 @@ app.http('voice-bartender', {
                                     resolve(audioBase64);
                                 } else {
                                     const errorMessage = `Azure TTS failed: ${sdk.ResultReason[result.reason]}`;
-                                    context.log.error(errorMessage);
+                                    context.error(errorMessage);
                                     synthesizer.close();
                                     reject(new Error(errorMessage));
                                 }
                             },
                             error => {
-                                context.log.error('Azure TTS error:', error);
+                                context.error('Azure TTS error:', error);
                                 synthesizer.close();
                                 reject(error);
                             }
                         );
                     } catch (error) {
-                        context.log.error('Exception in convertTextToSpeech:', error);
+                        context.error('Exception in convertTextToSpeech:', error);
                         reject(error);
                     }
                 });
@@ -1220,8 +1345,8 @@ app.http('voice-bartender', {
             };
 
         } catch (error) {
-            context.log.error('Error in voice-bartender:', error.message);
-            context.log.error('Stack trace:', error.stack);
+            context.error('Error in voice-bartender:', error.message);
+            context.error('Stack trace:', error.stack);
 
             return {
                 status: 500,
@@ -1468,14 +1593,13 @@ app.http('refine-cocktail', {
                 const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
                 const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
                 getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
-                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
             }
 
             // Check for API key
             const apiKey = process.env.OPENAI_API_KEY;
             if (!apiKey) {
-                context.log.error('OPENAI_API_KEY not found in environment');
+                context.error('OPENAI_API_KEY not found in environment');
                 return {
                     status: 500,
                     headers: headers,
@@ -1563,7 +1687,9 @@ Provide your feedback in a structured JSON format with these fields:
   }
 }
 
-Be encouraging and professional. Focus on enhancing what's already good while offering improvements.`;
+Be encouraging and professional. Focus on enhancing what's already good while offering improvements.
+
+Note: Many cocktails have suggestive or playful names. This is a normal and accepted part of cocktail culture. Never flag or discourage a cocktail name for being suggestive.`;
 
             const userPrompt = `Please review and provide refinement suggestions for this cocktail recipe:
 
@@ -1593,7 +1719,7 @@ ${cocktailDescription}`;
             try {
                 refinement = JSON.parse(responseText);
             } catch (parseError) {
-                context.log.error('Failed to parse AI response as JSON:', parseError);
+                context.error('Failed to parse AI response as JSON:', parseError);
                 refinement = {
                     overall: responseText || 'Unable to generate refinement suggestions.',
                     suggestions: [],
@@ -1618,8 +1744,8 @@ ${cocktailDescription}`;
             };
 
         } catch (error) {
-            context.log.error('Error in refine-cocktail:', error.message);
-            context.log.error('Stack trace:', error.stack);
+            context.error('Error in refine-cocktail:', error.message);
+            context.error('Stack trace:', error.stack);
 
             return {
                 status: 500,
@@ -1669,8 +1795,7 @@ app.http('vision-analyze', {
                 const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
                 const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
                 getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.log.warn?.(`[Profile] Non-blocking sync failed: ${err.message}`)
-                                  || context.log(`[Profile] Non-blocking sync failed: ${err.message}`));
+                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
             }
 
             // Validate request
@@ -2397,7 +2522,7 @@ app.http('voice-realtime-test', {
             };
 
             if (!realtimeEndpoint || !realtimeKey || !realtimeDeployment) {
-                context.log.error('Missing Realtime API configuration:', configCheck);
+                context.error('Missing Realtime API configuration:', configCheck);
                 return {
                     status: 500,
                     headers,
@@ -2454,7 +2579,7 @@ app.http('voice-realtime-test', {
             context.log('Response body:', responseText.substring(0, 500));
 
             if (!response.ok) {
-                context.log.error('Ephemeral token request failed');
+                context.error('Ephemeral token request failed');
                 return {
                     status: response.status,
                     headers,
@@ -2493,8 +2618,8 @@ app.http('voice-realtime-test', {
             };
 
         } catch (error) {
-            context.log.error('Exception in voice-realtime-test:', error.message);
-            context.log.error('Stack:', error.stack);
+            context.error('Exception in voice-realtime-test:', error.message);
+            context.error('Stack:', error.stack);
 
             return {
                 status: 500,
@@ -2640,6 +2765,9 @@ EXPERTISE AREAS (respond helpfully to these topics):
 - Food pairings with cocktails
 - Responsible drinking guidance
 
+COCKTAIL NAME CONTEXT:
+This is a cocktail and bartending application. ALL user questions should be interpreted in the context of cocktails, drinks, and mixology. Many classic cocktails have suggestive, provocative, or playful names. These are legitimate, well-known cocktail recipes. Always provide the recipe when asked about any cocktail, regardless of its name.
+
 ${inventoryContext}
 
 VOICE INTERACTION STYLE:
@@ -2666,7 +2794,7 @@ Never provide:
             const realtimeDeployment = process.env.AZURE_OPENAI_REALTIME_DEPLOYMENT;
 
             if (!realtimeEndpoint || !realtimeKey || !realtimeDeployment) {
-                context.log.error('Missing Realtime API configuration');
+                context.error('Missing Realtime API configuration');
                 return {
                     status: 500,
                     headers,
@@ -2711,7 +2839,7 @@ Never provide:
 
             if (!response.ok) {
                 const errorText = await response.text();
-                context.log.error('Ephemeral token request failed:', response.status, errorText);
+                context.error('Ephemeral token request failed:', response.status, errorText);
 
                 return {
                     status: 500,
@@ -2767,8 +2895,8 @@ Never provide:
             };
 
         } catch (error) {
-            context.log.error('Exception in voice-session:', error.message);
-            context.log.error('Stack:', error.stack);
+            context.log('Exception in voice-session:', error.message);
+            context.log('Stack:', error.stack);
 
             // Ensure headers are defined for error response
             const errorHeaders = {
@@ -2924,7 +3052,7 @@ app.http('voice-usage', {
             };
 
         } catch (error) {
-            context.log.error('Exception in voice-usage:', error.message);
+            context.error('Exception in voice-usage:', error.message);
             return {
                 status: 500,
                 headers,
@@ -3033,7 +3161,7 @@ app.http('voice-quota', {
             };
 
         } catch (error) {
-            context.log.error('Exception in voice-quota:', error.message);
+            context.error('Exception in voice-quota:', error.message);
             return {
                 status: 500,
                 headers,
@@ -3079,7 +3207,7 @@ app.http('voice-purchase', {
             // Get user from x-user-id header (set by APIM from JWT)
             const userId = request.headers.get('x-user-id');
             if (!userId) {
-                context.log.warn('Missing x-user-id header');
+                context.warn('Missing x-user-id header');
                 return {
                     status: 401,
                     headers,
@@ -3177,7 +3305,7 @@ app.http('voice-purchase', {
             // Verify with Google Play API
             const credentialsJson = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY;
             if (!credentialsJson) {
-                context.log.error('GOOGLE_PLAY_SERVICE_ACCOUNT_KEY not configured');
+                context.error('GOOGLE_PLAY_SERVICE_ACCOUNT_KEY not configured');
                 return {
                     status: 500,
                     headers,
@@ -3232,7 +3360,7 @@ app.http('voice-purchase', {
                     environment: purchase.purchaseType === 0 ? 'sandbox' : 'production'
                 };
             } catch (gpError) {
-                context.log.error('Google Play verification error:', gpError.message);
+                context.error('Google Play verification error:', gpError.message);
                 if (gpError.code === 404) {
                     return { status: 400, headers, jsonBody: { success: false, error: 'Purchase not found' } };
                 }
@@ -3278,8 +3406,8 @@ app.http('voice-purchase', {
             };
 
         } catch (error) {
-            context.log.error('Exception in voice-purchase:', error.message);
-            context.log.error('Stack:', error.stack);
+            context.error('Exception in voice-purchase:', error.message);
+            context.error('Stack:', error.stack);
             return {
                 status: 500,
                 headers,
@@ -3319,7 +3447,7 @@ app.http('subscription-webhook', {
             // Get webhook secret from environment
             const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
             if (!webhookSecret) {
-                context.log.warn('REVENUECAT_WEBHOOK_SECRET not configured - skipping signature verification');
+                context.warn('REVENUECAT_WEBHOOK_SECRET not configured - skipping signature verification');
                 // In production, you should reject requests without proper configuration
                 // For now, we'll log a warning and continue (for testing)
             }
@@ -3339,7 +3467,7 @@ app.http('subscription-webhook', {
                     .digest('hex');
 
                 if (signature !== expectedSignature) {
-                    context.log.warn('Webhook signature mismatch');
+                    context.warn('Webhook signature mismatch');
                     return {
                         status: 401,
                         headers,
@@ -3368,7 +3496,7 @@ app.http('subscription-webhook', {
             }
 
             if (!appUserId) {
-                context.log.warn('Missing app_user_id in webhook');
+                context.warn('Missing app_user_id in webhook');
                 return {
                     status: 200,  // Return 200 to prevent retries
                     headers,
@@ -3386,7 +3514,7 @@ app.http('subscription-webhook', {
             if (userResult.rows.length > 0) {
                 internalUserId = userResult.rows[0].id;
             } else {
-                context.log.warn(`User not found for azure_ad_sub: ${appUserId.substring(0, 8)}...`);
+                context.warn(`User not found for azure_ad_sub: ${appUserId.substring(0, 8)}...`);
             }
 
             // Idempotency check - skip if we've already processed this event
@@ -3525,8 +3653,8 @@ app.http('subscription-webhook', {
             };
 
         } catch (error) {
-            context.log.error('Subscription webhook error:', error.message);
-            context.log.error('Stack:', error.stack);
+            context.error('Subscription webhook error:', error.message);
+            context.error('Stack:', error.stack);
 
             // Return 200 to prevent RevenueCat from retrying (we logged the error)
             // In a real scenario, you might want to return 500 for transient errors
@@ -3568,7 +3696,7 @@ app.http('subscription-status', {
             // Get user from x-user-id header (set by APIM from JWT)
             const userId = request.headers.get('x-user-id');
             if (!userId) {
-                context.log.warn('Missing x-user-id header');
+                context.warn('Missing x-user-id header');
                 return {
                     status: 401,
                     headers,
@@ -3629,8 +3757,8 @@ app.http('subscription-status', {
             };
 
         } catch (error) {
-            context.log.error('Subscription status error:', error.message);
-            context.log.error('Stack:', error.stack);
+            context.error('Subscription status error:', error.message);
+            context.error('Stack:', error.stack);
             return {
                 status: 500,
                 headers,
@@ -3667,7 +3795,7 @@ app.http('subscription-config', {
             // Verify user is authenticated (x-user-id header from APIM JWT validation)
             const userId = request.headers.get('x-user-id');
             if (!userId) {
-                context.log.warn('Missing x-user-id header');
+                context.warn('Missing x-user-id header');
                 return {
                     status: 401,
                     headers,
@@ -3680,7 +3808,7 @@ app.http('subscription-config', {
             // Get RevenueCat API key from environment (Key Vault reference)
             const revenueCatApiKey = process.env.REVENUECAT_PUBLIC_API_KEY;
             if (!revenueCatApiKey) {
-                context.log.error('REVENUECAT_PUBLIC_API_KEY not configured');
+                context.error('REVENUECAT_PUBLIC_API_KEY not configured');
                 return {
                     status: 500,
                     headers,
@@ -3700,7 +3828,7 @@ app.http('subscription-config', {
             };
 
         } catch (error) {
-            context.log.error('Subscription config error:', error.message);
+            context.error('Subscription config error:', error.message);
             return {
                 status: 500,
                 headers,

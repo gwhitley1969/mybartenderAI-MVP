@@ -11,7 +11,7 @@
  * Source of truth: PostgreSQL `users` table
  */
 
-const { getPool } = require('../shared/db/postgresPool');
+const { getPool } = require('../shared/database');
 
 /**
  * Tier quota definitions
@@ -58,7 +58,10 @@ const VALID_TIERS = ['free', 'premium', 'pro'];
  */
 async function getOrCreateUser(azureAdSub, context = null, options = {}) {
     const { email = null, displayName = null } = options;
-    const log = context?.log || console;
+    // Arrow wrappers preserve InvocationContext's `this` binding (V4 uses private fields)
+    const log = context ? (msg) => context.log(msg) : console.log.bind(console);
+    const logWarn = context ? (msg) => context.warn(msg) : console.warn.bind(console);
+    const logError = context ? (msg) => context.error(msg) : console.error.bind(console);
 
     if (!azureAdSub || typeof azureAdSub !== 'string') {
         throw new Error('azureAdSub is required and must be a string');
@@ -91,8 +94,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
 
             const updatedUser = updateResult.rows[0];
 
-            log.info?.(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`) ||
-                log(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`);
+            log(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`);
 
             return {
                 id: updatedUser.id,
@@ -106,8 +108,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
         }
 
         // User doesn't exist - create with default 'pro' tier (beta testing)
-        log.info?.(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`) ||
-            log(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`);
+        log(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`);
 
         const insertResult = await pool.query(
             `INSERT INTO users (azure_ad_sub, tier, email, display_name, created_at, updated_at, last_login_at)
@@ -118,8 +119,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
 
         const newUser = insertResult.rows[0];
 
-        log.info?.(`[UserService] Created new user: ${newUser.id}, tier: pro`) ||
-            log(`[UserService] Created new user: ${newUser.id}, tier: pro`);
+        log(`[UserService] Created new user: ${newUser.id}, tier: pro`);
 
         return {
             id: newUser.id,
@@ -134,8 +134,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
     } catch (error) {
         // Handle race condition where user was created between SELECT and INSERT
         if (error.code === '23505') { // unique_violation
-            log.warn?.(`[UserService] Race condition detected, retrying lookup`) ||
-                log(`[UserService] Race condition detected, retrying lookup`);
+            logWarn(`[UserService] Race condition detected, retrying lookup`);
 
             const retryResult = await pool.query(
                 `SELECT id, azure_ad_sub, tier, email, display_name, created_at, last_login_at
@@ -158,8 +157,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
             }
         }
 
-        log.error?.(`[UserService] Error in getOrCreateUser: ${error.message}`) ||
-            console.error(`[UserService] Error in getOrCreateUser: ${error.message}`);
+        logError(`[UserService] Error in getOrCreateUser: ${error.message}`);
         throw error;
     }
 }
@@ -212,7 +210,7 @@ function hasFeatureAccess(tier, feature) {
  * @returns {Promise<{success: boolean, user: object}>}
  */
 async function updateUserTier(azureAdSub, newTier, context = null) {
-    const log = context?.log || console;
+    const log = context ? (msg) => context.log(msg) : console.log.bind(console);
 
     if (!VALID_TIERS.includes(newTier.toLowerCase())) {
         throw new Error(`Invalid tier: ${newTier}. Must be one of: ${VALID_TIERS.join(', ')}`);
@@ -233,8 +231,7 @@ async function updateUserTier(azureAdSub, newTier, context = null) {
     }
 
     const user = result.rows[0];
-    log.info?.(`[UserService] Updated user ${user.id} tier to: ${newTier}`) ||
-        log(`[UserService] Updated user ${user.id} tier to: ${newTier}`);
+    log(`[UserService] Updated user ${user.id} tier to: ${newTier}`);
 
     return {
         success: true,

@@ -8,6 +8,19 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (January 2026)
 
+- **Suggestive Cocktail Name Fix & System Prompt Upgrade** (Jan 30): Fixed critical issue where asking about cocktails with suggestive names (e.g., "How do you make a sex on the beach?") returned "Sorry, I encountered an error" instead of the recipe. Three-layer fix:
+  1. **Azure Content Filter (Layer 1)**: Created custom RAI policy `BartenderAppFilter` on `mybartenderai-scus`. Changed Sexual category `severityThreshold` from default `Medium` to `High` (only blocks genuinely explicit content, allows cocktail names). Applied to `gpt-4.1-mini` deployment.
+  2. **System Prompt Upgrades (Layer 2)**: Upgraded all 6 AI endpoint prompts with `COCKTAIL NAME CONTEXT` block that explicitly instructs the model to interpret all questions in a bartending context and lists common suggestive cocktail names as legitimate recipes. Endpoints updated: `ask-bartender-simple`, `ask-bartender`, `ask-bartender-test`, `voice-bartender`, `voice-session`, `refine-cocktail`.
+  3. **Content Filter Error Handling (Layer 3)**: `ask-bartender-simple` now detects Azure content filter rejections (both `finishReason: 'content_filter'` output blocks and input-blocked errors) and returns a helpful 200 response asking users to rephrase, instead of a 500 error.
+
+  **Also fixed**: `ask-bartender-simple` system prompt upgraded from 1-sentence prompt to comprehensive expert bartender persona with expertise areas, response style, and strict boundaries (matching the voice-session quality). All chat prompts now include the same boundary rules that prevent off-topic conversations.
+
+- **Azure Functions V4 Logging Migration & Voice Crash Fix** (Jan 30): Fixed voice feature crash caused by Azure Functions V3→V4 logging incompatibility. Two root causes identified and resolved:
+  1. **`userService.js` — Root cause**: `const log = context?.log || console` extracted the `log` method from `InvocationContext`, breaking V4's TypeScript private field `this` binding. Fix: Arrow function wrappers `(msg) => context.log(msg)` that preserve `this` through closure capture.
+  2. **`index.js` — V3 syntax**: 33 instances of `context.log.error()` and 11 instances of `context.log.warn()` (V3 syntax) replaced with V4-compatible `context.error()` and `context.warn()`. V4's `InvocationContext` exposes `log()`, `warn()`, `error()` as direct methods — the V3 `context.log.error()` chaining pattern no longer exists.
+
+  **Key insight**: Azure Functions V4's `InvocationContext` is compiled from TypeScript with private fields. Extracting methods (e.g., destructuring or assigning to variables) loses the `this` binding, causing `Cannot read private member` errors at runtime.
+
 - **APIM Security Audit & JWT Decode Deployment — Phase 1** (Jan 30): Comprehensive APIM security audit revealed 13 of 30 operations lack JWT validation at the gateway. Phase 1 deployed a safe backend-only fix to populate user email and display_name by decoding the JWT token directly in function code. See `docs/APIM_SECURITY_USER_PROFILE_PLAN.md` for the full multi-phase plan.
   1. **Created** `shared/auth/jwtDecode.js`: Lightweight JWT payload decoder (base64 only, no crypto verification — APIM handles that)
   2. **Updated** `index.js`: 4 fire-and-forget blocks (ask-bartender-simple, voice-bartender, refine-cocktail, vision-analyze) now decode the `Authorization` header directly when APIM-forwarded `X-User-Id` header is absent

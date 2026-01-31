@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 21, 2026 - gpt-realtime-mini migration)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 31, 2026 - phantom "Thinking..." fix)
 
 ## Overview
 
@@ -452,6 +452,7 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - [x] Push-to-talk: Hold button to speak, release for AI response ✅ January 16, 2026
 - [x] Push-to-talk: Quick tap ends session ✅ January 16, 2026
 - [x] Push-to-talk: Background noise ignored when not holding ✅ January 16, 2026
+- [x] Push-to-talk: Phantom "Thinking..." from muted-mic VAD events fixed ✅ January 31, 2026
 - [x] "How to use" instructions updated for push-to-talk ✅ January 16, 2026
 - [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
 - [ ] "Minutes remaining" updates after each session
@@ -610,6 +611,70 @@ Fixed WebRTC event handling in `voice_ai_service.dart`:
 - ✅ Background noise during AI speech is properly ignored
 
 See `docs/VOICE_AI_DEPLOYED.md` for complete implementation details.
+
+---
+
+## Phantom "Thinking..." and Muted-Mic State Leakage Fix (January 31, 2026)
+
+### Problem
+
+After deploying push-to-talk with `create_response: false`, the AI periodically entered "Thinking..." on its own (phantom processing state) and occasionally responded with unrelated content.
+
+### Root Cause
+
+The `speech_started` and `speech_stopped` VAD handlers didn't check `_isMuted` when the state was NOT `speaking`. Background noise triggered these events even while mic was muted, causing false state transitions into `processing`. With `create_response: false`, nothing created a response, so the state got stuck at "Thinking..." indefinitely.
+
+### Solution: 4 Changes to `voice_ai_service.dart`
+
+1. **Guard `speech_started` with `_isMuted`**: First check — when muted, all speech detections are background noise
+2. **Guard `speech_stopped` with `_isMuted`**: First check — prevents `listening → processing` transition from background noise (THE fix)
+3. **Finalize speech time on mute**: Captures user speech duration at button release since `speech_stopped` is now ignored while muted
+4. **Processing safety timeout**: 15-second defensive `Timer` catches edge cases where `processing` gets stuck
+
+### Updated Session Configuration
+
+The `session.update` now uses `create_response: false` (push-to-talk sends explicit `response.create` on button release):
+
+```dart
+'turn_detection': {
+  'type': 'semantic_vad',
+  'eagerness': 'low',
+  'create_response': false,     // Push-to-talk: explicit response.create on button release
+  'interrupt_response': false,
+},
+```
+
+### Updated Event Handling
+
+```dart
+case 'input_audio_buffer.speech_started':
+  // FIRST CHECK: If mic is muted, ALL speech detections are background noise
+  if (_isMuted) {
+    debugPrint('[VOICE-AI] IGNORED speech_started - mic is MUTED');
+    _ignoringBackgroundNoise = true;
+    break;
+  }
+  // ... handle unmuted speech
+
+case 'input_audio_buffer.speech_stopped':
+  // FIRST CHECK: If mic is muted, ignore — background noise ending
+  if (_isMuted) {
+    debugPrint('[VOICE-AI] IGNORED speech_stopped - mic is MUTED');
+    _ignoringBackgroundNoise = false;
+    break;
+  }
+  // ... handle unmuted speech end
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `voice_ai_service.dart` | Guard `speech_started` with `_isMuted`, guard `speech_stopped` with `_isMuted`, finalize speech time in `setMicrophoneMuted()`, processing safety timeout |
+
+**No backend changes needed** — client-only fix.
+
+See `docs/BUG_FIXES.md` (BUG-005) for complete technical analysis.
 
 ---
 

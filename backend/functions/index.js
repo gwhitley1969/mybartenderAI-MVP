@@ -2556,7 +2556,7 @@ app.http('voice-realtime-test', {
                 turn_detection: {
                     type: 'semantic_vad',        // AI-based detection - understands speech semantically
                     eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
-                    create_response: true,
+                    create_response: false,      // Push-to-talk sends explicit response.create
                     interrupt_response: false    // Prevents AI from being interrupted by noise
                 },
                 input_audio_noise_reduction: {
@@ -2819,7 +2819,7 @@ Never provide:
                 turn_detection: {
                     type: 'semantic_vad',        // AI-based detection - understands speech semantically
                     eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
-                    create_response: true,
+                    create_response: false,      // Push-to-talk sends explicit response.create
                     interrupt_response: false    // Prevents AI from being interrupted by noise
                 },
                 input_audio_noise_reduction: {

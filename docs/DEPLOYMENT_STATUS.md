@@ -8,6 +8,14 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (January 2026)
 
+- **Voice AI Phantom "Thinking..." Fix** (Jan 31): Fixed critical bug where Voice AI periodically entered "Thinking..." state on its own without the user pressing the push-to-talk button. Also fixed occasional unrelated AI responses (e.g., "Salty Dog" when discussing bourbon). Root cause: the `speech_started` and `speech_stopped` VAD event handlers did not check `_isMuted`, allowing background noise to trigger false state transitions into `processing`. With `create_response: false` (push-to-talk mode), nothing created a response, so the state got stuck at "Thinking..." indefinitely. Four changes applied to `voice_ai_service.dart`:
+  1. **Guard `speech_started`**: Added `_isMuted` as first check — when muted, ALL speech detections are background noise and are ignored
+  2. **Guard `speech_stopped`**: Added `_isMuted` as first check — prevents the critical `listening → processing` transition from background noise (THE fix for phantom "Thinking...")
+  3. **Speech time finalization on mute**: Captures user speech duration when button is released, since `speech_stopped` events are now ignored while muted
+  4. **Processing safety timeout**: 15-second defensive timer catches any edge case where `processing` gets stuck (network issues, Azure hiccups)
+
+  **No backend changes needed** — client-only fix. See `docs/BUG_FIXES.md` (BUG-005) for full technical details.
+
 - **Create Studio SQLite Type-Casting Bug Fix** (Jan 30): Fixed critical crash in Create Studio where saving a second custom cocktail displayed "Error loading cocktails" with `type '_UnmodifiableUint8ArrayView' is not a subtype of type 'String' in type cast`. Root cause: Flutter's `sqflite` package can return TEXT column values as `Uint8List` (binary bytes) instead of `String` under certain buffer management conditions. The unsafe `as String` cast in `Cocktail.fromDb()` at line 102 crashed when loading the custom cocktails list.
   1. **Created** `lib/src/utils/db_type_helpers.dart`: 4 safe conversion functions (`dbString`, `dbStringOrNull`, `dbInt`, `dbIntOrNull`) that handle both `String` and `Uint8List` return types via `utf8.decode()`
   2. **Fixed** `Cocktail.fromDb()` and `DrinkIngredient.fromDb()` in `cocktail.dart`: 22 unsafe casts replaced with safe helpers
@@ -134,6 +142,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 - **Token Refresh Notification Eliminated**: Removed the visible notification for background token refresh entirely. Users complained about seeing "Session Active" every 6 hours. Solution: Cancel the notification immediately after scheduling - the AlarmManager callback still fires, but no notification is displayed. See `NOTIFICATION_SYSTEM.md` for technical details.
 - **Today's Special Deep Link Fix**: Fixed critical regression where notification deep links would flash the cocktail card briefly then redirect to home. Root cause was `routerProvider` using `ref.watch()` which recreated the entire GoRouter on state changes. Fixed with `refreshListenable` pattern per GoRouter best practices. See `TODAYS_SPECIAL_FEATURE.md` Issue #5 REGRESSION for details.
 - **Voice AI Background Noise Fix**: Fixed critical issue where Voice AI would stop mid-sentence when TV dialogue or background conversations were detected. Root cause was premature state change in WebRTC `onTrack` handler and incorrect event names. See `VOICE_AI_DEPLOYED.md` for details.
+- **Voice AI Phantom "Thinking..." Fix** (Jan 31): Fixed muted-mic state leakage where background noise triggered phantom processing state. See `BUG_FIXES.md` BUG-005.
 - **Recipe Vault AI Concierge**: Added Chat and Voice buttons to help users find cocktails via AI
 - **My Bar Smart Scanner**: Added Scanner option in empty state for quick bottle identification
 - **My Bar Empty State**: Updated instructional text to explain Add (search) vs Scanner (AI photo) options
@@ -607,6 +616,7 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `AUTHENTICATION_SETUP.md`            | Entra External ID configuration                |
 | `AUTHENTICATION_IMPLEMENTATION.md`   | Mobile app auth integration                    |
 | `AGE_VERIFICATION_IMPLEMENTATION.md` | 21+ verification details                       |
+| `BUG_FIXES.md`                       | Chronological bug fix log                      |
 | `VOICE_AI_IMPLEMENTATION.md`         | Voice feature specification                    |
 | `SUBSCRIPTION_DEPLOYMENT.md`         | RevenueCat subscription system                 |
 | `TODAYS_SPECIAL_FEATURE.md`          | Today's Special notifications and deep linking |
@@ -620,4 +630,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 30, 2026
+**Last Updated**: January 31, 2026

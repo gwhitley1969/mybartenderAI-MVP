@@ -72,6 +72,11 @@ class VoiceAIService {
   static const _minSpeakingDuration = Duration(milliseconds: 1500);  // Minimum time before allowing interruption
   bool _ignoringBackgroundNoise = false;  // Flag when we're actively filtering TV/background noise
 
+  // Safety timeout: catches edge cases where processing state gets stuck
+  // (network issues, Azure hiccups, race conditions)
+  Timer? _processingTimeout;
+  static const _maxProcessingDuration = Duration(seconds: 15);
+
   VoiceAIService(
     this._dio, {
     required Future<String?> Function() getUserId,
@@ -153,9 +158,26 @@ class VoiceAIService {
   bool get isMuted => _isMuted;
 
   /// Set microphone mute state for push-to-talk
-  /// When muted (button released), also commits the audio buffer so AI responds immediately
+  /// When unmuting (button pressed), prepares audio pipeline for a new utterance
+  /// When muting (button released), commits the audio buffer so AI responds immediately
   void setMicrophoneMuted(bool muted) {
     _isMuted = muted;
+
+    // When UNMUTING (user pressed button), prepare for new utterance
+    // This clears residual audio (echo) and cancels any in-progress AI response
+    if (!muted) {
+      _prepareForNewUtterance();
+    }
+
+    // When MUTING (user released button), finalize any in-progress speech tracking.
+    // Needed because speech_stopped events are now ignored while muted,
+    // but the event may arrive after the mic is already muted.
+    if (muted && _userSpeechStartTime != null) {
+      final speechDuration = DateTime.now().difference(_userSpeechStartTime!).inSeconds;
+      _userSpeakingSeconds += speechDuration;
+      debugPrint('[VOICE-AI] User speech finalized on mute: +${speechDuration}s (total: ${_userSpeakingSeconds}s)');
+      _userSpeechStartTime = null;
+    }
 
     // Mute/unmute the local audio track
     if (_localStream != null) {
@@ -171,6 +193,39 @@ class VoiceAIService {
     // This tells Azure to process the audio immediately without waiting for VAD
     if (muted && _dataChannel?.state == RTCDataChannelState.RTCDataChannelOpen) {
       _commitAudioBuffer();
+    }
+  }
+
+  /// Prepare the audio pipeline for a new user utterance.
+  /// Implements the official Azure OpenAI WebRTC push-to-talk procedure:
+  /// 1. Clear input buffer (removes echo/residual audio from previous AI playback)
+  /// 2. Cancel any in-progress response (if AI is still speaking/processing)
+  /// 3. Clear output audio buffer (stops AI playback immediately, WebRTC-specific)
+  void _prepareForNewUtterance() {
+    if (_dataChannel?.state != RTCDataChannelState.RTCDataChannelOpen) return;
+
+    // Step 1: Always clear the input buffer to remove echo/residual audio
+    _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
+      'type': 'input_audio_buffer.clear',
+    })));
+    debugPrint('[VOICE-AI] Input buffer cleared for new utterance');
+
+    // Step 2 & 3: If AI is speaking/processing, cancel response and clear output
+    if (_state == VoiceAIState.speaking || _state == VoiceAIState.processing) {
+      _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
+        'type': 'response.cancel',
+      })));
+      debugPrint('[VOICE-AI] Cancelled in-progress response');
+
+      _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
+        'type': 'output_audio_buffer.clear',
+      })));
+      debugPrint('[VOICE-AI] Cleared output audio buffer (stopped AI playback)');
+
+      // Force state to listening since we just cancelled the AI
+      _speakingStartTime = null;
+      _ignoringBackgroundNoise = false;
+      _setState(VoiceAIState.listening);
     }
   }
 
@@ -576,36 +631,39 @@ class VoiceAIService {
           break;
 
         case 'input_audio_buffer.speech_started':
-          // STATE GUARD: Only transition to listening if NOT currently speaking
-          // This prevents TV dialogue/background noise from interrupting AI mid-response
-          // Azure sends speech_started even with interrupt_response:false - we handle it client-side
+          // FIRST CHECK: If mic is muted, ALL speech detections are background noise.
+          // In push-to-talk mode, the button press handles state transitions,
+          // so VAD events while muted are never meaningful.
+          if (_isMuted) {
+            debugPrint('[VOICE-AI] IGNORED speech_started - mic is MUTED (background noise)');
+            _ignoringBackgroundNoise = true;
+            break;
+          }
+
+          // Mic is unmuted — user is holding the push-to-talk button
           if (_state != VoiceAIState.speaking) {
-            // Start tracking user speech time for active metering
             _userSpeechStartTime = DateTime.now();
             _setState(VoiceAIState.listening);
           } else {
-            // Calculate how long the AI has been speaking
-            final speakingDuration = _speakingStartTime != null
-                ? DateTime.now().difference(_speakingStartTime!)
-                : Duration.zero;
-
-            debugPrint('[VOICE-AI] IGNORED speech_started - AI is speaking for ${speakingDuration.inMilliseconds}ms (likely TV/background noise)');
-
-            // Set flag so we can detect if response ends prematurely
-            _ignoringBackgroundNoise = true;
-
-            // IMPORTANT: Do NOT send input_audio_buffer.clear here!
-            // Sending clear while Azure is generating audio causes it to abort the response
-            // with a server error. Instead, we just silently ignore the event client-side
-            // and let Azure's interrupt_response:false setting handle it server-side.
+            // User pressed button while AI is speaking — already cancelled in _prepareForNewUtterance()
+            debugPrint('[VOICE-AI] User speaking during interrupted AI (push-to-talk active)');
+            _userSpeechStartTime = DateTime.now();
+            _setState(VoiceAIState.listening);
           }
           break;
 
         case 'input_audio_buffer.speech_stopped':
-          // STATE GUARD: Only transition to processing if we were actually listening
-          // Prevents false speech_stopped from background noise affecting state
+          // FIRST CHECK: If mic is muted, ignore — this is background noise ending.
+          // Do NOT transition to processing, or the state will get stuck forever
+          // (because create_response: false means no auto-response from VAD).
+          if (_isMuted) {
+            debugPrint('[VOICE-AI] IGNORED speech_stopped - mic is MUTED (background noise ended)');
+            _ignoringBackgroundNoise = false;
+            break;
+          }
+
+          // Mic is unmuted — only transition if we were actually listening
           if (_state == VoiceAIState.listening) {
-            // Accumulate user speech time for active metering
             if (_userSpeechStartTime != null) {
               final speechDuration = DateTime.now().difference(_userSpeechStartTime!).inSeconds;
               _userSpeakingSeconds += speechDuration;
@@ -697,6 +755,18 @@ class VoiceAIService {
           _setState(VoiceAIState.error);
           break;
 
+        case 'response.cancelled':
+          debugPrint('[VOICE-AI] Response cancelled successfully (user interrupted via push-to-talk)');
+          break;
+
+        case 'input_audio_buffer.cleared':
+          debugPrint('[VOICE-AI] Input audio buffer cleared (echo/residual audio removed)');
+          break;
+
+        case 'output_audio_buffer.cleared':
+          debugPrint('[VOICE-AI] Output audio buffer cleared (AI playback stopped)');
+          break;
+
         // Events we want to track but don't need to act on
         // NOTE: response.audio_transcript.delta and response.audio_transcript.done
         // are handled above for transcript processing - do NOT duplicate here!
@@ -706,8 +776,6 @@ class VoiceAIService {
         case 'response.content_part.added':
         case 'response.content_part.done':
         case 'input_audio_buffer.committed':
-        case 'input_audio_buffer.cleared':
-        case 'output_audio_buffer.cleared':
         case 'conversation.item.created':
         case 'conversation.item.truncated':
         case 'rate_limits.updated':
@@ -786,6 +854,10 @@ class VoiceAIService {
   /// Clean up WebRTC resources
   Future<void> _cleanup() async {
     try {
+      // Cancel safety timeout
+      _processingTimeout?.cancel();
+      _processingTimeout = null;
+
       _dataChannel?.close();
       _dataChannel = null;
 
@@ -811,6 +883,23 @@ class VoiceAIService {
   }
 
   void _setState(VoiceAIState newState) {
+    // Manage processing safety timeout
+    if (newState == VoiceAIState.processing) {
+      // Starting processing — arm the safety timeout
+      _processingTimeout?.cancel();
+      _processingTimeout = Timer(_maxProcessingDuration, () {
+        if (_state == VoiceAIState.processing) {
+          debugPrint('[VOICE-AI] SAFETY TIMEOUT: Processing stuck for ${_maxProcessingDuration.inSeconds}s — falling back to listening');
+          _state = VoiceAIState.listening;
+          _onStateChange?.call(VoiceAIState.listening);
+        }
+      });
+    } else {
+      // Leaving processing (or entering any other state) — cancel the timeout
+      _processingTimeout?.cancel();
+      _processingTimeout = null;
+    }
+
     _state = newState;
     _onStateChange?.call(newState);
   }
@@ -864,7 +953,7 @@ IMPORTANT: When the user asks what they can make or for drink suggestions, you M
       'turn_detection': {
         'type': 'semantic_vad',
         'eagerness': 'low',
-        'create_response': true,
+        'create_response': false,     // Push-to-talk sends explicit response.create on button release
         'interrupt_response': false,
       },
       // Noise reduction filter for phone speaker/mic usage

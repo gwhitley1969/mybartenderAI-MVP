@@ -1162,4 +1162,155 @@ With the new logging, you can diagnose issues by watching for:
 
 ---
 
-**Last Updated**: January 21, 2026 (Migrated to gpt-realtime-mini GA model)
+---
+
+## Phantom "Thinking..." and Muted-Mic State Leakage Fix (January 31, 2026)
+
+### Problem
+
+After deploying push-to-talk fixes (buffer clear, response cancel, `create_response: false`, speaking guard), the AI:
+1. **Periodically entered "Thinking..."** on its own — the blue hourglass appeared without the user pressing the button
+2. **Occasionally responded with unrelated content** (e.g., "Salty Dog" when discussing bourbon)
+
+### Root Cause
+
+The `speech_started` and `speech_stopped` VAD event handlers didn't check `_isMuted` when the state was NOT `speaking`. Background noise triggered these events even while the mic was muted, causing false state transitions into `processing`. With `create_response: false`, nothing created a response, so the state got **stuck at "Thinking..." indefinitely**.
+
+**The broken flow:**
+```
+AI finishes speaking
+  → output_audio_buffer.stopped → state = listening
+
+Background noise while mic is MUTED:
+  → speech_started
+    → _state != speaking? YES (state is listening)
+    → Sets _userSpeechStartTime, stays in listening   ← BUG: no _isMuted check
+
+Background noise stops:
+  → speech_stopped
+    → _state == listening? YES
+    → Transitions to PROCESSING                       ← BUG: no _isMuted check
+
+With create_response: false → no response created → STUCK AT "Thinking..."
+```
+
+### Solution: 4 Changes to `voice_ai_service.dart`
+
+#### Change 1: Guard `speech_started` with `_isMuted`
+
+Added `_isMuted` as the **first** guard. When muted, ALL speech detections are background noise in push-to-talk mode.
+
+```dart
+case 'input_audio_buffer.speech_started':
+  // FIRST CHECK: If mic is muted, ALL speech detections are background noise.
+  if (_isMuted) {
+    debugPrint('[VOICE-AI] IGNORED speech_started - mic is MUTED (background noise)');
+    _ignoringBackgroundNoise = true;
+    break;
+  }
+  // Mic is unmuted — user is holding the push-to-talk button
+  if (_state != VoiceAIState.speaking) {
+    _userSpeechStartTime = DateTime.now();
+    _setState(VoiceAIState.listening);
+  } else {
+    debugPrint('[VOICE-AI] User speaking during interrupted AI (push-to-talk active)');
+    _userSpeechStartTime = DateTime.now();
+    _setState(VoiceAIState.listening);
+  }
+  break;
+```
+
+#### Change 2: Guard `speech_stopped` with `_isMuted`
+
+Added `_isMuted` as the **first** guard. This is THE fix that prevents "Thinking..." from appearing on its own.
+
+```dart
+case 'input_audio_buffer.speech_stopped':
+  // FIRST CHECK: If mic is muted, ignore — background noise ending.
+  // Do NOT transition to processing, or the state will get stuck forever.
+  if (_isMuted) {
+    debugPrint('[VOICE-AI] IGNORED speech_stopped - mic is MUTED (background noise ended)');
+    _ignoringBackgroundNoise = false;
+    break;
+  }
+  // Mic is unmuted — only transition if we were actually listening
+  if (_state == VoiceAIState.listening) {
+    // ... accumulate speech time, transition to processing
+  }
+  break;
+```
+
+#### Change 3: Finalize speech time on button release
+
+Added in `setMicrophoneMuted()`. Since `speech_stopped` events are now ignored while muted, we capture user speech duration at mute time:
+
+```dart
+// When MUTING (user released button), finalize speech tracking
+if (muted && _userSpeechStartTime != null) {
+  final speechDuration = DateTime.now().difference(_userSpeechStartTime!).inSeconds;
+  _userSpeakingSeconds += speechDuration;
+  debugPrint('[VOICE-AI] User speech finalized on mute: +${speechDuration}s');
+  _userSpeechStartTime = null;
+}
+```
+
+**Why:** The timing sequence is: user releases button → `_isMuted = true` → `speech_stopped` arrives from Azure (milliseconds later) → **ignored by Change 2**. Without this change, that speech duration would be lost.
+
+#### Change 4: Processing state safety timeout
+
+Added a defensive 15-second `Timer` in `_setState()` that catches any edge case where `processing` gets stuck:
+
+```dart
+void _setState(VoiceAIState newState) {
+  if (newState == VoiceAIState.processing) {
+    _processingTimeout?.cancel();
+    _processingTimeout = Timer(_maxProcessingDuration, () {
+      if (_state == VoiceAIState.processing) {
+        debugPrint('[VOICE-AI] SAFETY TIMEOUT: Processing stuck — falling back to listening');
+        _state = VoiceAIState.listening;
+        _onStateChange?.call(VoiceAIState.listening);
+      }
+    });
+  } else {
+    _processingTimeout?.cancel();
+    _processingTimeout = null;
+  }
+  // ... set state and notify
+}
+```
+
+Timer is also cancelled in `_cleanup()`.
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `mobile/app/lib/src/services/voice_ai_service.dart` | Guard `speech_started` with `_isMuted`, guard `speech_stopped` with `_isMuted`, finalize speech time in `setMicrophoneMuted()`, processing safety timeout in `_setState()` and `_cleanup()` |
+
+**No backend changes needed** — client-only fix.
+
+### Testing Results (January 31, 2026)
+
+- [x] No phantom "Thinking..." after 60+ seconds idle
+- [x] Background noise (TV/music) does not trigger state changes when button not pressed
+- [x] Normal push-to-talk conversation works correctly
+- [x] Interruption (hold button while AI speaking) still works
+- [x] Speech metering accurate — finalized with "User speech finalized on mute" log messages
+- [x] Safety timeout fires after 15 seconds if processing gets stuck (defensive)
+
+### Cumulative Voice AI Noise/State Fixes
+
+| Fix | Date | What It Solved |
+|-----|------|----------------|
+| semantic_vad + far_field | Dec 2025 | Basic background noise filtering |
+| State guards + event names | Jan 7, 2026 | AI stopping mid-sentence from TV noise |
+| Push-to-talk mode | Jan 16, 2026 | User-controlled mic, eliminated false triggers |
+| `create_response: false` | Jan 2026 | VAD doesn't auto-trigger responses |
+| **`_isMuted` guards** | **Jan 31, 2026** | **Phantom "Thinking..." from muted-mic VAD events** |
+| **Processing safety timeout** | **Jan 31, 2026** | **Defensive catch-all for stuck processing state** |
+
+See `docs/BUG_FIXES.md` (BUG-005) for additional context.
+
+---
+
+**Last Updated**: January 31, 2026 (Phantom "Thinking..." fix + processing safety timeout)

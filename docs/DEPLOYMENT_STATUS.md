@@ -2,9 +2,22 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: January 30, 2026
+**Last Updated**: February 4, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
+
+### Recent Updates (February 2026)
+
+- **Model Fallback Update** (Feb 4): Updated all hardcoded model fallback defaults from `gpt-4o-mini` to `gpt-4.1-mini` across 7 backend files (12 occurrences total). The old `gpt-4o-mini` model is being retired March 31, 2026. While production uses the `AZURE_OPENAI_DEPLOYMENT` environment variable correctly, these fallbacks ensure resilience if the env var fails to load. Files updated:
+  - `index.js` (5 locations)
+  - `ask-bartender-simple/index.js`
+  - `ask-bartender-test/index.js`
+  - `refine-cocktail/index.js`
+  - `services/azureOpenAIService.js`
+  - `services/openAIRecommendationService.js`
+  - `voice-bartender/index.js`
+
+  Deployed to `func-mba-fresh` and verified working.
 
 ### Recent Updates (January 2026)
 
@@ -630,4 +643,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: January 31, 2026
+**Last Updated**: February 4, 2026

@@ -107,7 +107,7 @@ module.exports = async function (context, req) {
         // STEP 5: Call Azure OpenAI
         // ========================================
         const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
         const client = new OpenAIClient(
             azureEndpoint,

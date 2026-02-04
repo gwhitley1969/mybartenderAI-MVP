@@ -18,7 +18,7 @@ class OpenAIRecommendationService {
         // For Azure OpenAI: set apiKey to a dummy value, use defaultHeaders instead
         apiKey: process.env.AZURE_OPENAI_ENDPOINT ? 'azure' : process.env.OPENAI_API_KEY,
         baseURL: process.env.AZURE_OPENAI_ENDPOINT
-            ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini'}`
+            ? `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini'}`
             : undefined,
         defaultQuery: process.env.AZURE_OPENAI_ENDPOINT
             ? { 'api-version': '2024-10-21' }

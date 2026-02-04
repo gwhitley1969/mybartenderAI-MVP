@@ -23,7 +23,7 @@ const requestSchema = z.object({
 const getOpenAiClient = () => {
     const apiKey = process.env.OPENAI_API_KEY;
     const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
     return new OpenAI({
         apiKey: apiKey,
@@ -110,7 +110,7 @@ module.exports = async function (context, req) {
     // Call Azure OpenAI
     try {
         const openai = getOpenAiClient();
-        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+        const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
         const completion = await openai.chat.completions.create({
             model: deployment,

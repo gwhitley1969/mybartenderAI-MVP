@@ -4,7 +4,7 @@ class AzureOpenAIService {
     constructor() {
         this.endpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
         this.apiKey = process.env.OPENAI_API_KEY;
-        this.deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+        this.deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
         // Log configuration for debugging (without exposing full API key)
         console.log('AzureOpenAIService initialized:', {

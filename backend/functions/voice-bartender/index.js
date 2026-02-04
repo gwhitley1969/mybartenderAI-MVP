@@ -267,7 +267,7 @@ async function convertSpeechToText(context, audioBuffer, speechKey, speechRegion
 // Process with GPT-4o-mini (text only, NOT voice)
 async function processWithGPT(context, message, conversationContext, openaiKey) {
     const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
     const client = new OpenAIClient(
         azureEndpoint,

@@ -90,7 +90,7 @@ app.http('ask-bartender-simple', {
 
             // Create Azure OpenAI client
             const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
             const client = new OpenAIClient(
                 azureEndpoint,
@@ -805,7 +805,7 @@ Never provide:
         try {
             const apiKey = process.env.OPENAI_API_KEY;
             const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
             const client = new OpenAIClient(
                 azureEndpoint,
@@ -989,7 +989,7 @@ Never provide:
         try {
             const apiKey = process.env.OPENAI_API_KEY;
             const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
             const client = new OpenAIClient(
                 azureEndpoint,
@@ -1193,7 +1193,7 @@ app.http('voice-bartender', {
             // Helper: Process with GPT-4o-mini
             const processWithGPT = async (message) => {
                 const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-                const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+                const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
                 const client = new OpenAIClient(
                     azureEndpoint,
@@ -1630,7 +1630,7 @@ app.http('refine-cocktail', {
 
             // Create Azure OpenAI client
             const azureEndpoint = process.env.AZURE_OPENAI_ENDPOINT || 'https://mybartenderai-scus.openai.azure.com';
-            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o-mini';
+            const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4.1-mini';
 
             const client = new OpenAIClient(
                 azureEndpoint,

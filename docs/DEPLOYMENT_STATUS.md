@@ -2,11 +2,25 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 4, 2026
+**Last Updated**: February 6, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Homescreen AI Button Visual Upgrade** (Feb 6): Increased the visual prominence of the four AI feature buttons (Chat, Voice, Scanner, Create) in the "AI Cocktail Concierge" section. Previously these buttons used the smallest text on the homescreen (12px), despite being the app's primary selling points. Two changes applied:
+  1. **Font size increase**: Title style upgraded from `buttonSmall` (12px) to `cardTitle` (16px), subtitle from `caption` (12px) to `cardSubtitle` (14px) — now matches "My Bar" and "Favorites" typography in The Lounge section
+  2. **Icon scaling**: Icon circles increased from 40px to 48px (`iconCircleAction`), icon size from 16px to 20px (`iconSizeAction`) — new named constants added to `AppSpacing` design system
+  3. **Subtitle brightness fix**: Subtitle text color overridden from `textSecondary` (#E5E7EB) to `textPrimary` (#FFFFFF) via `.copyWith()` — the dark nested background (`backgroundSecondary` inside the Concierge card) made the default gray appear too dim. Visual hierarchy preserved through size (14px vs 16px) and weight (w400 vs w600) differences
+
+  **Files modified:**
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Updated `_buildActionButton()` method — text styles, icon sizes, subtitle color
+  - `mobile/app/lib/src/theme/app_spacing.dart`: Added `iconCircleAction` (48px) and `iconSizeAction` (20px) constants
+
+- **Cocktail Detail Screen Icon Color Update** (Feb 6): Changed the three `SliverAppBar` icons (back arrow, share, favorites) on the cocktail detail screen from white (`textPrimary` #FFFFFF) to purple (`primaryPurple` #7C3AED). White outlined icons were nearly invisible when overlaid on bright cocktail photos. Purple provides high-saturation contrast against both light images and the dark collapsed app bar background. Favorited heart remains red (`accentRed`). Five color references updated across the normal, loading, and error states.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/recipe_vault/cocktail_detail_screen.dart`: Replaced `AppColors.textPrimary` with `AppColors.primaryPurple` on 5 icon color references in SliverAppBar
 
 - **Model Fallback Update** (Feb 4): Updated all hardcoded model fallback defaults from `gpt-4o-mini` to `gpt-4.1-mini` across 7 backend files (12 occurrences total). The old `gpt-4o-mini` model is being retired March 31, 2026. While production uses the `AZURE_OPENAI_DEPLOYMENT` environment variable correctly, these fallbacks ensure resilience if the env var fails to load. Files updated:
   - `index.js` (5 locations)
@@ -643,4 +657,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 4, 2026
+**Last Updated**: February 6, 2026

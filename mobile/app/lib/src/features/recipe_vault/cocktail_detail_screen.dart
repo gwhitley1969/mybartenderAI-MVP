@@ -53,14 +53,14 @@ class CocktailDetailScreen extends ConsumerWidget {
                 pinned: true,
                 backgroundColor: AppColors.backgroundPrimary,
                 leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
+                  icon: Icon(Icons.arrow_back, color: AppColors.primaryPurple),
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
                   // Share button - wrapped in Builder for iOS sharePositionOrigin
                   Builder(
                     builder: (shareContext) => IconButton(
-                      icon: Icon(Icons.share, color: AppColors.textPrimary),
+                      icon: Icon(Icons.share, color: AppColors.primaryPurple),
                       onPressed: () => _shareRecipe(shareContext, cocktail),
                     ),
                   ),
@@ -74,7 +74,7 @@ class CocktailDetailScreen extends ConsumerWidget {
                           return IconButton(
                             icon: Icon(
                               isFavorite ? Icons.favorite : Icons.favorite_border,
-                              color: isFavorite ? AppColors.accentRed : AppColors.textPrimary,
+                              color: isFavorite ? AppColors.accentRed : AppColors.primaryPurple,
                             ),
                             onPressed: () async {
                               final notifier = ref.read(favoritesNotifierProvider.notifier);
@@ -98,11 +98,11 @@ class CocktailDetailScreen extends ConsumerWidget {
                           );
                         },
                         loading: () => IconButton(
-                          icon: Icon(Icons.favorite_border, color: AppColors.textPrimary),
+                          icon: Icon(Icons.favorite_border, color: AppColors.primaryPurple),
                           onPressed: null,
                         ),
                         error: (_, __) => IconButton(
-                          icon: Icon(Icons.favorite_border, color: AppColors.textPrimary),
+                          icon: Icon(Icons.favorite_border, color: AppColors.primaryPurple),
                           onPressed: null,
                         ),
                       );

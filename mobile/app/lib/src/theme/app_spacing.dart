@@ -38,12 +38,14 @@ class AppSpacing {
 
   // Icon Sizes
   static const double iconSizeSmall = 16.0;
+  static const double iconSizeAction = 20.0; // AI action buttons on homescreen
   static const double iconSizeMedium = 24.0;
   static const double iconSizeLarge = 32.0;
   static const double iconSizeXLarge = 48.0;
 
   // Icon Circle Sizes (from mockup)
   static const double iconCircleSmall = 40.0;
+  static const double iconCircleAction = 48.0; // AI action buttons on homescreen
   static const double iconCircleMedium = 56.0;
   static const double iconCircleLarge = 64.0;
 

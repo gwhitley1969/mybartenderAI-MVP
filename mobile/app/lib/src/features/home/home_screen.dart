@@ -342,8 +342,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Column(
           children: [
             Container(
-              width: AppSpacing.iconCircleSmall,
-              height: AppSpacing.iconCircleSmall,
+              width: AppSpacing.iconCircleAction,
+              height: AppSpacing.iconCircleAction,
               decoration: BoxDecoration(
                 color: color,
                 shape: BoxShape.circle,
@@ -351,19 +351,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Icon(
                 icon,
                 color: AppColors.textPrimary,
-                size: AppSpacing.iconSizeSmall,
+                size: AppSpacing.iconSizeAction,
               ),
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
               title,
-              style: AppTypography.buttonSmall,
+              style: AppTypography.cardTitle,
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.xs),
             Text(
               subtitle,
-              style: AppTypography.caption,
+              style: AppTypography.cardSubtitle.copyWith(
+                color: AppColors.textPrimary,
+              ),
               textAlign: TextAlign.center,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

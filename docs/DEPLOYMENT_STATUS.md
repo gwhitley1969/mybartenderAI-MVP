@@ -2,11 +2,34 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 6, 2026
+**Last Updated**: February 7, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Custom Cocktail Photo Thumbnail Fix** (Feb 7): Fixed custom cocktail photos rendering too small on the Create Studio grid card thumbnails. Photos appeared at their intrinsic pixel size in the corner of the card instead of filling the thumbnail area. Root cause: `Image.file()` in the local file path branch of `CachedCocktailImage` lacked explicit `width` and `height` constraints. Added `width: double.infinity, height: double.infinity` so the image expands to fill its parent container, allowing `BoxFit.cover` to properly scale and crop.
+
+  **File modified:**
+  - `lib/src/widgets/cached_cocktail_image.dart`: Added width/height to `Image.file()` for local photos
+
+- **Custom Cocktail Photo Capture** (Feb 7): Added the ability for users to photograph their custom cocktails and display those photos on the cocktail detail card, Create Studio grid, and in share messages. Photos are stored locally on device (no backend upload). Key changes:
+  1. **New service**: `CocktailPhotoService` singleton saves/deletes photos to `{appDocDir}/cocktail_photos/{id}.jpg` using `path_provider`
+  2. **Edit Cocktail Screen**: Photo section added at top of the create/edit form with camera and gallery buttons (via `image_picker`), live preview, and remove (X) button. `_photoRemoved` flag tracks explicit removal so the `imageUrl` field can be set to null on save
+  3. **Cocktail Detail Screen**: Converted from `ConsumerWidget` to `ConsumerStatefulWidget`. Custom cocktails without a photo show a tappable "Tap to add photo" placeholder in the 300px hero area. Custom cocktails with a photo show a "Change" overlay button. After capture, the photo is saved to disk, the cocktail's `imageUrl` is updated in SQLite, and both `cocktailByIdProvider` and `customCocktailsProvider` are invalidated
+  4. **CachedCocktailImage**: Added early-return check — if `imageUrl` starts with `/` or `file://`, uses `Image.file()` directly instead of the network/cache pipeline. This makes the Create Studio grid, detail screen, and any other consumer of this widget automatically display local photos
+  5. **Enhanced sharing**: Custom cocktails with a local photo use `Share.shareXFiles()` to attach the image as a native file through the OS share sheet. Custom cocktails without a photo fall back to text-only sharing. Standard (non-custom) cocktails are unaffected
+  6. **Photo cleanup on delete**: `create_studio_screen.dart` now calls `CocktailPhotoService.deletePhoto()` after deleting a custom cocktail from SQLite
+  7. **No new dependencies**: Reuses existing `image_picker` (^1.1.2), `path_provider` (^2.1.5), and `share_plus` (^7.2.1). Camera settings match Smart Scanner pattern (`maxWidth: 1024, maxHeight: 1024, imageQuality: 85`)
+
+  **Files modified:**
+  - `lib/src/services/cocktail_photo_service.dart` (NEW): Photo file save/delete/check utilities
+  - `lib/src/features/create_studio/edit_cocktail_screen.dart`: Photo picker UI in create/edit form
+  - `lib/src/features/recipe_vault/cocktail_detail_screen.dart`: Tap-to-add-photo hero area + photo sharing
+  - `lib/src/widgets/cached_cocktail_image.dart`: Local file path display support
+  - `lib/src/features/create_studio/create_studio_screen.dart`: Photo cleanup on cocktail delete
+
+  See `docs/CREATE_STUDIO_PHOTO_CAPTURE.md` for full implementation details.
 
 - **Homescreen AI Button Visual Upgrade** (Feb 6): Increased the visual prominence of the four AI feature buttons (Chat, Voice, Scanner, Create) in the "AI Cocktail Concierge" section. Previously these buttons used the smallest text on the homescreen (12px), despite being the app's primary selling points. Two changes applied:
   1. **Font size increase**: Title style upgraded from `buttonSmall` (12px) to `cardTitle` (16px), subtitle from `caption` (12px) to `cardSubtitle` (14px) — now matches "My Bar" and "Favorites" typography in The Lounge section
@@ -650,6 +673,7 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `NOTIFICATION_SYSTEM.md`             | Notification architecture and token refresh    |
 | `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
 | `MY_BAR_SCANNER_INTEGRATION.md`      | Smart Scanner option in My Bar empty state     |
+| `CREATE_STUDIO_PHOTO_CAPTURE.md`     | Custom cocktail photo capture implementation   |
 | `iOS_IMPLEMENTATION.md`              | iOS platform-specific configuration            |
 | `APIM_SECURITY_USER_PROFILE_PLAN.md` | APIM security audit + user profile population  |
 | `CLAUDE.md`                          | Project context and conventions                |
@@ -657,4 +681,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 6, 2026
+**Last Updated**: February 7, 2026

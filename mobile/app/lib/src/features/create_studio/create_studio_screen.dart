@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/models.dart';
 import '../../providers/custom_cocktails_provider.dart';
 import '../../providers/providers.dart';
+import '../../services/cocktail_photo_service.dart';
+import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../recipe_vault/cocktail_detail_screen.dart';
 import 'edit_cocktail_screen.dart';
+import 'widgets/share_recipe_dialog.dart';
 
 class CreateStudioScreen extends ConsumerWidget {
   const CreateStudioScreen({super.key});
@@ -339,10 +342,13 @@ class CreateStudioScreen extends ConsumerWidget {
       MaterialPageRoute(
         builder: (context) => const EditCocktailScreen(),
       ),
-    ).then((_) {
+    ).then((result) {
       // Refresh the list after creating
       ref.invalidate(customCocktailsProvider);
       ref.invalidate(customCocktailsCountProvider);
+      if (result is String && context.mounted) {
+        _maybeShowSharePrompt(context, ref, result);
+      }
     });
   }
 
@@ -400,10 +406,28 @@ class CreateStudioScreen extends ConsumerWidget {
       MaterialPageRoute(
         builder: (context) => EditCocktailScreen(cocktail: cocktail),
       ),
-    ).then((_) {
+    ).then((result) {
       // Refresh the list after editing
       ref.invalidate(customCocktailsProvider);
+      if (result is String && context.mounted) {
+        _maybeShowSharePrompt(context, ref, result);
+      }
     });
+  }
+
+  Future<void> _maybeShowSharePrompt(
+      BuildContext context, WidgetRef ref, String cocktailId) async {
+    final dismissed =
+        await UserSettingsService.instance.isSharePromptDismissed();
+    if (dismissed) return;
+
+    // Fetch the just-saved cocktail by ID
+    final cocktail = await ref.read(cocktailByIdProvider(cocktailId).future);
+    if (cocktail == null) return;
+
+    if (context.mounted) {
+      ShareRecipeDialog.show(context, cocktail: cocktail);
+    }
   }
 
   void _confirmDelete(
@@ -445,6 +469,9 @@ class CreateStudioScreen extends ConsumerWidget {
     try {
       final db = ref.read(databaseServiceProvider);
       await db.deleteCustomCocktail(cocktail.id);
+
+      // Clean up local photo file if it exists
+      await CocktailPhotoService.instance.deletePhoto(cocktail.id);
 
       // Refresh providers
       ref.invalidate(customCocktailsProvider);

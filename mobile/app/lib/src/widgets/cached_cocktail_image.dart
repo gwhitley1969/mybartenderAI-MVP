@@ -25,6 +25,18 @@ class CachedCocktailImage extends StatelessWidget {
       return placeholder ?? _buildPlaceholder(context);
     }
 
+    // Handle local file paths (from custom cocktail photos)
+    if (imageUrl!.startsWith('/') || imageUrl!.startsWith('file://')) {
+      final path = imageUrl!.startsWith('file://') ? imageUrl!.substring(7) : imageUrl!;
+      return Image.file(
+        File(path),
+        width: double.infinity,
+        height: double.infinity,
+        fit: fit,
+        errorBuilder: errorBuilder ?? _defaultErrorBuilder,
+      );
+    }
+
     return FutureBuilder<String>(
       future: ImageCacheService().getLocalPath(imageUrl!),
       builder: (context, snapshot) {

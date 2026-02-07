@@ -1,19 +1,22 @@
-import 'dart:io' show Platform;
+import 'dart:io' show File, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../models/models.dart';
 import '../../providers/cocktail_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
+import '../../providers/providers.dart';
 import '../../providers/settings_provider.dart';
+import '../../services/cocktail_photo_service.dart';
 import '../../services/measurement_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/cached_cocktail_image.dart';
 
-class CocktailDetailScreen extends ConsumerWidget {
+class CocktailDetailScreen extends ConsumerStatefulWidget {
   final String cocktailId;
 
   const CocktailDetailScreen({
@@ -22,8 +25,16 @@ class CocktailDetailScreen extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cocktailAsync = ref.watch(cocktailByIdProvider(cocktailId));
+  ConsumerState<CocktailDetailScreen> createState() =>
+      _CocktailDetailScreenState();
+}
+
+class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
+  final ImagePicker _picker = ImagePicker();
+
+  @override
+  Widget build(BuildContext context) {
+    final cocktailAsync = ref.watch(cocktailByIdProvider(widget.cocktailId));
 
     return cocktailAsync.when(
       data: (cocktail) {
@@ -67,18 +78,24 @@ class CocktailDetailScreen extends ConsumerWidget {
                   // Favorite button
                   Consumer(
                     builder: (context, ref, child) {
-                      final isFavoriteAsync = ref.watch(isFavoriteProvider(cocktailId));
+                      final isFavoriteAsync =
+                          ref.watch(isFavoriteProvider(widget.cocktailId));
 
                       return isFavoriteAsync.when(
                         data: (isFavorite) {
                           return IconButton(
                             icon: Icon(
-                              isFavorite ? Icons.favorite : Icons.favorite_border,
-                              color: isFavorite ? AppColors.accentRed : AppColors.primaryPurple,
+                              isFavorite
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              color: isFavorite
+                                  ? AppColors.accentRed
+                                  : AppColors.primaryPurple,
                             ),
                             onPressed: () async {
-                              final notifier = ref.read(favoritesNotifierProvider.notifier);
-                              await notifier.toggleFavorite(cocktailId);
+                              final notifier =
+                                  ref.read(favoritesNotifierProvider.notifier);
+                              await notifier.toggleFavorite(widget.cocktailId);
 
                               // Show feedback
                               if (context.mounted) {
@@ -98,11 +115,13 @@ class CocktailDetailScreen extends ConsumerWidget {
                           );
                         },
                         loading: () => IconButton(
-                          icon: Icon(Icons.favorite_border, color: AppColors.primaryPurple),
+                          icon: Icon(Icons.favorite_border,
+                              color: AppColors.primaryPurple),
                           onPressed: null,
                         ),
                         error: (_, __) => IconButton(
-                          icon: Icon(Icons.favorite_border, color: AppColors.primaryPurple),
+                          icon: Icon(Icons.favorite_border,
+                              color: AppColors.primaryPurple),
                           onPressed: null,
                         ),
                       );
@@ -110,10 +129,7 @@ class CocktailDetailScreen extends ConsumerWidget {
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
-                  background: CachedCocktailImage(
-                    imageUrl: cocktail.imageUrl,
-                    fit: BoxFit.cover,
-                  ),
+                  background: _buildHeroImage(cocktail),
                 ),
               ),
 
@@ -136,7 +152,8 @@ class CocktailDetailScreen extends ConsumerWidget {
                       // Ingredients section
                       _buildSectionHeader('Ingredients'),
                       SizedBox(height: AppSpacing.md),
-                      _buildIngredientsCard(context, ref, cocktail.ingredients),
+                      _buildIngredientsCard(
+                          context, ref, cocktail.ingredients),
                       SizedBox(height: AppSpacing.xl),
 
                       // Instructions section
@@ -183,6 +200,178 @@ class CocktailDetailScreen extends ConsumerWidget {
       ),
     );
   }
+
+  // ── Hero image with tap-to-add for custom cocktails ─────────
+
+  Widget _buildHeroImage(Cocktail cocktail) {
+    final bool isLocalPhoto = cocktail.imageUrl != null &&
+        (cocktail.imageUrl!.startsWith('/') ||
+            cocktail.imageUrl!.startsWith('file://'));
+    final bool hasImage =
+        cocktail.imageUrl != null && cocktail.imageUrl!.isNotEmpty;
+
+    // For non-custom cocktails, use the standard image widget
+    if (!cocktail.isCustom) {
+      return CachedCocktailImage(
+        imageUrl: cocktail.imageUrl,
+        fit: BoxFit.cover,
+      );
+    }
+
+    // Custom cocktail — show photo or tappable placeholder
+    if (hasImage) {
+      // Has a photo — show it with a small change-photo button
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          if (isLocalPhoto)
+            Image.file(
+              File(cocktail.imageUrl!.startsWith('file://')
+                  ? cocktail.imageUrl!.substring(7)
+                  : cocktail.imageUrl!),
+              fit: BoxFit.cover,
+            )
+          else
+            CachedCocktailImage(
+              imageUrl: cocktail.imageUrl,
+              fit: BoxFit.cover,
+            ),
+          // Change-photo overlay button
+          Positioned(
+            bottom: 12,
+            right: 12,
+            child: GestureDetector(
+              onTap: () => _showPhotoSourcePicker(cocktail),
+              child: Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.camera_alt, color: Colors.white, size: 18),
+                    SizedBox(width: 4),
+                    Text(
+                      'Change',
+                      style: AppTypography.caption.copyWith(color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    // No photo — show tappable placeholder
+    return GestureDetector(
+      onTap: () => _showPhotoSourcePicker(cocktail),
+      child: Container(
+        color: AppColors.cardBackground,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.camera_alt_outlined,
+              size: 56,
+              color: AppColors.primaryPurple.withOpacity(0.5),
+            ),
+            SizedBox(height: AppSpacing.sm),
+            Text(
+              'Tap to add photo',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.primaryPurple.withOpacity(0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPhotoSourcePicker(Cocktail cocktail) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.backgroundSecondary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: AppColors.primaryPurple),
+              title: Text('Take Photo', style: AppTypography.bodyMedium),
+              onTap: () {
+                Navigator.pop(ctx);
+                _capturePhoto(ImageSource.camera, cocktail);
+              },
+            ),
+            ListTile(
+              leading:
+                  Icon(Icons.photo_library, color: AppColors.primaryPurple),
+              title:
+                  Text('Choose from Gallery', style: AppTypography.bodyMedium),
+              onTap: () {
+                Navigator.pop(ctx);
+                _capturePhoto(ImageSource.gallery, cocktail);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _capturePhoto(ImageSource source, Cocktail cocktail) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (image == null) return;
+
+      final bytes = await image.readAsBytes();
+      final photoPath =
+          await CocktailPhotoService.instance.savePhoto(cocktail.id, bytes);
+
+      // Update the cocktail in SQLite with the new photo path
+      final db = ref.read(databaseServiceProvider);
+      final updated = cocktail.copyWith(imageUrl: photoPath);
+      await db.updateCustomCocktail(updated);
+
+      // Invalidate providers to refresh both detail and list views
+      ref.invalidate(cocktailByIdProvider(widget.cocktailId));
+      ref.invalidate(customCocktailsProvider);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Photo saved!'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save photo: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  // ── Existing widgets ────────────────────────────────────────
 
   Widget _buildMetadataRow(Cocktail cocktail) {
     final items = <Widget>[];
@@ -261,7 +450,8 @@ class CocktailDetailScreen extends ConsumerWidget {
       child: Column(
         children: ingredients.map((ingredient) {
           // Parse and format the measurement
-          final formattedMeasure = _formatMeasure(ingredient.measure, measurementUnit);
+          final formattedMeasure =
+              _formatMeasure(ingredient.measure, measurementUnit);
 
           final isInInventoryAsync =
               ref.watch(isInInventoryProvider(ingredient.ingredientName));
@@ -490,14 +680,12 @@ class CocktailDetailScreen extends ConsumerWidget {
     );
   }
 
-  /// Share the cocktail recipe using native OS share sheet
-  Future<void> _shareRecipe(BuildContext context, Cocktail cocktail) async {
-    // Generate share URL - this will be crawled for Open Graph tags
-    // Uses custom domain with /api/cocktail path for proper Front Door routing
-    final shareUrl =
-        'https://share.mybartenderai.com/api/cocktail/${cocktail.id}';
+  // ── Share ────────────────────────────────────────────────────
 
-    // Create description based on available information
+  /// Share the cocktail recipe using native OS share sheet.
+  /// For custom cocktails with a local photo, shares the image as a file.
+  Future<void> _shareRecipe(BuildContext context, Cocktail cocktail) async {
+    // Build share text
     String description = '';
     if (cocktail.instructions != null && cocktail.instructions!.isNotEmpty) {
       description = cocktail.instructions!.length > 100
@@ -510,19 +698,23 @@ class CocktailDetailScreen extends ConsumerWidget {
       description = 'A delicious cocktail you have to try.';
     }
 
-    // Create share text
+    final subject = '${cocktail.name} - My AI Bartender Recipe';
+
+    // For custom cocktails, skip the share URL (they aren't on the server)
+    final shareUrl = cocktail.isCustom
+        ? ''
+        : '\nhttps://share.mybartenderai.com/api/cocktail/${cocktail.id}';
+
     final shareText = '''
-🍹 ${cocktail.name}
+${cocktail.name}
 
 Check out this amazing cocktail recipe I found on My AI Bartender!
 
-$description
+$description$shareUrl
 ''';
 
     try {
       // Calculate share position origin for iOS
-      // Required for iPad and recommended for all iOS devices
-      // Without this, UIActivityViewController may fail to display
       Rect? sharePositionOrigin;
       if (Platform.isIOS) {
         final renderBox = context.findRenderObject() as RenderBox?;
@@ -532,11 +724,40 @@ $description
         }
       }
 
-      final result = await Share.shareWithResult(
-        '$shareText\n$shareUrl',
-        subject: '${cocktail.name} - My AI Bartender Recipe',
-        sharePositionOrigin: sharePositionOrigin,
-      );
+      // Determine if we have a local photo to share as a file
+      final bool hasLocalPhoto = cocktail.isCustom &&
+          cocktail.imageUrl != null &&
+          (cocktail.imageUrl!.startsWith('/') ||
+              cocktail.imageUrl!.startsWith('file://'));
+
+      ShareResult result;
+      if (hasLocalPhoto) {
+        final photoPath = cocktail.imageUrl!.startsWith('file://')
+            ? cocktail.imageUrl!.substring(7)
+            : cocktail.imageUrl!;
+        final file = File(photoPath);
+        if (await file.exists()) {
+          result = await Share.shareXFiles(
+            [XFile(photoPath)],
+            text: shareText.trim(),
+            subject: subject,
+            sharePositionOrigin: sharePositionOrigin,
+          );
+        } else {
+          debugPrint('[SHARE] Local photo file not found: $photoPath');
+          result = await Share.shareWithResult(
+            shareText.trim(),
+            subject: subject,
+            sharePositionOrigin: sharePositionOrigin,
+          );
+        }
+      } else {
+        result = await Share.shareWithResult(
+          shareText.trim(),
+          subject: subject,
+          sharePositionOrigin: sharePositionOrigin,
+        );
+      }
 
       // Show success feedback if shared successfully
       if (result.status == ShareResultStatus.success) {

@@ -17,7 +17,7 @@ You have both the Microsoft Documentation and Azure MCP Servers installed.  Use 
 ### Target Platforms
 
 - **Phase 1**: Android (initial launch)
-- **Phase 2**: iOS (post-Android launch)
+- **Phase 2**: iOS (simultaneous launch with Android)
 
 ## Current Status: Release Candidate
 
@@ -25,11 +25,9 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 ### Business Model
 
-- **Free Tier**: Limited AI interactions (10,000 tokens / 30 days) (2 scans / 30 days), unlimited access to local cocktail database
-- **Premium Tier** ($4.99/month or $39.99/year): Full AI Chat, Scanner (300,000 tokens / 30 days) (15 scans / 30 days) + Voice AI available as $4.99/20 min purchase
-- **Pro** ($7.99/month or $79.99/year): Enhanced AI features (1,000,000 tokens / 30 days) (50 scans / 30 days) (60 voice minutes / 30 days included + $4.99/20 min top-up)
-  
-  
+- **3-Day Free Trial**: Limited AI interactions (100,000 tokens / 3 days) (10 scans / 3 days), (10 voice minutes / 3 days) unlimited access to local cocktail database
+
+- **Pro** $9.99 / month or $$99.99 / year$(1,000,000 tokens / 30 days) (30 scans / 30 days) (30 voice minutes / 30 days included + $4.99 for 20 minutes
 
 ## Tech Stack
 
@@ -52,7 +50,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 - **API Gateway**: Azure API Management (`apim-mba-002`) - Basic V2 tier
 
 - **AI Services**:
-
+  
   - Azure OpenAI Service (GPT-4.1-mini for chat recommendations, GPT-realtime-mini for Voice AI) (Claude Haiku for Smart Scanner)
 
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
@@ -79,6 +77,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 - **Key Vault**: `kv-mybartenderai-prod` (in `rg-mba-dev` resource group)
 
 - **Azure OpenAI**:
+  
   - `mybartenderai-scus` (South Central US) - Chat: `gpt-4.1-mini` deployment
   - `blueb-midjmnz5-eastus2` (East US 2) - Voice AI: `gpt-realtime-mini` deployment
 
@@ -136,6 +135,10 @@ Located in `kv-mybartenderai-prod`:
 
 22. **AZURE-OPENAI-REALTIME-KEY**: API key for Voice AI (East US 2 resource)
 
+23. **REVENUECAT-PUBLIC-API-KEY**
+
+24. **REVENUECAT-WEBHOOK-SECRET**
+
 ## Architecture Highlights
 
 ### 
@@ -145,16 +148,18 @@ Located in `kv-mybartenderai-prod`:
 **AI Model Strategy:**
 
 - **GPT-4.1-mini** (South Central US): Primary model for cocktail chat recommendations
+  
   - Cost-effective replacement for GPT-4o-mini (retired March 2026)
   - Perfect for structured cocktail knowledge and conversational guidance
 
 - **GPT-realtime-mini** (East US 2): Voice AI for real-time audio conversations
+  
   - GA replacement for gpt-4o-mini-realtime-preview (retired Feb 2026)
   - Low-latency audio streaming for voice-guided cocktail making
 
 - **Claude Haiku 4.5**: Smart Scanner for bottle/ingredient recognition
-    
-    
+  
+  
 
 ### Data Flow
 
@@ -166,15 +171,18 @@ Located in `kv-mybartenderai-prod`:
 ### Security & Authentication
 
 - **Authentication**: JWT-only via Entra External ID
+  
   - Mobile app authenticates with Entra External ID
   - APIM validates JWT via `validate-jwt` policy
   - Backend functions receive validated user ID in headers
   - No APIM subscription keys sent from mobile client
 
 - **Storage Access**: Managed Identity
+  
   - Function App (`func-mba-fresh`) uses System-Assigned Managed Identity
 
 - **Key Vault Access**: Managed Identity with RBAC
+  
   - Granted "Key Vault Secrets User" role on `kv-mybartenderai-prod`
   - Key Vault uses RBAC authorization (not access policies)
   - Secrets accessed via `@Microsoft.KeyVault()` references
@@ -200,15 +208,16 @@ Located in `kv-mybartenderai-prod`:
   - Built-in analytics and monitoring
 - **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
 - **Quotas** (enforced by backend):
-  - **Free**: 10,000 tokens / 30 days, 2 scans / 30 days
-  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days (+ $4.99/20 min voice purchase)
+  - **Free**: 10,000 tokens / 30 days, 2 scans / 30 days (needs to be replaced, no longer valid)
+  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days (+ $4.99/20 min voice purchase) (needs to be removed, no longer valid)
   - **Pro**: 1,000,000 tokens / 30 days, 50 scans / 30 days, 60 voice minutes / 30 days (+ $4.99/20 min top-up)
+- 
 
 ### ## Development Environment
 
 ### Required Tools
 
-- **IDE**: VS Code or Cursor (primarily VS Code)
+- **IDE**: VS Code 
 - **Languages**: Dart/Flutter, PowerShell, Azure Bicep
 - **Node.js**: Required for Azure Functions and tooling
 - **Azure CLI**: For infrastructure deployment
@@ -231,7 +240,7 @@ Located in `kv-mybartenderai-prod`:
 ### Azure Functions
 
 - **Language**: JavaScript/Node.js (removed native dependencies like better-sqlite3)
-- **Authentication**: Connection strings with Key Vault for MVP phase
+- **Authentication**: Connection strings with Key Vault for MVP phase (no longer MVP phase, in beta now)
 - **Storage Access**: Managed Identities
 - **Current**: Migrate to DefaultAzureCredential/Managed Identity when upgrading hosting plan
 
@@ -268,6 +277,7 @@ Located in `kv-mybartenderai-prod`:
 ### Completed (January 2026)
 
 **Infrastructure:**
+
 - ✅ Azure infrastructure (South Central US + East US 2 for Voice AI)
 - ✅ PostgreSQL as authoritative source
 - ✅ Key Vault integration with Managed Identity + RBAC
@@ -277,12 +287,14 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Model migration: GPT-4o-mini → GPT-4.1-mini, gpt-4o-mini-realtime-preview → gpt-realtime-mini
 
 **Authentication:**
+
 - ✅ Entra External ID (Email, Google, Facebook)
 - ✅ Age verification (21+) with Custom Authentication Extension
 - ✅ JWT-only authentication flow
 - ✅ Token refresh and secure storage
 
 **Mobile App Features:**
+
 - ✅ AI Bartender Chat (GPT-4.1-mini)
 - ✅ Recipe Vault with offline SQLite database
 - ✅ My Bar inventory management
@@ -295,6 +307,7 @@ Located in `kv-mybartenderai-prod`:
 - ✅ User profile with settings
 
 **Backend:**
+
 - ✅ All API endpoints deployed and operational
 - ✅ Tier-based quota enforcement in PostgreSQL
 
@@ -386,7 +399,7 @@ az role assignment create --assignee <identity-id> --role "Storage Blob Data Con
 az functionapp logs tail --name func-mba-fresh --resource-group rg-mba-prod
 ```
 
-### Flutter
+### Flutter (you MUST always do a clean build)
 
 ```bash
 # Run on Android
@@ -401,9 +414,7 @@ flutter test
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February, 2026
 **Project Phase**: Release Candidate
 **Primary Focus**: Play Store deployment preparation
 **Recent Changes**: Azure OpenAI model migration (GPT-4.1-mini, gpt-realtime-mini)
-
-

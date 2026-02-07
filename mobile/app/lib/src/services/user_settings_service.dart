@@ -12,6 +12,7 @@ class UserSettingsService {
 
   // SharedPreferences keys
   static const String _measurementUnitKey = 'measurement_unit';
+  static const String _sharePromptDismissedKey = 'share_prompt_dismissed';
 
   // Default values
   static const String defaultMeasurementUnit = 'imperial'; // US market default
@@ -57,9 +58,22 @@ class UserSettingsService {
     return newUnit;
   }
 
+  /// Check if the user has dismissed the share recipe prompt.
+  Future<bool> isSharePromptDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_sharePromptDismissedKey) ?? false;
+  }
+
+  /// Permanently dismiss the share recipe prompt.
+  Future<void> dismissSharePrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_sharePromptDismissedKey, true);
+  }
+
   /// Clear all user settings (useful for logout/reset)
   Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_measurementUnitKey);
+    await prefs.remove(_sharePromptDismissedKey);
   }
 }

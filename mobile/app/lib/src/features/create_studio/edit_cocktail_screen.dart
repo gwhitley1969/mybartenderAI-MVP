@@ -1,10 +1,15 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../api/create_studio_api.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/cocktail_photo_service.dart';
 import '../../theme/theme.dart';
 import 'widgets/ingredient_list.dart';
 import 'widgets/refinement_dialog.dart';
@@ -31,6 +36,12 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
 
   bool _isSaving = false;
   bool _isRefining = false;
+
+  // Photo state
+  final ImagePicker _picker = ImagePicker();
+  Uint8List? _imageBytes;
+  String? _existingPhotoPath;
+  bool _photoRemoved = false;
 
   // Common categories
   final List<String> _categories = [
@@ -83,6 +94,12 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       _selectedGlass = widget.cocktail!.glass;
       _selectedAlcoholic = widget.cocktail!.alcoholic;
       _instructionsController.text = widget.cocktail!.instructions ?? '';
+
+      // Load existing local photo path
+      final url = widget.cocktail!.imageUrl;
+      if (url != null && (url.startsWith('/') || url.startsWith('file://'))) {
+        _existingPhotoPath = url.startsWith('file://') ? url.substring(7) : url;
+      }
 
       if (widget.cocktail!.ingredients != null) {
         _ingredients = widget.cocktail!.ingredients!
@@ -155,6 +172,10 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Photo section
+              _buildPhotoSection(),
+              SizedBox(height: AppSpacing.lg),
+
               // Name field
               _buildSectionTitle('Cocktail Name'),
               TextFormField(
@@ -366,6 +387,182 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
     );
   }
 
+  // ── Photo section ──────────────────────────────────────────────
+
+  Widget _buildPhotoSection() {
+    final hasImage = _imageBytes != null || _existingPhotoPath != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSectionTitle('Photo'),
+        GestureDetector(
+          onTap: () => _showPhotoSourcePicker(),
+          child: Container(
+            height: 200,
+            decoration: BoxDecoration(
+              color: AppColors.cardBackground,
+              borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+              border: Border.all(color: AppColors.cardBorder),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (_imageBytes != null)
+                    Image.memory(_imageBytes!, fit: BoxFit.cover)
+                  else if (_existingPhotoPath != null)
+                    Image.file(File(_existingPhotoPath!), fit: BoxFit.cover)
+                  else
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.camera_alt_outlined,
+                          size: 48,
+                          color: AppColors.textSecondary,
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Add Photo',
+                          style: AppTypography.bodyMedium
+                              .copyWith(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  // Remove button overlay
+                  if (hasImage)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: GestureDetector(
+                        onTap: _removePhoto,
+                        child: Container(
+                          padding: EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.close, color: Colors.white, size: 20),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: AppSpacing.sm),
+        // Camera / Gallery buttons
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _pickPhoto(ImageSource.camera),
+                icon: Icon(Icons.camera_alt, size: 18),
+                label: Text('Camera'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: AppColors.cardBorder),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                  ),
+                ),
+              ),
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => _pickPhoto(ImageSource.gallery),
+                icon: Icon(Icons.photo_library, size: 18),
+                label: Text('Gallery'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: AppColors.cardBorder),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showPhotoSourcePicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.backgroundSecondary,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.camera_alt, color: AppColors.primaryPurple),
+              title: Text('Take Photo', style: AppTypography.bodyMedium),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.photo_library, color: AppColors.primaryPurple),
+              title: Text('Choose from Gallery', style: AppTypography.bodyMedium),
+              onTap: () {
+                Navigator.pop(context);
+                _pickPhoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _imageBytes = bytes;
+          _existingPhotoPath = null; // New capture replaces existing
+          _photoRemoved = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to pick image: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  void _removePhoto() {
+    setState(() {
+      _imageBytes = null;
+      _existingPhotoPath = null;
+      _photoRemoved = true;
+    });
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────
+
   Widget _buildSectionTitle(String title) {
     return Padding(
       padding: EdgeInsets.only(bottom: AppSpacing.sm),
@@ -521,6 +718,19 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       final now = DateTime.now();
       final cocktailId = 'custom-${const Uuid().v4()}';
 
+      // Copy photo to new cocktail if one exists
+      String? newImageUrl;
+      if (_imageBytes != null) {
+        newImageUrl = await CocktailPhotoService.instance.savePhoto(cocktailId, _imageBytes!);
+      } else if (_existingPhotoPath != null) {
+        // Copy existing photo file for the new cocktail
+        final existingFile = File(_existingPhotoPath!);
+        if (await existingFile.exists()) {
+          final bytes = await existingFile.readAsBytes();
+          newImageUrl = await CocktailPhotoService.instance.savePhoto(cocktailId, bytes);
+        }
+      }
+
       final cocktail = Cocktail(
         id: cocktailId,
         name: refinedRecipe.name,
@@ -528,7 +738,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         glass: refinedRecipe.glass,
         alcoholic: _selectedAlcoholic ?? 'Alcoholic',
         instructions: refinedRecipe.instructions,
-        imageUrl: null, // New recipe has no image
+        imageUrl: newImageUrl,
         ingredients: refinedRecipe.ingredients
             .asMap()
             .entries
@@ -549,7 +759,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       await db.insertCocktail(cocktail);
 
       if (mounted) {
-        Navigator.pop(context, true); // Return to previous screen
+        Navigator.pop(context, cocktailId); // Return cocktail ID for share prompt
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Refined recipe saved as "${refinedRecipe.name}"!'),
@@ -597,6 +807,14 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       final cocktailId = isEditMode ? widget.cocktail!.id : 'custom-${const Uuid().v4()}';
       final now = DateTime.now();
 
+      // Save photo if a new one was captured
+      String? imageUrl;
+      if (_imageBytes != null) {
+        imageUrl = await CocktailPhotoService.instance.savePhoto(cocktailId, _imageBytes!);
+      } else if (!_photoRemoved) {
+        imageUrl = _existingPhotoPath ?? widget.cocktail?.imageUrl;
+      }
+
       final cocktail = Cocktail(
         id: cocktailId,
         name: _nameController.text.trim(),
@@ -604,7 +822,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         glass: _selectedGlass,
         alcoholic: _selectedAlcoholic ?? 'Alcoholic',
         instructions: _instructionsController.text.trim(),
-        imageUrl: widget.cocktail?.imageUrl,
+        imageUrl: imageUrl,
         ingredients: validIngredients
             .toList()
             .asMap()
@@ -628,7 +846,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       }
 
       if (mounted) {
-        Navigator.pop(context, true); // Return true to indicate success
+        Navigator.pop(context, cocktailId); // Return cocktail ID for share prompt
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isEditMode

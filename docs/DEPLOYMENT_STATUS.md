@@ -2,11 +2,17 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 7, 2026
+**Last Updated**: February 9, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Facebook Identity Provider Removed** (Feb 9): Removed Facebook as a sign-in option from Entra External ID. Facebook OAuth integration had persistent configuration issues: testers encountered redirect URI errors during login, and public users saw "App not active" errors because the Facebook app was still in development mode. Rather than pursue Facebook's App Review process (which requires business verification, privacy policy review, and multi-week approval timelines), Facebook was removed from the identity providers list in the Entra portal. Users can still sign up and sign in via Email + Password or Google. No code changes required — portal-only change. Existing users who originally signed up via Facebook can still access their accounts by using the same email address with the Email + Password flow.
+
+  **Portal change:**
+  - Entra External ID → External Identities → All identity providers → Facebook removed
+  - User flow `mba-signin-signup` → Facebook removed from sign-in options
 
 - **Custom Cocktail Photo Thumbnail Fix** (Feb 7): Fixed custom cocktail photos rendering too small on the Create Studio grid card thumbnails. Photos appeared at their intrinsic pixel size in the corner of the card instead of filling the thumbnail area. Root cause: `Image.file()` in the local file path branch of `CachedCocktailImage` lacked explicit `width` and `height` constraints. Added `width: double.infinity, height: double.infinity` so the image expands to fill its parent container, allowing `BoxFit.cover` to properly scale and crop.
 
@@ -259,7 +265,7 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 | Entra External ID      | Configured | Tenant: `mybartenderai`         |
 | Email + Password       | Working    | Native Entra authentication     |
 | Google Sign-In         | Working    | OAuth 2.0 federation            |
-| Facebook Sign-In       | Working    | OAuth 2.0 federation            |
+| Apple Sign-In          | Working    | OAuth 2.0 federation            |
 | Age Verification (21+) | Working    | Custom Authentication Extension |
 | JWT Validation         | Working    | APIM `validate-jwt` policy      |
 
@@ -537,7 +543,8 @@ PostgreSQL (users.tier updated)
 | Azure Static Web Apps | Legal pages `www.mybartenderai.com` | Active          |
 | TheCocktailDB    | Cocktail database source                | Sync disabled   |
 | Google OAuth     | Social sign-in                          | Configured      |
-| Facebook OAuth   | Social sign-in                          | Configured      |
+| Apple Sign-In    | Social sign-in                          | Configured      |
+| Facebook OAuth   | Social sign-in (removed Feb 2026)       | Removed         |
 | Instagram        | Social sharing                          | Configured      |
 | RevenueCat       | Subscription management                 | Awaiting setup* |
 
@@ -681,4 +688,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 7, 2026
+**Last Updated**: February 9, 2026

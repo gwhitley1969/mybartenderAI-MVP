@@ -15,12 +15,17 @@
    - One-click signup/signin
    - Seamless age verification integration
 
-3. **Facebook Sign-In** ✅ Working
-   - OAuth 2.0 federation with Facebook
-   - One-click signup/signin
+3. **Apple Sign-In** ✅ Working
+   - OAuth 2.0 federation with Apple
+   - One-click signup/signin via Apple ID
    - Seamless age verification integration
 
-4. **Age Verification (21+)** ✅ Working
+4. **Facebook Sign-In** ❌ Removed (February 2026)
+   - Removed due to persistent OAuth configuration issues (redirect URI errors for testers, "App not active" for public users)
+   - Facebook App Review process was not pursued
+   - Existing Facebook users can sign in using the same email via Email + Password
+
+5. **Age Verification (21+)** ✅ Working
    - Custom Authentication Extension
    - OAuth 2.0 secured endpoint
    - Works with all authentication methods
@@ -30,7 +35,7 @@
 
 - ✅ Entra External ID tenant (mybartenderai)
 - ✅ User flows (mba-signin-signup)
-- ✅ Identity providers (Email, Google, Facebook)
+- ✅ Identity providers (Email, Google, Apple)
 - ✅ Custom user attributes (Date of Birth, Age Verified)
 - ✅ Custom Authentication Extension (validate-age)
 - ✅ OAuth 2.0 token validation
@@ -143,11 +148,13 @@ For detailed setup instructions, see:
 - `docs/AGE_VERIFICATION_IMPLEMENTATION.md` - Complete implementation guide
 - `docs/TROUBLESHOOTING.md` - Age verification issues and fixes
 
-## Social Identity Providers (Google & Facebook)
+## Social Identity Providers
 
-### Status: ✅ Configured and Working
+### Status: ✅ Google Working | ✅ Apple Working | ❌ Facebook Removed
 
-Both Google and Facebook are configured as identity providers, allowing users to sign up and sign in with their existing social accounts. Age verification works seamlessly with both providers.
+Google and Apple are configured as social identity providers, allowing users to sign up and sign in with their existing accounts. Age verification works seamlessly with both providers.
+
+**Facebook was removed in February 2026** due to persistent OAuth configuration issues (redirect URI errors for testers, "App not active" errors for public users because the app was in development mode). The Facebook App Review process was not pursued. Configuration details are preserved below for reference.
 
 ### Google Sign-In Configuration
 
@@ -182,9 +189,11 @@ Both Google and Facebook are configured as identity providers, allowing users to
    - User flow: mba-signin-signup
    - Users see "Continue with Google" button
 
-### Facebook Sign-In Configuration
+### Facebook Sign-In Configuration (REMOVED — February 2026)
 
-**Facebook Developer Console Setup:**
+> **Note:** Facebook was removed as an identity provider due to persistent OAuth issues. This section is preserved for historical reference only. The Facebook app and Entra configuration have been deactivated.
+
+**Facebook Developer Console Setup (Historical):**
 
 1. **App**: MyBartenderAI
    - App ID: `1833559960622020`
@@ -214,25 +223,25 @@ Both Google and Facebook are configured as identity providers, allowing users to
    - ✅ email (Required - must be added manually)
    - ✅ public_profile (Default)
 
-**Entra External ID Configuration:**
+**Entra External ID Configuration (Historical):**
 
 1. Navigate to: **External Identities → All identity providers**
-2. Facebook is configured with:
+2. Facebook was configured with:
    - App ID from Facebook Developer Console
    - App Secret from Facebook Developer Console
-   - Status: ✅ Configured
+   - Status: ❌ Removed (February 2026)
 
-3. Facebook is added to user flow:
+3. Facebook was removed from user flow:
    - User flow: mba-signin-signup
-   - Users see "Continue with Facebook" button
+   - "Continue with Facebook" button no longer appears
 
 ### User Experience Flow
 
-**Google/Facebook Sign-Up Process:**
+**Google/Apple Sign-Up Process:**
 
 1. User navigates to MyBartenderAI signup page
-2. Clicks "Continue with Google" or "Continue with Facebook"
-3. Authenticates with their Google/Facebook account
+2. Clicks "Continue with Google" or "Continue with Apple"
+3. Authenticates with their Google or Apple account
 4. Redirected back to Entra signup page
 5. Prompted for **Date of Birth** (required for age verification)
 6. Age verification validates (21+ requirement)
@@ -240,9 +249,9 @@ Both Google and Facebook are configured as identity providers, allowing users to
 8. If under 21: Account creation blocked with appropriate message
 
 **Key Features:**
-- One-click signup/signin for existing Google/Facebook users
+- One-click signup/signin for existing Google and Apple users
 - Age verification seamlessly integrated into social login flow
-- All authentication methods (email, Google, Facebook) require age verification
+- All authentication methods (Email, Google, Apple) require age verification
 - Consistent user experience across all providers
 
 ### Testing Social Login
@@ -254,10 +263,10 @@ Both Google and Facebook are configured as identity providers, allowing users to
 4. Enter birthdate (21+ to test success)
 5. Verify account created in Entra External ID
 
-**Test Facebook Sign-In:**
+**Test Apple Sign-In:**
 1. Navigate to signup page
-2. Click "Continue with Facebook"
-3. Log in to Facebook
+2. Click "Continue with Apple"
+3. Authenticate with Apple ID
 4. Enter birthdate (21+ to test success)
 5. Verify account created in Entra External ID
 
@@ -271,4 +280,4 @@ See `docs/TROUBLESHOOTING.md` for detailed troubleshooting of social login issue
 
 ---
 
-**Last Updated**: January 2026
+**Last Updated**: February 2026

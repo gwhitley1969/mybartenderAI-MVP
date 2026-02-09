@@ -288,7 +288,7 @@ Located in `kv-mybartenderai-prod`:
 
 **Authentication:**
 
-- ✅ Entra External ID (Email, Google, Facebook)
+- ✅ Entra External ID (Email, Google, Apple)
 - ✅ Age verification (21+) with Custom Authentication Extension
 - ✅ JWT-only authentication flow
 - ✅ Token refresh and secure storage

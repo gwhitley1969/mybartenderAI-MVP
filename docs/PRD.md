@@ -944,7 +944,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - Entra External ID (mybartenderai.ciamlogin.com)
 - JWT-only authentication (no APIM subscription keys on client)
 - APIM validate-jwt policy validates signature, expiration, audience
-- Social login (Google, Facebook) + Email/Password
+- Social login (Google, Apple) + Email/Password
 - Age verification (21+) via Custom Authentication Extension
 - OAuth 2.0 + PKCE for mobile security
 
@@ -1120,7 +1120,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 - 🚧 iOS app development
 - 🚧 URL scheme configuration in Info.plist
-- 🚧 Apple Sign-In integration
+- ✅ Apple Sign-In integration
 - 🚧 iOS-specific UI polish
 - 🚧 App Store optimization
 

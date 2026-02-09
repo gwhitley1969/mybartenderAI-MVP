@@ -8,6 +8,19 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Voice Minutes Counter Fix** (Feb 9): Fixed critical client-side bug where the voice minutes counter never decremented from 60 minutes despite active use. Database investigation showed `monthly_used_seconds = 0`, 8/10 sessions stuck at `active` status with NULL `duration_seconds`, and 2/10 completed with `duration_seconds = 0`. Backend was working correctly — the mobile app never called `/v1/voice/usage` to report session duration. Three changes applied:
+  1. **`dispose()` method** added to `VoiceAIScreen`: Ends active session when widget unmounts (e.g., system back gesture, app lifecycle), ensuring `/v1/voice/usage` POST fires even if the PopScope dialog didn't trigger
+  2. **`PopScope` navigation guard**: Wraps the Scaffold to intercept back navigation during active sessions. Shows "End Voice Session?" confirmation dialog; on confirm, awaits `endSession()` before popping. When no session is active, back navigation proceeds normally
+  3. **Wall-clock duration fallback** in `VoiceAIService.endSession()`: If active speech metering reports 0 seconds but the session lasted >10 seconds, falls back to 30% of wall-clock time as a conservative estimate. Catches edge cases where Azure VAD `speech_started` events never fired (push-to-talk timing, short interactions)
+  4. **Quota state nulling** in `VoiceAINotifier.endSession()`: Replaced `state.copyWith()` with direct `VoiceAISessionState()` construction so the stale `quota` field becomes null, forcing the UI to use the freshly-fetched `voiceQuotaProvider` value. `copyWith` uses `??` operator so it cannot null out existing non-null fields
+
+  **Files modified:**
+  - `lib/src/features/voice_ai/voice_ai_screen.dart`: Added `dispose()` + `PopScope` wrapper
+  - `lib/src/services/voice_ai_service.dart`: Added wall-clock fallback for 0-duration sessions
+  - `lib/src/providers/voice_ai_provider.dart`: Direct state construction to null out stale quota
+
+  See `docs/BUG_FIXES.md` (BUG-006) for full technical details.
+
 - **Facebook Identity Provider Removed** (Feb 9): Removed Facebook as a sign-in option from Entra External ID. Facebook OAuth integration had persistent configuration issues: testers encountered redirect URI errors during login, and public users saw "App not active" errors because the Facebook app was still in development mode. Rather than pursue Facebook's App Review process (which requires business verification, privacy policy review, and multi-week approval timelines), Facebook was removed from the identity providers list in the Entra portal. Users can still sign up and sign in via Email + Password or Google. No code changes required — portal-only change. Existing users who originally signed up via Facebook can still access their accounts by using the same email address with the Email + Password flow.
 
   **Portal change:**

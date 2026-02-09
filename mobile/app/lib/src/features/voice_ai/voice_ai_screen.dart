@@ -21,11 +21,51 @@ class VoiceAIScreen extends ConsumerStatefulWidget {
 
 class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   @override
+  void dispose() {
+    // End active session when screen is unmounted (e.g., system back gesture)
+    // This ensures the /v1/voice/usage POST fires even if PopScope didn't trigger
+    final state = ref.read(voiceAINotifierProvider);
+    if (state.isConnected) {
+      ref.read(voiceAINotifierProvider.notifier).endSession();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final voiceState = ref.watch(voiceAINotifierProvider);
     final quotaAsync = ref.watch(voiceQuotaProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: !voiceState.isConnected,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldLeave = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('End Voice Session?'),
+            content: const Text(
+                'Leaving will end your current voice session.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Stay'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Leave'),
+              ),
+            ],
+          ),
+        );
+        if (shouldLeave == true && context.mounted) {
+          await ref.read(voiceAINotifierProvider.notifier).endSession();
+          if (context.mounted) {
+            Navigator.pop(context);
+          }
+        }
+      },
+      child: Scaffold(
       backgroundColor: const Color(0xFF1C1C2E),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1C1C2E),
@@ -124,6 +164,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

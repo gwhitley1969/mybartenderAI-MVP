@@ -4,6 +4,125 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-006: Voice Minutes Counter Not Decrementing (0 Usage Recorded)
+
+**Date Fixed**: February 9, 2026
+**Severity**: High
+**Component**: Voice AI (Mobile Client)
+**Files Modified**: `voice_ai_screen.dart`, `voice_ai_service.dart`, `voice_ai_provider.dart`
+**Backend Changes**: None
+
+### Symptoms
+
+1. **Quota never decreases**: The voice minutes chip always showed "60 min" regardless of usage
+2. **Database confirms zero usage**: `monthly_used_seconds = 0` in `voice_usage` table
+3. **Stale sessions**: 8/10 sessions stuck at `active` status with NULL `duration_seconds`
+4. **Zero-duration completions**: 2/10 sessions marked `completed` but with `duration_seconds = 0`
+
+### Root Cause (Two Bugs)
+
+**Bug 1 (PRIMARY): No cleanup when user navigates away**
+
+`VoiceAIScreen` is a `ConsumerStatefulWidget` but had **no `dispose()` method** and **no `PopScope` navigation guard**. When the user pressed the back arrow (the most natural way to leave), Flutter unmounted the widget silently:
+- `endSession()` was never called
+- The `/v1/voice/usage` POST never fired
+- The WebRTC connection died silently
+- The database session stayed `active` forever with NULL duration
+
+The only path to `endSession()` was the toggle button — but users naturally press back to leave.
+
+**Bug 2 (SECONDARY): Duration reports 0 for edge-case sessions**
+
+Even the 2 sessions where `endSession()` WAS called recorded 0 seconds. Cause: Azure VAD `speech_started` events have ~200-500ms latency. For very short interactions or certain push-to-talk timing patterns, the events may not fire before the session ends, leaving `_userSpeechStartTime` as null and `_userSpeakingSeconds` at 0.
+
+### Fix Applied (4 Changes across 3 Files)
+
+#### Change 1: `dispose()` method (`voice_ai_screen.dart`)
+
+Ends active session when widget is unmounted — the last-resort safety net.
+
+```dart
+@override
+void dispose() {
+  final state = ref.read(voiceAINotifierProvider);
+  if (state.isConnected) {
+    ref.read(voiceAINotifierProvider.notifier).endSession();
+  }
+  super.dispose();
+}
+```
+
+#### Change 2: `PopScope` navigation guard (`voice_ai_screen.dart`)
+
+Intercepts back navigation during active sessions with a confirmation dialog. UX-friendly path that awaits `endSession()` before popping.
+
+```dart
+PopScope(
+  canPop: !voiceState.isConnected,
+  onPopInvokedWithResult: (didPop, result) async {
+    if (didPop) return;
+    final shouldLeave = await showDialog<bool>(...);
+    if (shouldLeave == true && context.mounted) {
+      await ref.read(voiceAINotifierProvider.notifier).endSession();
+      if (context.mounted) Navigator.pop(context);
+    }
+  },
+  child: Scaffold(...),
+)
+```
+
+#### Change 3: Wall-clock duration fallback (`voice_ai_service.dart`)
+
+After computing `_durationSeconds` from speech metering, if the result is 0 but the session lasted >10 seconds, falls back to 30% of wall-clock time.
+
+```dart
+if (_durationSeconds == 0 && connectedTime > 10) {
+  _durationSeconds = (connectedTime * 0.3).round();
+}
+```
+
+The 30% factor is conservative — in typical voice sessions, active speech accounts for 30-50% of wall time.
+
+#### Change 4: Quota state nulling (`voice_ai_provider.dart`)
+
+Replaced `state.copyWith()` with direct `VoiceAISessionState()` construction so the stale `quota` field becomes null. This forces the UI to fall through to the freshly-fetched `voiceQuotaProvider` value.
+
+```dart
+// copyWith uses ?? so it can't null out existing non-null fields
+state = VoiceAISessionState(
+  voiceState: VoiceAIState.idle,
+  transcripts: state.transcripts,
+);
+```
+
+### Verification Tests
+
+| Test | Expected Result |
+|------|----------------|
+| Back-arrow exit during session | Confirmation dialog appears; on "Leave", session ends and usage is recorded |
+| Stop-button exit | Session ends, quota chip refreshes (e.g., 60 → 59 min after ~1 min) |
+| Short session (<10s) | Duration recorded as 0 (below fallback threshold, acceptable) |
+| Medium session (>10s, no speech events) | Fallback: 30% of wall-clock time recorded |
+| Normal session with speech | Active metering reports actual user + AI speech time |
+| DB verification | `SELECT duration_seconds, status FROM voice_sessions ORDER BY started_at DESC LIMIT 3;` shows `completed` with non-zero duration |
+| Quota verification | `SELECT * FROM check_voice_quota('<user_id>');` shows `monthly_used_seconds > 0` |
+
+### Design Note: Defense in Depth
+
+`PopScope` and `dispose()` serve complementary purposes:
+- **PopScope**: UX-friendly confirmation dialog, awaits `endSession()` properly
+- **dispose()**: Last-resort safety net that fires regardless of how the screen exits (system back, app lifecycle, etc.)
+
+Together they cover every navigation path out of the Voice AI screen.
+
+### Related Previous Fixes
+
+- **BUG-005** (Jan 31, 2026): Phantom "Thinking..." from muted-mic VAD events
+- **BUG-003** (Jan 7, 2026): Background noise state machine corruption
+- Push-to-talk implementation (Jan 16, 2026): Added `create_response: false`
+
+---
+
 ## BUG-005: Voice AI Phantom "Thinking..." and Muted-Mic State Leakage
 
 **Date Fixed**: January 31, 2026
@@ -139,4 +258,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: January 31, 2026
+**Last Updated**: February 9, 2026

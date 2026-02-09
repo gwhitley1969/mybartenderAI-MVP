@@ -820,6 +820,15 @@ class VoiceAIService {
     final connectedTime = DateTime.now().difference(_sessionStartTime!).inSeconds;
     debugPrint('[VOICE-AI] Active speech metering: user=${_userSpeakingSeconds}s + AI=${_aiSpeakingSeconds}s = ${_durationSeconds}s (connected: ${connectedTime}s)');
 
+    // Safety: If active speech metering shows 0 but session was substantial,
+    // fall back to a fraction of wall-clock time as a conservative estimate.
+    // This catches edge cases where VAD speech_started events never fired
+    // (e.g., very short interactions, Azure latency, push-to-talk timing).
+    if (_durationSeconds == 0 && connectedTime > 10) {
+      _durationSeconds = (connectedTime * 0.3).round();
+      debugPrint('[VOICE-AI] WARNING: Speech metering 0 for ${connectedTime}s session, fallback: ${_durationSeconds}s');
+    }
+
     try {
       // Record usage on backend
       debugPrint('VoiceAIService: Recording voice usage...');

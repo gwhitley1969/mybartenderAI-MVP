@@ -95,10 +95,12 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
     // Refresh quota after session ends
     _ref.invalidate(voiceQuotaProvider);
 
-    state = state.copyWith(
+    // Direct construction (not copyWith) so quota becomes null,
+    // forcing UI to use freshly-fetched voiceQuotaProvider value.
+    // copyWith uses ?? so it can't null out the existing quota field.
+    state = VoiceAISessionState(
       voiceState: VoiceAIState.idle,
-      sessionInfo: null,
-      // Keep transcripts for review if needed
+      transcripts: state.transcripts,
     );
   }
 

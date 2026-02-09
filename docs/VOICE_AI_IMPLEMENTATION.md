@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated January 31, 2026 - phantom "Thinking..." fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 9, 2026 - voice minutes counter fix)
 
 ## Overview
 
@@ -455,7 +455,7 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - [x] Push-to-talk: Phantom "Thinking..." from muted-mic VAD events fixed ✅ January 31, 2026
 - [x] "How to use" instructions updated for push-to-talk ✅ January 16, 2026
 - [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
-- [ ] "Minutes remaining" updates after each session
+- [x] "Minutes remaining" updates after each session ✅ February 9, 2026 (dispose + PopScope + quota nulling fix)
 - [ ] 80% warning toast appears at 6 minutes remaining
 - [ ] Quota exhaustion shows purchase option (after AI finishes response)
 - [ ] Conversation history saved to database
@@ -480,8 +480,9 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - Session automatically records usage when ended
 
 ### Known Limitations
-- Quota tracking not fully verified
 - Add-on purchase flow not implemented
+- 80% warning toast not yet implemented
+- Quota exhaustion purchase prompt not yet tested end-to-end
 
 ### iOS Testing (January 2026)
 - ✅ Microphone permission works (requires Podfile GCC_PREPROCESSOR_DEFINITIONS)

@@ -8,6 +8,33 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **APIM JWT Security Complete + Mobile Auth Fix** (Feb 11): Completed the APIM security audit Phase 2 by deploying `validate-jwt` policies to all 13 previously-unprotected operations, AND fixed a critical mobile app bug where 4 API providers were sending requests without JWT tokens. All 30 APIM operations now have appropriate security: 13 newly protected + 12 previously protected + 5 intentionally public.
+
+  **Mobile App Fix (Root Cause):**
+  After deploying Batch 1+2 JWT policies, chat broke because the mobile app's `askBartenderApiProvider` used a bare `dioProvider` from `bootstrap.dart` that had no auth interceptor. Before `validate-jwt` was deployed, APIM passed tokenless requests through. Now APIM correctly rejects them with 401. The audit found 3 additional providers with the same pattern.
+
+  Four providers fixed — all now use `backendServiceProvider.dio` (which has the JWT interceptor):
+  1. `askBartenderApiProvider` in `ask_bartender_api.dart` (Chat — `/v1/ask-bartender-simple`)
+  2. `recommendApiProvider` in `recommend_api.dart` (Recommendations — `/v1/recommend`)
+  3. `createStudioApiProvider` in `create_studio_api.dart` (Create Studio — `/v1/create-studio/refine`)
+  4. `visionApiProvider` in `vision_provider.dart` (Smart Scanner — `/v1/vision-analyze`)
+
+  **APIM Batch Deployment:**
+  - Batch 1 (subscription-config, subscription-status): Previously deployed
+  - Batch 2 (ask-bartender, ask-bartender-simple, recommend, refine-cocktail): Previously deployed
+  - Batch 3 (vision-analyze, speech-token, voice-bartender): Deployed Feb 11
+  - Batch 4 (social-connect-start, social-share-external, auth-exchange, auth-rotate): Deployed Feb 11
+
+  **Files modified:**
+  - `mobile/app/lib/src/api/ask_bartender_api.dart`: Switched from bare `dioProvider` to `backendServiceProvider.dio`
+  - `mobile/app/lib/src/api/recommend_api.dart`: Same fix
+  - `mobile/app/lib/src/api/create_studio_api.dart`: Same fix
+  - `mobile/app/lib/src/providers/vision_provider.dart`: Same fix
+
+  **Cleanup:** 9 temporary diagnostic scripts removed from `infrastructure/apim/scripts/`.
+
+  See `docs/BUG_FIXES.md` (BUG-008) and `docs/APIM_SECURITY_USER_PROFILE_PLAN.md` for full details.
+
 - **Server-Side Authoritative Voice Metering** (Feb 11): Hardened voice billing to prevent quota abuse. Previously, the backend trusted the client-reported `durationSeconds` without validation (CWE-602). A modified client could report 0 duration for unlimited free voice minutes, or never call `/v1/voice/usage` to leave sessions active with 0 billed. Now all duration computation happens in PostgreSQL using server-controlled timestamps (`NOW() - started_at`). Five changes applied:
   1. **SQL migration `010_voice_metering_server_auth.sql`**: New server-authoritative `record_voice_session()` that computes wall-clock time as a tamper-proof ceiling, caps client duration, and returns billing transparency. New `expire_stale_voice_sessions()` and `close_user_stale_sessions()` functions. Added `'expired'` status. Updated `check_voice_quota()` and `voice_usage_summary` to count expired sessions
   2. **Concurrent session enforcement**: Before creating a new voice session, stale sessions (>2h) are auto-expired and any remaining active session returns **409 Conflict** — prevents quota leakage from parallel sessions
@@ -517,14 +544,14 @@ Mobile App
 Entra External ID (mybartenderai.ciamlogin.com)
     ↓ (JWT token)
 APIM (apim-mba-002.azure-api.net)
-    ↓ (validate-jwt policy on 17/30 operations, extract claims)
+    ↓ (validate-jwt policy on all 30 protected operations, extract claims)
 Azure Function (func-mba-fresh)
     ↓ Primary: X-User-Id header (from APIM validate-jwt + set-header)
     ↓ Fallback: JWT decode from Authorization header (jwtDecode.js)
 PostgreSQL (tier lookup + email/display_name storage)
 ```
 
-**Note**: 13 APIM operations currently lack `validate-jwt` policies (Phase 2 of APIM security plan). The JWT decode fallback in `jwtDecode.js` ensures user profile sync works regardless. See `APIM_SECURITY_USER_PROFILE_PLAN.md`.
+**Note**: All APIM operations now have appropriate security — 13 protected operations received `validate-jwt` policies on Feb 11, 2026 (completing Phase 2 of the APIM security plan). 5 operations remain intentionally public (health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback). See `APIM_SECURITY_USER_PROFILE_PLAN.md`.
 
 ### Voice AI Flow (Pro Tier)
 

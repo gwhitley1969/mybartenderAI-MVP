@@ -15,14 +15,14 @@
 - Mobile → APIM → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
 - Azure Front Door (`fd-mba-share`) for external sharing with custom domain `share.mybartenderai.com`
 
-## Current Operational Status (January 2026)
+## Current Operational Status (February 2026)
 
 ### Working Features
 - ✅ Recipe Vault (database download and sync via APIM)
 - ✅ My Bar (inventory management)
 - ✅ Favorites/bookmarks
 - ✅ User authentication (Entra External ID with JWT)
-- ✅ JWT-only authentication (APIM validates JWT, no subscription keys on client)
+- ✅ JWT-only authentication (APIM validates JWT on all 13 protected operations, no subscription keys on client)
 - ✅ AI Bartender Chat (all tiers, including Free with limited quota)
 - ✅ Smart Scanner (Claude Haiku for bottle detection - Premium/Pro)
 - ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 60 min/month + top-ups)
@@ -56,7 +56,9 @@
 - ✅ **Comprehensive Testing**: PowerShell test scripts created and validated
 
 **Security Improvements:**
-- ✅ **JWT-Only Authentication**: Mobile sends JWT, APIM validates via policy
+- ✅ **JWT-Only Authentication**: Mobile sends JWT, APIM validates via policy on all protected operations
+- ✅ **APIM JWT Coverage Complete**: All 13 previously-unprotected operations now have `validate-jwt` policies (Feb 11, 2026)
+- ✅ **Mobile Auth Fix**: All 4 API providers (`askBartenderApi`, `recommendApi`, `createStudioApi`, `visionApi`) now use authenticated Dio with JWT interceptor
 - ✅ **No Hardcoded Keys**: No API keys stored in source or APK
 - ✅ **Server-Side Tier Validation**: Backend checks user tier in PostgreSQL
 - ✅ **Rate Limiting**: Azure Table Storage based per-user limits
@@ -330,9 +332,9 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Authentication**: JWT validation via APIM policy (subscriptionRequired: false)
 - Rate limiting based on user tier (checked in backend)
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
-- **Public Endpoints**: health, snapshots-latest, cocktail-preview (no JWT required)
-- **AI Endpoints**: ask-bartender, ask-bartender-simple, recommend (JWT required)
-- **Voice Endpoints**: voice-session, voice-complete (JWT required, Pro tier only)
+- **Public Endpoints** (5): health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback (no JWT required)
+- **Protected Endpoints** (13): All AI, subscription, scanner, voice, social, and auth endpoints (JWT required via `validate-jwt` policy)
+- **Previously Protected** (17): Voice session/quota/purchase/usage, users-me, social internal/inbox/outbox/invite, validate-age (JWT via earlier Portal deployment)
 
 ## Monitoring & Alerting
 
@@ -797,7 +799,7 @@ flutter build apk --release
 ---
 
 **Last Updated**: February 11, 2026
-**Architecture Version**: 3.5 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform)
+**Architecture Version**: 3.6 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
-**Security Level**: Production-ready with Managed Identity
+**Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

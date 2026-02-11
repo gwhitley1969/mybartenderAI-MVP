@@ -4,6 +4,91 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-008: Mobile API Providers Using Unauthenticated Dio (No JWT Token)
+
+**Date Fixed**: February 11, 2026
+**Severity**: High (Security / Functionality)
+**Component**: Mobile App (API Layer)
+**Files Modified**: `ask_bartender_api.dart`, `recommend_api.dart`, `create_studio_api.dart`, `vision_provider.dart`
+**Backend Changes**: None (APIM policies were correct — the problem was client-side)
+
+### Symptoms
+
+1. **Chat broken**: AI Bartender chat returned "Sorry, I encountered an error" after APIM `validate-jwt` policies were deployed
+2. **Subscription silently failed**: App defaulted to free tier because subscription-config returned 401
+3. **All Batch 1+2 endpoints broken**: Every endpoint that received a new `validate-jwt` policy stopped working from the mobile app
+
+### Root Cause
+
+The mobile app had **two separate Dio instances** — one authenticated, one not — and 4 API providers were wired to the wrong one:
+
+| Code Path | Dio Instance | Auth Token | Used By |
+|-----------|-------------|------------|---------|
+| `backendServiceProvider` → `BackendService` | Own Dio with `getIdToken` interceptor | ID token (correct) | `chatProvider`, subscription, recommendations |
+| `dioProvider` from `bootstrap.dart` | Bare Dio, NO auth interceptor | **NONE** | `askBartenderApiProvider`, `recommendApiProvider`, `createStudioApiProvider`, `visionApiProvider` |
+
+Before `validate-jwt` was deployed to APIM, tokenless requests passed through because APIM had no policy to reject them. The bug was latent — deploying APIM security correctly exposed it.
+
+Voice worked because `voice_ai_service.dart` manages its own Dio instance with `getValidIdToken()`, completely independent of both code paths.
+
+### Fix Applied (4 Files)
+
+All 4 providers changed from using the bare `dioProvider` to using `backendServiceProvider.dio`, which has the JWT interceptor that calls `getValidIdToken()` on every request.
+
+#### File 1: `ask_bartender_api.dart` (Chat)
+
+```dart
+// BEFORE — bare Dio, no auth:
+final askBartenderApiProvider = Provider<AskBartenderApi>((ref) {
+  final dio = ref.watch(dioProvider);  // from bootstrap.dart
+  return AskBartenderApi(dio);
+});
+
+// AFTER — authenticated Dio:
+final askBartenderApiProvider = Provider<AskBartenderApi>((ref) {
+  final backendService = ref.watch(backendServiceProvider);
+  return AskBartenderApi(backendService.dio);
+});
+```
+
+Import changed from `bootstrap.dart` to `backend_provider.dart`.
+
+#### File 2: `recommend_api.dart` (Recommendations)
+
+Same pattern — `dioProvider` → `backendServiceProvider.dio`.
+
+#### File 3: `create_studio_api.dart` (Create Studio AI Refinement)
+
+Same pattern — `dioProvider` → `backendServiceProvider.dio`.
+
+#### File 4: `vision_provider.dart` (Smart Scanner)
+
+This one was slightly different — it used `createBaseDio()` directly instead of `dioProvider`, but the effect was the same (no auth interceptor). Changed to `backendServiceProvider.dio`.
+
+### Why `backendServiceProvider.dio` Works
+
+`BackendService` (in `backend_service.dart`) creates its own Dio instance with an interceptor that:
+1. Calls `getValidIdToken()` from `authServiceProvider` on every request
+2. Adds `Authorization: Bearer <token>` header
+3. Skips auth for public endpoints (`/v1/snapshots/latest`, `/health`)
+4. Has a 10-second timeout to prevent hanging on token retrieval
+
+The Dio instance is exposed via `Dio get dio => _dio;` (line 19), allowing other providers to share the authenticated instance.
+
+### Verification
+
+1. Chat works: Send message → AI responds (not error)
+2. Recommendations work: Cocktail suggestions load
+3. Create Studio AI refinement works
+4. Smart Scanner works (after Batch 3 deployment)
+5. No-token curl test returns 401: `curl -X POST https://apim-mba-002.azure-api.net/api/v1/ask-bartender-simple -H "Content-Type: application/json" -d '{"message":"test"}'`
+
+### Design Lesson
+
+This bug illustrates the "two instances" anti-pattern in dependency injection. Having two Dio providers (`dioProvider` for base config, `backendServiceProvider` for auth) created a trap where new API providers could be wired to the wrong one. The bare `dioProvider` should arguably be removed or marked as internal-only, since all APIM-routed endpoints now require JWT authentication.
+
+---
+
 ## BUG-007: Server-Side Authoritative Voice Metering (Trust Boundary Violation)
 
 **Date Fixed**: February 11, 2026

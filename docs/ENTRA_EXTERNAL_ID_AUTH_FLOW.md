@@ -12,20 +12,20 @@ This document describes the complete authentication flow for MyBartenderAI using
 - **Tenant ID**: a82813af-1054-4e2d-a8ec-c6b9c2908c91
 - **Client ID**: f9f7f159-b847-4211-98c9-18e5b8193045
 - **User Flow**: mba-signin-signup
-- **Supported Providers**: Email, Google, Facebook
+- **Supported Providers**: Email, Google, Apple (Facebook removed Feb 2026)
 
 ### 2. Azure API Management (APIM)
 
-- **Instance**: apim-mba-001
-- **Gateway URL**: https://apim-mba-001.azure-api.net
-- **Tier**: Developer (production will use Consumption tier)
-- **Purpose**: Secure gateway, rate limiting, API key management, JWT validation
+- **Instance**: apim-mba-002
+- **Gateway URL**: https://apim-mba-002.azure-api.net
+- **Tier**: Basic V2 (~$150/month)
+- **Purpose**: Secure gateway, rate limiting, JWT validation (all protected operations have `validate-jwt` policies as of Feb 11, 2026)
 
 ### 3. Azure Functions Backend
 
-- **Function App**: func-mba-fresh (Premium EP1 plan)
-- **Runtime**: Node.js v22 LTS
-- **Key Endpoints**: ask-bartender-simple, recommend, snapshots-latest
+- **Function App**: func-mba-fresh (Premium Consumption plan)
+- **Runtime**: Node.js v22 LTS (Azure Functions v4)
+- **Key Endpoints**: ask-bartender-simple, recommend, snapshots-latest, voice-session, vision-analyze
 
 ## Authentication Flow
 
@@ -41,13 +41,13 @@ sequenceDiagram
     MobileApp->>EntraID: Sign In Request
     Note over MobileApp,EntraID: Scopes: [clientId, openid, profile, email]
     EntraID->>User: Show Login UI
-    User->>EntraID: Authenticate (Email/Google/Facebook)
+    User->>EntraID: Authenticate (Email/Google/Apple)
     EntraID->>MobileApp: Return Tokens (Access + ID)
     Note over MobileApp: Access Token has aud=clientId
 
     User->>MobileApp: Ask AI Bartender Question
     MobileApp->>APIM: POST /api/v1/ask-bartender-simple
-    Note over MobileApp,APIM: Headers: Authorization: Bearer {token}<br/>Ocp-Apim-Subscription-Key: {key}
+    Note over MobileApp,APIM: Headers: Authorization: Bearer {token}<br/>(JWT-only, no subscription keys)
 
     APIM->>APIM: Validate JWT
     Note over APIM: Check audience = clientId<br/>Check issuer = Entra tenant<br/>Check expiration
@@ -399,30 +399,26 @@ $response = Invoke-RestMethod -Uri 'https://apim-mba-001.azure-api.net/api/v1/as
 
 ✅ **Completed**:
 
-- Entra External ID tenant configured
-- APIM JWT validation policy implemented
-- Mobile app using correct token scopes
-- Function key securely stored in APIM
-- Authentication flow fully functional
-- Backend functions populate user email and display_name from APIM-forwarded JWT claims (January 2026)
+- Entra External ID tenant configured (Email, Google, Apple providers)
+- APIM JWT validation policy deployed to **all protected operations** (13 newly deployed Feb 11, 2026 + 12 previously deployed)
+- Mobile app using correct token scopes (ID token with audience = client app ID `f9f7f159`)
+- All mobile API providers use authenticated Dio with JWT interceptor (fixed Feb 11, 2026 — see BUG_FIXES.md BUG-008)
+- Function key securely stored in APIM (API-level header)
+- Authentication flow fully functional on Android and iOS
+- Backend functions populate user email and display_name from APIM-forwarded JWT claims
+- 5 public endpoints intentionally left without JWT (health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback)
 
-## APK Build Location
+## Security Best Practices
 
-Latest APK with Entra External ID authentication:
-
-```
-C:\backup dev02\mybartenderAI-MVP\MyBartenderAI-TodaysSpecial-nov10.apk
-```
-
-## Next Steps
-
-1. Test APK on Android device
-2. Verify sign-in with Email/Google/Facebook
-3. Confirm AI Bartender chat works with authentication
-4. Monitor APIM analytics for usage patterns
-5. Plan migration to APIM Consumption tier for production
+1. **No Function Keys in Mobile Apps**: Function keys stored in APIM named values only
+2. **JWT Validation at Gateway**: APIM validates all tokens on protected operations before forwarding
+3. **Managed Identity**: Function App uses MI for Key Vault access
+4. **Minimal PII Collection**: Only essential user information stored
+5. **Token Refresh**: Mobile app handles token refresh automatically
+6. **Single Authenticated Dio**: All API providers share `backendServiceProvider.dio` for consistent auth
 
 ---
 
-*Last Updated: January 29, 2026*
+*Last Updated: February 11, 2026*
 *Authentication Method: Entra External ID (NOT Azure AD B2C)*
+*APIM JWT Coverage: Complete (all protected operations validated)*

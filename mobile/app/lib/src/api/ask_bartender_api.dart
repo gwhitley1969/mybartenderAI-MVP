@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/bootstrap.dart';
+import '../providers/backend_provider.dart';
 
 class AskBartenderRequest {
   const AskBartenderRequest({
@@ -153,6 +153,6 @@ class AskBartenderApi {
 }
 
 final askBartenderApiProvider = Provider<AskBartenderApi>((ref) {
-  final dio = ref.watch(dioProvider);
-  return AskBartenderApi(dio);
+  final backendService = ref.watch(backendServiceProvider);
+  return AskBartenderApi(backendService.dio);
 });

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../app/bootstrap.dart';
+import '../providers/backend_provider.dart';
 
 // Request models
 class CocktailDraft {
@@ -182,6 +182,6 @@ class CreateStudioApi {
 
 // Provider
 final createStudioApiProvider = Provider<CreateStudioApi>((ref) {
-  final dio = ref.watch(dioProvider);
-  return CreateStudioApi(dio);
+  final backendService = ref.watch(backendServiceProvider);
+  return CreateStudioApi(backendService.dio);
 });

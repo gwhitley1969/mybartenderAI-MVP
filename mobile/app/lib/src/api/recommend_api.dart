@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:meta/meta.dart';
 
-import '../app/bootstrap.dart';
+import '../providers/backend_provider.dart';
 import '../generated/models.dart';
 
 class RecommendResponse {
@@ -68,6 +68,6 @@ class RecommendApi {
 }
 
 final recommendApiProvider = Provider<RecommendApi>((ref) {
-  final dio = ref.watch(dioProvider);
-  return RecommendApi(dio);
+  final backendService = ref.watch(backendServiceProvider);
+  return RecommendApi(backendService.dio);
 });

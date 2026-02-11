@@ -33,11 +33,9 @@
                 <issuer>https://a82813af-1054-4e2d-a8ec-c6b9c2908c91.ciamlogin.com/a82813af-1054-4e2d-a8ec-c6b9c2908c91/v2.0</issuer>
             </issuers>
 
-            <!-- Required claims -->
+            <!-- Required claims (sub must exist; aud already validated by <audiences>) -->
             <required-claims>
-                <claim name="aud" match="any">
-                    <value>f9f7f159-b847-4211-98c9-18e5b8193045</value>
-                </claim>
+                <claim name="sub" match="any" />
             </required-claims>
         </validate-jwt>
 

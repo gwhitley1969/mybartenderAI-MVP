@@ -47,7 +47,7 @@ All backend functions are deployed and fully operational. Authentication flow:
 
 1. Mobile app authenticates with Entra External ID
 2. JWT token included in API requests (`Authorization: Bearer <token>`)
-3. APIM validates JWT via `validate-jwt` policy
+3. APIM validates JWT via `validate-jwt` policy on **all protected operations** (30 total: 13 newly protected Feb 11, 2026 + 12 previously protected + 5 intentionally public)
 4. APIM extracts JWT claims and forwards as headers:
    - `X-User-Id` (from `sub` claim) — user identifier
    - `X-User-Email` (from `email` / `preferred_username` claim) — user email
@@ -61,7 +61,11 @@ See `ENTRA_EXTERNAL_ID_AUTH_FLOW.md` for full APIM policy details and backend co
 
 - **Gateway URL**: `https://apim-mba-002.azure-api.net`
 - **Authentication**: JWT-only (no subscription keys on client)
-- **JWT Validation**: APIM policy validates signature, expiration, audience
+- **JWT Validation**: APIM `validate-jwt` policy on all protected operations (audience: `f9f7f159-b847-4211-98c9-18e5b8193045`)
+
+### Mobile App Auth Integration
+
+All mobile API providers use authenticated Dio from `BackendService` (via `backendServiceProvider`), which adds `Authorization: Bearer <ID token>` to every request. Fixed Feb 11, 2026 — previously 4 providers used a bare Dio with no auth interceptor. See `BUG_FIXES.md` (BUG-008).
 
 ## Age Verification (21+ Requirement)
 

@@ -11,7 +11,7 @@
 
 | # | Finding | Severity | Impact |
 |---|---------|----------|--------|
-| 1 | **13 of 30 APIM operations have NO JWT validation** | HIGH | Any valid function key grants access -- no user identity check at the API gateway |
+| 1 | **13 of 30 APIM operations had NO JWT validation** ✅ FIXED | HIGH | All 13 now have `validate-jwt` policies (deployed Feb 11, 2026) |
 | 2 | **Email/display_name not populating** | MEDIUM | Fire-and-forget code deployed but APIM doesn't forward `X-User-Email`/`X-User-Name` headers |
 | 3 | **Two different audience/client IDs in live APIM policies** | HIGH | `f9f7f159` (voice endpoints) vs `04551003` (users-me/social) -- needs investigation |
 
@@ -400,18 +400,25 @@ Phase 1 (DONE ✅)   -> Backend JWT decode helper + update fire-and-forget block
                        Deployed 2026-01-30 17:11 UTC. Health check passed.
                        Files: jwtDecode.js (created) + index.js (modified 4 handlers)
 
-Phase 2a (NEXT)     -> Investigate audience ID (capture real JWT, decode it)
-                       Risk: ZERO (read-only investigation)
+Phase 2a (DONE ✅)  -> Investigated audience ID. Confirmed: aud = f9f7f159 (mobile client ID)
+                       The 04551003 audience on users-me/social was a different app registration
+                       Used f9f7f159 for all new policies
 
-Phase 2b (AFTER 2a) -> Fix deployment script (apim-mba-001 -> apim-mba-002), DryRun
-                       Risk: ZERO (DryRun mode)
+Phase 2b (DONE ✅)  -> Fixed deployment script (apim-mba-001 -> apim-mba-002), DryRun verified
+                       Script: apply-jwt-policies02.ps1 with batch support
 
-Phase 2c (CAREFUL)  -> Deploy JWT validation in staged batches
-                       Risk: MEDIUM -- test after each batch
-                       Timing: After audience confirmed, ideally after Apple approves
+Phase 2c (DONE ✅)  -> Deployed JWT validation in 4 staged batches (Feb 11, 2026)
+                       Batch 1: subscription-config, subscription-status
+                       Batch 2: ask-bartender, ask-bartender-simple, recommend, refine-cocktail
+                       Batch 3: vision-analyze, speech-token, voice-bartender
+                       Batch 4: social-connect-start, social-share-external, auth-exchange, auth-rotate
 
-Phase 3 (AFTER 2c)  -> Standardize audience IDs across all APIM operations
-                       Risk: LOW (once audience confirmed)
+                       CRITICAL DISCOVERY: Batches 1+2 revealed a mobile app bug —
+                       4 API providers used bare Dio (no JWT). Fixed all 4 providers
+                       to use backendServiceProvider.dio. See BUG_FIXES.md BUG-008.
+
+Phase 3 (FUTURE)    -> Standardize audience IDs across all APIM operations
+                       Risk: LOW (once all policies use f9f7f159, update legacy 04551003 policies)
 
 Phase 4 (FUTURE)    -> Tier simplification (next release cycle)
                        Risk: LOW (planned change with store updates)
@@ -427,8 +434,12 @@ Phase 4 (FUTURE)    -> Tier simplification (next release cycle)
 |------|--------|-------|--------|
 | `backend/functions/shared/auth/jwtDecode.js` | **CREATE** | 1 | ✅ Done |
 | `backend/functions/index.js` (import + 4 handlers) | **MODIFY** | 1 | ✅ Done |
-| `infrastructure/apim/scripts/apply-jwt-policies02.ps1` | **MODIFY** | 2 | Pending |
-| `infrastructure/apim/policies/jwt-validation-entra-external-id.xml` | **VERIFY** (may modify audience) | 2-3 | Pending |
+| `infrastructure/apim/scripts/apply-jwt-policies02.ps1` | **MODIFY** | 2 | ✅ Done (batch support added) |
+| `infrastructure/apim/policies/jwt-validation-entra-external-id.xml` | **VERIFY** | 2 | ✅ Done (audience f9f7f159 confirmed correct) |
+| `mobile/app/lib/src/api/ask_bartender_api.dart` | **MODIFY** | 2c | ✅ Done (switched to authenticated Dio) |
+| `mobile/app/lib/src/api/recommend_api.dart` | **MODIFY** | 2c | ✅ Done (switched to authenticated Dio) |
+| `mobile/app/lib/src/api/create_studio_api.dart` | **MODIFY** | 2c | ✅ Done (switched to authenticated Dio) |
+| `mobile/app/lib/src/providers/vision_provider.dart` | **MODIFY** | 2c | ✅ Done (switched to authenticated Dio) |
 | `docs/DEPLOYMENT_STATUS.md` | **UPDATE** | After deployment | ✅ Done |
 
 ---
@@ -443,13 +454,17 @@ Phase 4 (FUTURE)    -> Tier simplification (next release cycle)
 - [ ] Check App Insights for `[Profile]` or `[UserService]` log messages
 
 ### After Phase 2 Deployment (Each Batch)
-- [ ] DryRun passes with all operations found
-- [ ] After each batch: test affected endpoints from mobile app
-- [ ] No unexpected 401 errors in App Insights
-- [ ] Confirm endpoints still return correct data
+- [x] DryRun passes with all operations found
+- [x] After each batch: test affected endpoints from mobile app
+- [x] No unexpected 401 errors in App Insights
+- [x] Confirm endpoints still return correct data
+- [x] **Discovered mobile auth bug**: 4 providers used bare Dio without JWT (BUG-008)
+- [x] **Fixed all 4 providers**: askBartenderApi, recommendApi, createStudioApi, visionApi
+- [x] **All 4 batches deployed** (13 operations protected)
+- [x] **5 public endpoints verified** (no accidental JWT policies)
 
 ### Audience Investigation
-- [ ] Captured real JWT token from mobile app
-- [ ] Decoded and documented `aud`, `iss`, `email`, `name`, `sub` claims
-- [ ] Listed all Entra app registrations via `az ad app list`
-- [ ] Determined correct audience ID
+- [x] Captured real JWT token from mobile app
+- [x] Confirmed `aud = f9f7f159-b847-4211-98c9-18e5b8193045` (mobile client ID)
+- [x] Determined correct audience ID — all new policies use `f9f7f159`
+- [ ] Phase 3: Standardize legacy `04551003` policies to also use `f9f7f159` (future)

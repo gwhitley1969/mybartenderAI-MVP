@@ -4,6 +4,107 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-007: Server-Side Authoritative Voice Metering (Trust Boundary Violation)
+
+**Date Fixed**: February 11, 2026
+**Severity**: High (Security)
+**Component**: Voice AI (Backend + Database + Mobile Client)
+**CWE**: CWE-602 (Client-Side Enforcement of Server-Side Security)
+**Files Modified**: `backend/functions/migrations/010_voice_metering_server_auth.sql` (NEW), `backend/functions/index.js`, `mobile/app/lib/src/services/voice_ai_service.dart`
+**Backend Changes**: Yes (SQL migration + JS function updates + new timer function)
+
+### Threat Model
+
+The client-side voice minutes fix (BUG-006, commit `5eec6de`) solved the immediate usability bug, but the backend **trusted the client-reported `durationSeconds` without validation**. A modified client could:
+
+| Attack | Before | After |
+|--------|--------|-------|
+| Report `durationSeconds: 0` every time | 0 billed, free minutes | Server bills 30% of wall-clock |
+| Report inflated duration | Overcharged (self-harm) | Capped at wall-clock |
+| Never call `/v1/voice/usage` | `active` forever, 0 billed | Timer expires after 2h, bills 30% |
+| Multiple concurrent sessions | Unlimited | 409 Conflict; stale auto-expired |
+| Session > 60 minutes | No cap | Capped at 3600s |
+
+### Root Cause
+
+The server already had `started_at = NOW()` set at session creation. When the session ends, `NOW() - started_at` gives server-controlled wall-clock time that no client can forge. But the old `record_voice_session()` SQL function blindly stored whatever `p_duration_seconds` the client sent.
+
+### Fix Applied (3 Files, 5 Components)
+
+#### Component 1: SQL Migration `010_voice_metering_server_auth.sql`
+
+**1a. Status constraint** — Added `'expired'` to `voice_sessions.status` CHECK constraint for auto-closed stale sessions.
+
+**1b. Server-authoritative `record_voice_session()`** — Same parameter signature (backward-compatible). Return type changed from `VOID` to `TABLE(billed_seconds, wall_clock_seconds, client_reported_seconds, billing_method)`.
+
+Billing logic:
+```
+wall_clock = EXTRACT(EPOCH FROM (NOW() - started_at))   -- server-controlled
+wall_clock = LEAST(wall_clock, 3600)                      -- 60-min hard cap
+IF already completed/expired → return previous values     -- idempotency
+IF client > 0  → billed = LEAST(client, wall_clock)       -- client discount, capped by server
+IF client <= 0 AND wall_clock > 10 → billed = wall_clock * 0.3  -- conservative fallback
+IF client <= 0 AND wall_clock <= 10 → billed = 0          -- short session, benefit of doubt
+```
+
+**1c. `expire_stale_voice_sessions()`** — Finds `active` sessions older than N hours, marks them `expired`, bills 30% of capped wall-clock. Called by hourly timer.
+
+**1d. `close_user_stale_sessions()`** — Per-user version called during session creation. Auto-closes stale sessions before allowing a new one.
+
+**1e. Updated `check_voice_quota()`** — Now counts both `'completed'` AND `'expired'` sessions so stale-session billing affects quota.
+
+**1f. Updated `voice_usage_summary` view** — Also includes `'expired'` sessions.
+
+#### Component 2: Concurrent Session Enforcement (`index.js`)
+
+Before inserting a new `voice_sessions` row in the `voice-session` function:
+1. Auto-expire stale sessions (>2h) via `close_user_stale_sessions()`
+2. Check for remaining active sessions
+3. If found: return **409 Conflict** with `concurrent_session` error
+
+#### Component 3: Billing Result Capture (`index.js`)
+
+The `voice-usage` endpoint now captures and returns the SQL function's billing breakdown. Removed the redundant session ownership check (the SQL function validates this internally). Response now includes:
+```json
+{
+  "billing": {
+    "billedSeconds": 120,
+    "wallClockSeconds": 180,
+    "clientReportedSeconds": 120,
+    "method": "client_capped_by_wallclock"
+  }
+}
+```
+
+#### Component 4: Hourly Cleanup Timer (`index.js`)
+
+New `voice-session-cleanup` timer runs every hour. Calls `expire_stale_voice_sessions(2)` to catch sessions where the client never called back. Logs each expired session with age and billed seconds.
+
+#### Component 5: Flutter Client Updates (`voice_ai_service.dart`)
+
+- **409 handler** in `startSession()` DioException handler — surfaces "active session" message
+- **Billing logging** in `endSession()` — logs server billing details for debugging
+
+### Verification Tests
+
+| Test | Expected Result |
+|------|----------------|
+| Normal: client 120s, wall-clock 180s | billed 120, method `client_capped_by_wallclock` |
+| Inflation: client 500s, wall-clock 120s | billed 120 (capped) |
+| Zero: client 0, wall-clock 300s | billed 90 (30%) |
+| Short: client 0, wall-clock 5s | billed 0, method `short_session_free` |
+| Idempotency: call twice | second returns `already_recorded` |
+| Concurrent: Start A, then B | 409 Conflict for B |
+| Stale cleanup: 3h old active session | `expire_stale_voice_sessions(2)` → expired with billing |
+
+### Deployment
+
+1. Migration applied to `pg-mybartenderdb` (Feb 11, 2026)
+2. `func-mba-fresh` redeployed with 35 functions (33 HTTP + 2 timer triggers)
+3. Release APK built with 409 handling
+
+---
+
 ## BUG-006: Voice Minutes Counter Not Decrementing (0 Usage Recorded)
 
 **Date Fixed**: February 9, 2026
@@ -258,4 +359,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 9, 2026
+**Last Updated**: February 11, 2026

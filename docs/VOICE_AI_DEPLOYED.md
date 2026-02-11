@@ -1313,4 +1313,84 @@ See `docs/BUG_FIXES.md` (BUG-005) for additional context.
 
 ---
 
-**Last Updated**: January 31, 2026 (Phantom "Thinking..." fix + processing safety timeout)
+## Server-Authoritative Voice Metering (February 11, 2026)
+
+### Problem
+
+The client-side voice minutes fix (BUG-006, commit `5eec6de`) solved the immediate usability bug, but the backend **trusted the client-reported `durationSeconds` without validation** (CWE-602: Trust Boundary Violation). A modified client could report `durationSeconds: 0` every time for free minutes, report inflated durations, never call `/v1/voice/usage` to leave sessions `active` forever, or open multiple concurrent sessions.
+
+### Solution: Server-Side Billing with Client Discount
+
+Moved all duration computation into PostgreSQL where both timestamps are server-controlled. The client-reported active speech time becomes a **discount** (pauses are free — fair to honest users) but is **capped by wall-clock time** (which no client can forge).
+
+### Migration: `010_voice_metering_server_auth.sql`
+
+**6 components:**
+
+| Component | Purpose |
+|-----------|---------|
+| 1a. Status constraint | Added `'expired'` to `voice_sessions.status` CHECK |
+| 1b. `record_voice_session()` | Return type changed from `VOID` to `TABLE(billed_seconds, wall_clock_seconds, client_reported_seconds, billing_method)` |
+| 1c. `expire_stale_voice_sessions()` | Finds `active` sessions older than N hours, marks `expired`, bills 30% wall-clock |
+| 1d. `close_user_stale_sessions()` | Per-user version called during session creation |
+| 1e. `check_voice_quota()` | Now counts `'expired'` sessions in addition to `'completed'` |
+| 1f. `voice_usage_summary` view | Also includes `'expired'` sessions |
+
+### Billing Logic (in `record_voice_session()`)
+
+```sql
+wall_clock = EXTRACT(EPOCH FROM (NOW() - started_at))   -- server-controlled
+wall_clock = LEAST(wall_clock, 3600)                      -- 60-min hard cap
+
+IF already completed/expired → return previous values     -- idempotency
+IF client > 0  → billed = LEAST(client, wall_clock)       -- client discount, capped
+IF client <= 0 AND wall_clock > 10 → billed = wall_clock * 0.3  -- conservative fallback
+IF client <= 0 AND wall_clock <= 10 → billed = 0          -- short session, benefit of doubt
+```
+
+### Backend Changes (`index.js`)
+
+1. **Concurrent session enforcement** — Before creating a new `voice_sessions` row:
+   - Auto-expire stale sessions (>2h) via `close_user_stale_sessions()`
+   - If active sessions remain: return **409 Conflict**
+
+2. **Billing result capture** — `voice-usage` endpoint now captures and returns the SQL function's billing breakdown:
+   ```json
+   {
+     "billing": {
+       "billedSeconds": 120,
+       "wallClockSeconds": 180,
+       "clientReportedSeconds": 120,
+       "method": "client_capped_by_wallclock"
+     }
+   }
+   ```
+
+3. **Hourly cleanup timer** — New `voice-session-cleanup` function runs every hour, calls `expire_stale_voice_sessions(2)` to catch sessions where the client never called back.
+
+### Flutter Client Updates (`voice_ai_service.dart`)
+
+- **409 handler** in `startSession()` — surfaces "active session" message
+- **Billing logging** in `endSession()` — logs server billing details for debugging
+
+### Threat Model
+
+| Attack | Before | After |
+|--------|--------|-------|
+| Report `durationSeconds: 0` | 0 billed, free minutes | Server bills 30% of wall-clock |
+| Report inflated duration | Overcharged (self-harm) | Capped at wall-clock |
+| Never call `/v1/voice/usage` | `active` forever, 0 billed | Timer expires after 2h, bills 30% |
+| Multiple concurrent sessions | Unlimited | 409 Conflict; stale auto-expired |
+| Session > 60 minutes | No cap | Capped at 3600s |
+
+### Deployment
+
+1. Migration applied to `pg-mybartenderdb` (Feb 11, 2026)
+2. `func-mba-fresh` redeployed with 35 functions (33 HTTP + 2 timer triggers)
+3. Release APK built with 409 handling
+
+See `docs/BUG_FIXES.md` (BUG-007) for full details.
+
+---
+
+**Last Updated**: February 11, 2026 (Server-authoritative voice metering)

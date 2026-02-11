@@ -2443,6 +2443,37 @@ app.timer('rotate-keys-timer', {
 });
 
 // =============================================================================
+// 25b. Voice Session Cleanup Timer - Hourly
+// Expires stale voice sessions (active > 2 hours) and bills 30% of wall-clock.
+// Last line of defense for sessions where the client never called /v1/voice/usage.
+// =============================================================================
+app.timer('voice-session-cleanup', {
+    schedule: '0 0 * * * *', // Every hour on the hour
+    handler: async (myTimer, context) => {
+        context.log('Voice Session Cleanup - Timer triggered');
+        try {
+            const db = require('./shared/database');
+            const result = await db.query(
+                'SELECT * FROM expire_stale_voice_sessions($1)',
+                [2]  // Expire sessions older than 2 hours
+            );
+
+            const expired = result.rows;
+            if (expired.length > 0) {
+                context.log(`Expired ${expired.length} stale voice session(s):`);
+                for (const session of expired) {
+                    context.log(`  Session ${session.session_id}: age=${session.age_seconds}s, billed=${session.billed_seconds}s`);
+                }
+            } else {
+                context.log('No stale voice sessions found');
+            }
+        } catch (error) {
+            context.error('Voice session cleanup error:', error.message);
+        }
+    }
+});
+
+// =============================================================================
 // 26. Sync CocktailDB - DISABLED (Dec 2025)
 // TheCocktailDB sync is permanently disabled. PostgreSQL is now the master.
 // Use rebuild-sqlite-snapshot.js to generate snapshots manually.
@@ -2855,6 +2886,40 @@ Never provide:
             const sessionData = await response.json();
             context.log('Ephemeral token obtained, realtime session:', sessionData.id);
 
+            // Concurrent session enforcement: prevent multiple active sessions per user
+            // Step 1: Auto-expire stale sessions (>2 hours old)
+            const staleResult = await db.query(
+                'SELECT close_user_stale_sessions($1, $2)',
+                [user.id, 2]
+            );
+            const staleClosed = staleResult.rows[0]?.close_user_stale_sessions || 0;
+            if (staleClosed > 0) {
+                context.log('Auto-expired', staleClosed, 'stale voice session(s) for user');
+            }
+
+            // Step 2: Check for remaining active sessions (recent, <2h)
+            const activeCheck = await db.query(
+                `SELECT id, started_at FROM voice_sessions
+                 WHERE user_id = $1 AND status = 'active'
+                 LIMIT 1`,
+                [user.id]
+            );
+
+            if (activeCheck.rows.length > 0) {
+                const activeSession = activeCheck.rows[0];
+                context.log('Concurrent session blocked. Existing active session:', activeSession.id, 'started:', activeSession.started_at);
+                return {
+                    status: 409,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'concurrent_session',
+                        message: 'You already have an active voice session. Please end it before starting a new one.',
+                        existingSessionId: activeSession.id
+                    }
+                };
+            }
+
             // NOW create session record in database with the realtime session_id
             const sessionInsertResult = await db.query(
                 `INSERT INTO voice_sessions (user_id, session_id, status, started_at)
@@ -2991,29 +3056,22 @@ app.http('voice-usage', {
 
             const internalUserId = userResult.rows[0].id;
 
-            // Verify session belongs to user (using internal UUID)
-            const sessionCheck = await db.query(
-                'SELECT id FROM voice_sessions WHERE id = $1 AND user_id = $2',
-                [sessionId, internalUserId]
-            );
-
-            if (sessionCheck.rows.length === 0) {
-                return {
-                    status: 404,
-                    headers,
-                    jsonBody: {
-                        success: false,
-                        error: 'session_not_found',
-                        message: 'Session not found or does not belong to user'
-                    }
-                };
-            }
-
-            // Record the session completion using database function (with internal UUID)
-            await db.query(
-                'SELECT record_voice_session($1, $2, $3, $4, $5)',
+            // Record the session completion using server-authoritative billing
+            // The SQL function validates session ownership, computes wall-clock time,
+            // caps client-reported duration, and returns billing details.
+            // Idempotent: calling twice returns 'already_recorded' without double-billing.
+            const billingResult = await db.query(
+                'SELECT * FROM record_voice_session($1, $2, $3, $4, $5)',
                 [internalUserId, sessionId, durationSeconds, inputTokens || null, outputTokens || null]
             );
+            const billing = billingResult.rows[0];
+
+            context.log('Billing result:', {
+                billedSeconds: billing.billed_seconds,
+                wallClockSeconds: billing.wall_clock_seconds,
+                clientReported: billing.client_reported_seconds,
+                method: billing.billing_method
+            });
 
             // Save transcripts if provided
             if (transcripts && Array.isArray(transcripts) && transcripts.length > 0) {
@@ -3041,7 +3099,12 @@ app.http('voice-usage', {
                     success: true,
                     message: 'Usage recorded successfully',
                     sessionId: sessionId,
-                    durationRecorded: durationSeconds,
+                    billing: {
+                        billedSeconds: billing.billed_seconds,
+                        wallClockSeconds: billing.wall_clock_seconds,
+                        clientReportedSeconds: billing.client_reported_seconds,
+                        method: billing.billing_method
+                    },
                     quota: {
                         remainingSeconds: quota.total_remaining_seconds,
                         monthlyUsedSeconds: quota.monthly_used_seconds,

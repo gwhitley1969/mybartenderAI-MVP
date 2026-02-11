@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 9, 2026 - voice minutes counter fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 11, 2026 - server-authoritative voice metering)
 
 ## Overview
 

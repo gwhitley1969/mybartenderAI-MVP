@@ -2,11 +2,27 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 9, 2026
+**Last Updated**: February 11, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Server-Side Authoritative Voice Metering** (Feb 11): Hardened voice billing to prevent quota abuse. Previously, the backend trusted the client-reported `durationSeconds` without validation (CWE-602). A modified client could report 0 duration for unlimited free voice minutes, or never call `/v1/voice/usage` to leave sessions active with 0 billed. Now all duration computation happens in PostgreSQL using server-controlled timestamps (`NOW() - started_at`). Five changes applied:
+  1. **SQL migration `010_voice_metering_server_auth.sql`**: New server-authoritative `record_voice_session()` that computes wall-clock time as a tamper-proof ceiling, caps client duration, and returns billing transparency. New `expire_stale_voice_sessions()` and `close_user_stale_sessions()` functions. Added `'expired'` status. Updated `check_voice_quota()` and `voice_usage_summary` to count expired sessions
+  2. **Concurrent session enforcement**: Before creating a new voice session, stale sessions (>2h) are auto-expired and any remaining active session returns **409 Conflict** — prevents quota leakage from parallel sessions
+  3. **Billing result capture**: `/v1/voice/usage` now returns `billing.billedSeconds`, `billing.wallClockSeconds`, `billing.clientReportedSeconds`, and `billing.method` for full audit transparency
+  4. **Hourly cleanup timer**: New `voice-session-cleanup` timer function runs every hour, expiring stale sessions that clients never closed. Bills 30% of wall-clock time as a conservative estimate
+  5. **Flutter 409 handling**: Client now handles 409 Conflict with user-friendly "active session" error message, and logs server billing details for debugging
+
+  **Files modified:**
+  - `backend/functions/migrations/010_voice_metering_server_auth.sql` (NEW): Server-authoritative SQL functions
+  - `backend/functions/index.js`: Concurrent session check, billing capture, cleanup timer
+  - `mobile/app/lib/src/services/voice_ai_service.dart`: Handle 409, log server billing
+
+  **Deployment**: Migration applied to `pg-mybartenderdb`, `func-mba-fresh` redeployed (35 functions: 33 HTTP + 2 timers), release APK built.
+
+  See `docs/BUG_FIXES.md` (BUG-007) and `docs/VOICE_AI_IMPLEMENTATION.md` for full details.
 
 - **Voice Minutes Counter Fix** (Feb 9): Fixed critical client-side bug where the voice minutes counter never decremented from 60 minutes despite active use. Database investigation showed `monthly_used_seconds = 0`, 8/10 sessions stuck at `active` status with NULL `duration_seconds`, and 2/10 completed with `duration_seconds = 0`. Backend was working correctly — the mobile app never called `/v1/voice/usage` to report session duration. Three changes applied:
   1. **`dispose()` method** added to `VoiceAIScreen`: Ends active session when widget unmounts (e.g., system back gesture, app lifecycle), ensuring `/v1/voice/usage` POST fires even if the PopScope dialog didn't trigger
@@ -362,12 +378,13 @@ All functions deployed to `func-mba-fresh`:
 
 ### Admin/Utility Functions
 
-| Function            | Status         | Notes                      |
-| ------------------- | -------------- | -------------------------- |
-| `sync-cocktaildb`   | Timer DISABLED | Using static database copy |
-| `download-images`   | Available      | Manual trigger only        |
-| `health`            | Available      | Health check endpoint      |
-| `rotate-keys-timer` | Timer          | Key rotation automation    |
+| Function                 | Status         | Notes                           |
+| ------------------------ | -------------- | ------------------------------- |
+| `sync-cocktaildb`        | Timer DISABLED | Using static database copy      |
+| `download-images`        | Available      | Manual trigger only             |
+| `health`                 | Available      | Health check endpoint           |
+| `rotate-keys-timer`      | Timer          | Key rotation (monthly)          |
+| `voice-session-cleanup`  | Timer          | Stale session expiry (hourly)   |
 
 ---
 
@@ -701,4 +718,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 9, 2026
+**Last Updated**: February 11, 2026

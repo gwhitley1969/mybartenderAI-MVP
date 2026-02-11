@@ -418,6 +418,14 @@ class VoiceAIService {
             }
           }
 
+          // 409 Conflict: user already has an active voice session
+          if (statusCode == 409) {
+            _setState(VoiceAIState.error);
+            throw VoiceAIException(
+              data['message'] ?? 'You already have an active session. Please try again.',
+            );
+          }
+
           // Other API errors with messages
           _setState(VoiceAIState.error);
           throw VoiceAIException(message);
@@ -847,6 +855,15 @@ class VoiceAIService {
         options: Options(headers: headers),
       );
       debugPrint('VoiceAIService: Usage recorded: ${response.data}');
+
+      // Log server-authoritative billing details for debugging
+      final billing = response.data['billing'];
+      if (billing != null) {
+        debugPrint('[VOICE-AI] Server billing: billed=${billing['billedSeconds']}s, '
+            'wallClock=${billing['wallClockSeconds']}s, '
+            'clientReported=${billing['clientReportedSeconds']}s, '
+            'method=${billing['method']}');
+      }
 
       // Update quota if returned
       if (_onQuotaUpdate != null && response.data['quota'] != null) {

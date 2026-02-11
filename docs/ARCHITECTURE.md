@@ -4,7 +4,7 @@
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter) - Android and iOS
 - Azure API Management (`apim-mba-002`) as API gateway for tier management and security
-- **Azure Functions v4 Programming Model** - 34 functions with code-centric registration
+- **Azure Functions v4 Programming Model** - 35 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
@@ -69,7 +69,7 @@
 
 - AI-powered cocktail recommendations based on inventory (GPT-4.1-mini via @azure/openai SDK)
 - **Azure Functions v4 Programming Model** with code-centric registration
-- **34 Backend Functions**: 33 HTTP triggers + 1 timer trigger
+- **35 Backend Functions**: 33 HTTP triggers + 2 timer triggers
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication via Entra External ID (fully operational)
 - APIM-based rate limiting per tier (backend validates tier in PostgreSQL)
@@ -134,9 +134,9 @@ sequenceDiagram
 
 ### Overview
 
-All 34 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
+All 35 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
 
-### Function Catalog (34 Total)
+### Function Catalog (35 Total)
 
 **Core & Health (1)**
 - `health` - Health check endpoint (GET /api/health)
@@ -182,11 +182,12 @@ All 34 functions use the Azure Functions v4 programming model with code-centric 
 **Voice Purchase (1)**
 - `voice-purchase` - Purchase voice minutes (POST /api/v1/voice/purchase)
 
-**Testing & Utilities (4)**
+**Testing & Utilities (5)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
 - `test-mi-access` - Managed Identity test (GET /api/test/mi-access)
 - `test-write` - Blob write test (GET /api/test/write)
 - `rotate-keys-timer` - Scheduled key rotation (timer)
+- `voice-session-cleanup` - Hourly stale voice session expiry (timer)
 
 ### v4 Programming Model Details
 
@@ -227,7 +228,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 ```
 
 **Migration Status:**
-- ✅ 34 functions deployed and operational
+- ✅ 35 functions deployed and operational
 - ⚠️ 1 function (speech-token) has configuration issue unrelated to migration
 
 ## AI Model & Cost Strategy
@@ -616,7 +617,7 @@ sequenceDiagram
   - JWT-only authentication (APIM validates JWT via policy)
   - Server-side tier validation in PostgreSQL
   - Rate limiting based on user tier
-  - **Azure Functions v4 Programming Model**: All 34 functions deployed
+  - **Azure Functions v4 Programming Model**: All 35 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
   - **RevenueCat Subscriptions**: Webhook-based subscription management
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role
@@ -795,8 +796,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: January 21, 2026
-**Architecture Version**: 3.4 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform)
+**Last Updated**: February 11, 2026
+**Architecture Version**: 3.5 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity

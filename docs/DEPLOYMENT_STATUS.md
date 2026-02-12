@@ -8,6 +8,11 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Home Screen "Scan My Bar" Rename** (Feb 12): Renamed the Scanner tile in the AI Cocktail Concierge grid from "Scanner" to "Scan My Bar" to better communicate the feature's purpose. Subtitle "Identify bottles" unchanged. This change applies only to the home screen — the My Bar screen's Scanner button remains as-is.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Updated title in `_buildActionButton()` call for the Scanner tile
+
 - **Home Screen Concierge Grid Reorder** (Feb 12): Swapped the vertical positions of the four AI Cocktail Concierge action buttons on the home screen to promote Scanner and Create to the top row. Previous layout had Chat + Voice on top and Scanner + Create on bottom. New layout places Scanner (left) + Create (right) on the top row and Chat (left) + Voice (right) on the bottom row. This prioritizes the most actionable features (scan a bottle, design a cocktail) in the prime visual position. No logic, styling, or routing changes — only the order of `_buildActionButton()` calls within the two `Row` widgets was swapped.
 
   **File modified:**

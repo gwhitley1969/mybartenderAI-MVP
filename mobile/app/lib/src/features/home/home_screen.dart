@@ -268,7 +268,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: _buildActionButton(
                   context: context,
                   icon: Icons.camera_alt,
-                  title: 'Scanner',
+                  title: 'Scan My Bar',
                   subtitle: 'Identify bottles',
                   color: AppColors.iconCirclePink,
                   onTap: () => context.go('/smart-scanner'),

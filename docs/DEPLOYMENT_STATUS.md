@@ -2,11 +2,16 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 11, 2026
+**Last Updated**: February 12, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Home Screen Concierge Grid Reorder** (Feb 12): Swapped the vertical positions of the four AI Cocktail Concierge action buttons on the home screen to promote Scanner and Create to the top row. Previous layout had Chat + Voice on top and Scanner + Create on bottom. New layout places Scanner (left) + Create (right) on the top row and Chat (left) + Voice (right) on the bottom row. This prioritizes the most actionable features (scan a bottle, design a cocktail) in the prime visual position. No logic, styling, or routing changes — only the order of `_buildActionButton()` calls within the two `Row` widgets was swapped.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Reordered `_buildActionButton()` calls in `_buildConciergeSection()`
 
 - **APIM JWT Security Complete + Mobile Auth Fix** (Feb 11): Completed the APIM security audit Phase 2 by deploying `validate-jwt` policies to all 13 previously-unprotected operations, AND fixed a critical mobile app bug where 4 API providers were sending requests without JWT tokens. All 30 APIM operations now have appropriate security: 13 newly protected + 12 previously protected + 5 intentionally public.
 
@@ -745,4 +750,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 11, 2026
+**Last Updated**: February 12, 2026

@@ -267,33 +267,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Expanded(
                 child: _buildActionButton(
                   context: context,
-                  icon: Icons.chat_bubble_outline,
-                  title: 'Chat',
-                  subtitle: 'Text conversation',
-                  color: AppColors.iconCircleTeal,
-                  onTap: () => context.go('/ask-bartender'),
-                ),
-              ),
-              SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: _buildActionButton(
-                  context: context,
-                  icon: Icons.mic,
-                  title: 'Voice',
-                  subtitle: 'Talk to AI',
-                  color: AppColors.iconCircleBlue,
-                  onTap: () => context.go('/voice-ai'),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: AppSpacing.md),
-          // Action Buttons - Row 2
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionButton(
-                  context: context,
                   icon: Icons.camera_alt,
                   title: 'Scanner',
                   subtitle: 'Identify bottles',
@@ -310,6 +283,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   subtitle: 'Design cocktails',
                   color: AppColors.iconCirclePurple,
                   onTap: () => context.go('/create-studio'),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: AppSpacing.md),
+          // Action Buttons - Row 2
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  icon: Icons.chat_bubble_outline,
+                  title: 'Chat',
+                  subtitle: 'Text conversation',
+                  color: AppColors.iconCircleTeal,
+                  onTap: () => context.go('/ask-bartender'),
+                ),
+              ),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildActionButton(
+                  context: context,
+                  icon: Icons.mic,
+                  title: 'Voice',
+                  subtitle: 'Talk to AI',
+                  color: AppColors.iconCircleBlue,
+                  onTap: () => context.go('/voice-ai'),
                 ),
               ),
             ],

@@ -331,12 +331,12 @@ class VoiceAIService {
       if (response.data['success'] != true) {
         _setState(VoiceAIState.error);
         final error = response.data['error'] ?? 'unknown_error';
-        if (error == 'tier_required') {
-          _setState(VoiceAIState.tierRequired);
-          throw VoiceAITierRequiredException(
-            response.data['message'] ?? 'Pro tier required',
-            response.data['requiredTier'] ?? 'pro',
-            response.data['currentTier'] ?? 'free',
+        if (error == 'entitlement_required') {
+          _setState(VoiceAIState.entitlementRequired);
+          throw VoiceAIEntitlementRequiredException(
+            response.data['message'] ?? 'Subscription required',
+            response.data['requiredEntitlement'] ?? 'paid',
+            response.data['currentEntitlement'] ?? 'none',
           );
         } else if (error == 'quota_exceeded') {
           _setState(VoiceAIState.quotaExhausted);
@@ -402,12 +402,12 @@ class VoiceAIService {
           final message = data['message'] ?? 'An error occurred';
 
           if (statusCode == 403) {
-            if (error == 'tier_required') {
-              _setState(VoiceAIState.tierRequired);
-              throw VoiceAITierRequiredException(
+            if (error == 'entitlement_required') {
+              _setState(VoiceAIState.entitlementRequired);
+              throw VoiceAIEntitlementRequiredException(
                 message,
-                data['requiredTier'] ?? 'pro',
-                data['currentTier'] ?? 'free',
+                data['requiredEntitlement'] ?? 'paid',
+                data['currentEntitlement'] ?? 'none',
               );
             } else if (error == 'quota_exceeded') {
               _setState(VoiceAIState.quotaExhausted);
@@ -1037,19 +1037,19 @@ enum VoiceAIState {
   speaking,       // AI audio playing
   error,          // Connection/API error
   quotaExhausted, // Minutes depleted
-  tierRequired,   // User needs to upgrade to Pro
+  entitlementRequired, // User needs an active subscription
 }
 
-/// Voice quota information
+/// Voice quota information (minutes-based, matching Phase 2 backend)
 class VoiceQuota {
   final bool hasAccess;
   final bool hasQuota;
-  final String tier;
-  final int remainingSeconds;
-  final int remainingMinutes;
-  final int monthlyUsedSeconds;
-  final int monthlyLimitSeconds;
-  final int addonSecondsRemaining;
+  final String entitlement;          // 'paid' or 'none'
+  final double remainingMinutes;     // total remaining (included + purchased)
+  final double includedRemaining;    // from monthly allotment
+  final double purchasedRemaining;   // from add-on purchases
+  final int monthlyIncluded;         // monthly allotment (60)
+  final double usedThisCycle;        // used this billing cycle
   final int percentUsed;
   final bool showWarning;
   final String? warningMessage;
@@ -1057,12 +1057,12 @@ class VoiceQuota {
   VoiceQuota({
     required this.hasAccess,
     required this.hasQuota,
-    required this.tier,
-    required this.remainingSeconds,
+    required this.entitlement,
     required this.remainingMinutes,
-    required this.monthlyUsedSeconds,
-    required this.monthlyLimitSeconds,
-    required this.addonSecondsRemaining,
+    required this.includedRemaining,
+    required this.purchasedRemaining,
+    required this.monthlyIncluded,
+    required this.usedThisCycle,
     required this.percentUsed,
     required this.showWarning,
     this.warningMessage,
@@ -1073,12 +1073,12 @@ class VoiceQuota {
     return VoiceQuota(
       hasAccess: json['hasAccess'] ?? false,
       hasQuota: json['hasQuota'] ?? false,
-      tier: json['tier'] ?? 'free',
-      remainingSeconds: quota['remainingSeconds'] ?? 0,
-      remainingMinutes: quota['remainingMinutes'] ?? 0,
-      monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 3600,  // 60 min default
-      addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
+      entitlement: json['entitlement'] ?? 'none',
+      remainingMinutes: (quota['remainingMinutes'] ?? 0).toDouble(),
+      includedRemaining: (quota['includedRemaining'] ?? 0).toDouble(),
+      purchasedRemaining: (quota['purchasedRemaining'] ?? 0).toDouble(),
+      monthlyIncluded: quota['monthlyIncluded'] ?? 60,
+      usedThisCycle: (quota['usedThisCycle'] ?? 0).toDouble(),
       percentUsed: quota['percentUsed'] ?? 0,
       showWarning: json['showWarning'] ?? false,
       warningMessage: json['warningMessage'],
@@ -1086,22 +1086,21 @@ class VoiceQuota {
   }
 
   factory VoiceQuota.fromQuotaData(Map<String, dynamic> quota) {
+    final remaining = (quota['remainingMinutes'] ?? 0).toDouble();
     return VoiceQuota(
       hasAccess: true,
-      hasQuota: (quota['remainingSeconds'] ?? 0) > 0,
-      tier: 'pro',
-      remainingSeconds: quota['remainingSeconds'] ?? 0,
-      remainingMinutes: ((quota['remainingSeconds'] ?? 0) / 60).floor(),
-      monthlyUsedSeconds: quota['monthlyUsedSeconds'] ?? 0,
-      monthlyLimitSeconds: quota['monthlyLimitSeconds'] ?? 3600,  // 60 min default
-      addonSecondsRemaining: quota['addonSecondsRemaining'] ?? 0,
-      percentUsed: quota['monthlyLimitSeconds'] != null && quota['monthlyLimitSeconds'] > 0
-          ? ((quota['monthlyUsedSeconds'] ?? 0) / quota['monthlyLimitSeconds'] * 100).round()
+      hasQuota: remaining > 0,
+      entitlement: 'paid',
+      remainingMinutes: remaining,
+      includedRemaining: (quota['includedRemaining'] ?? 0).toDouble(),
+      purchasedRemaining: (quota['purchasedRemaining'] ?? 0).toDouble(),
+      monthlyIncluded: quota['monthlyIncluded'] ?? 60,
+      usedThisCycle: (quota['usedThisCycle'] ?? 0).toDouble(),
+      percentUsed: quota['monthlyIncluded'] != null && quota['monthlyIncluded'] > 0
+          ? ((quota['usedThisCycle'] ?? 0) / quota['monthlyIncluded'] * 100).round()
           : 0,
-      showWarning: (quota['remainingSeconds'] ?? 0) <= 360 && (quota['remainingSeconds'] ?? 0) > 0,
-      warningMessage: (quota['remainingSeconds'] ?? 0) <= 360
-          ? '${((quota['remainingSeconds'] ?? 0) / 60).floor()} minutes remaining'
-          : null,
+      showWarning: remaining <= 6 && remaining > 0,
+      warningMessage: remaining <= 6 ? '${remaining.floor()} minutes remaining' : null,
     );
   }
 }
@@ -1157,12 +1156,12 @@ class VoiceAIException implements Exception {
   String toString() => message;
 }
 
-/// Exception when user needs Pro tier
-class VoiceAITierRequiredException extends VoiceAIException {
-  final String requiredTier;
-  final String currentTier;
+/// Exception when user needs an active subscription
+class VoiceAIEntitlementRequiredException extends VoiceAIException {
+  final String requiredEntitlement;
+  final String currentEntitlement;
 
-  VoiceAITierRequiredException(super.message, this.requiredTier, this.currentTier);
+  VoiceAIEntitlementRequiredException(super.message, this.requiredEntitlement, this.currentEntitlement);
 }
 
 /// Exception when voice quota is exceeded

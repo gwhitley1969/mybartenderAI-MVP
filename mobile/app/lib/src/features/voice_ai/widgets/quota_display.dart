@@ -29,7 +29,7 @@ class QuotaChip extends StatelessWidget {
           Icon(Icons.timer, color: color, size: 14),
           const SizedBox(width: 4),
           Text(
-            '$remaining min',
+            '${remaining.floor()} min',
             style: TextStyle(
               color: color,
               fontSize: 12,
@@ -41,7 +41,7 @@ class QuotaChip extends StatelessWidget {
     );
   }
 
-  Color _getColor(int minutes) {
+  Color _getColor(double minutes) {
     if (minutes <= 5) return Colors.red;
     if (minutes <= 10) return Colors.orange;
     return Colors.green;
@@ -60,9 +60,9 @@ class QuotaDisplay extends StatelessWidget {
       return _buildNoAccessDisplay();
     }
 
-    final usedMinutes = (quota.monthlyUsedSeconds / 60).round();
-    final totalMinutes = (quota.monthlyLimitSeconds / 60).round();
-    final remainingMinutes = quota.remainingMinutes;
+    final usedMinutes = quota.usedThisCycle.round();
+    final totalMinutes = quota.monthlyIncluded;
+    final remainingMinutes = quota.remainingMinutes.floor();
     final progress = quota.percentUsed / 100;
 
     return Container(
@@ -78,7 +78,7 @@ class QuotaDisplay extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Voice Minutes',
+                'Voice Time Remaining',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -86,7 +86,7 @@ class QuotaDisplay extends StatelessWidget {
                 ),
               ),
               Text(
-                '$remainingMinutes min remaining',
+                '$remainingMinutes min',
                 style: TextStyle(
                   color: _getProgressColor(progress),
                   fontSize: 14,
@@ -99,7 +99,7 @@ class QuotaDisplay extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: progress,
+              value: progress.clamp(0.0, 1.0),
               backgroundColor: Colors.grey.shade800,
               valueColor: AlwaysStoppedAnimation(_getProgressColor(progress)),
               minHeight: 8,
@@ -113,22 +113,32 @@ class QuotaDisplay extends StatelessWidget {
               fontSize: 12,
             ),
           ),
-          if (quota.addonSecondsRemaining > 0) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.add_circle, color: Colors.blue.shade400, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  '+${(quota.addonSecondsRemaining / 60).round()} bonus minutes',
-                  style: TextStyle(
-                    color: Colors.blue.shade400,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          const SizedBox(height: 6),
+          // Included | purchased | total breakdown
+          Row(
+            children: [
+              Text(
+                '${quota.includedRemaining.floor()} included',
+                style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
+              ),
+              Text(
+                ' | ',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+              Text(
+                '${quota.purchasedRemaining.floor()} purchased',
+                style: TextStyle(color: Colors.blue.shade400, fontSize: 12),
+              ),
+              Text(
+                ' | ',
+                style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+              ),
+              Text(
+                '$remainingMinutes total',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 12),
+              ),
+            ],
+          ),
         ],
       ),
     );
@@ -151,7 +161,7 @@ class QuotaDisplay extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Pro Feature',
+                  'Subscriber Feature',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 14,
@@ -160,7 +170,7 @@ class QuotaDisplay extends StatelessWidget {
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Upgrade to Pro for 60 min/month of voice AI',
+                  'Subscribe for 60 min/month of voice AI',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 12,

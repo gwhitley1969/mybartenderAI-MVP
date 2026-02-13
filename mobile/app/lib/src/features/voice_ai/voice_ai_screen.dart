@@ -5,7 +5,6 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/purchase_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/voice_ai_provider.dart';
-import '../../services/subscription_service.dart';
 import '../../services/voice_ai_service.dart';
 import 'widgets/voice_button.dart';
 import 'widgets/transcript_view.dart';
@@ -20,6 +19,8 @@ class VoiceAIScreen extends ConsumerStatefulWidget {
 }
 
 class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
+  bool _hasShownLowMinutesModal = false;
+
   @override
   void dispose() {
     // End active session when screen is unmounted (e.g., system back gesture)
@@ -35,6 +36,20 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   Widget build(BuildContext context) {
     final voiceState = ref.watch(voiceAINotifierProvider);
     final quotaAsync = ref.watch(voiceQuotaProvider);
+
+    // Low-minutes upsell modal (show once per screen visit for paid users)
+    if (!_hasShownLowMinutesModal) {
+      quotaAsync.whenData((quota) {
+        if (quota.hasAccess &&
+            quota.remainingMinutes < 5 &&
+            quota.remainingMinutes > 0) {
+          _hasShownLowMinutesModal = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showLowMinutesModal();
+          });
+        }
+      });
+    }
 
     return PopScope(
       canPop: !voiceState.isConnected,
@@ -180,7 +195,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
       VoiceAIState.speaking => (Icons.volume_up, 'AI Speaking...', Colors.purple),
       VoiceAIState.error => (Icons.error, 'Error occurred', Colors.red),
       VoiceAIState.quotaExhausted => (Icons.timer_off, 'Quota exhausted', Colors.orange),
-      VoiceAIState.tierRequired => (Icons.lock, 'Pro required', Colors.amber),
+      VoiceAIState.entitlementRequired => (Icons.lock, 'Subscription required', Colors.amber),
     };
 
     return Container(
@@ -244,16 +259,6 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   }
 
   Widget _buildUpgradePrompt() {
-    final currentTier = ref.watch(currentTierProvider);
-    final isPremium = currentTier == SubscriptionTier.premium;
-
-    // Tier-specific messaging
-    final title = isPremium ? 'Upgrade to Pro' : 'Pro Feature';
-    final icon = isPremium ? Icons.arrow_upward : Icons.star;
-    final message = isPremium
-        ? 'You\'re a Premium member! Upgrade to Pro for 60 minutes of voice AI per month, or purchase minutes as needed.'
-        : 'Voice AI is available for Pro members. Upgrade for 60 minutes per month included, or try it with a one-time purchase.';
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.all(16),
@@ -267,13 +272,13 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
       ),
       child: Column(
         children: [
-          Row(
+          const Row(
             children: [
-              Icon(icon, color: Colors.white),
-              const SizedBox(width: 8),
+              Icon(Icons.star, color: Colors.white),
+              SizedBox(width: 8),
               Text(
-                title,
-                style: const TextStyle(
+                'Subscriber Feature',
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -282,41 +287,26 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            message,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          const Text(
+            'Voice AI is available for subscribers. Subscribe for 60 minutes per month included, or try it with a 3-day free trial.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 16),
 
-          // Primary button: Upgrade to Pro
+          // Primary button: Subscribe
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _showProUpgradeSheet,
+              onPressed: _showSubscriptionSheet,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Colors.amber.shade900,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child: const Text(
-                'Upgrade to Pro',
+                'Subscribe',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-
-          // Secondary button: Buy 20 Minutes
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton(
-              onPressed: _purchaseVoiceMinutes,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: const BorderSide(color: Colors.white),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-              child: const Text('Buy 20 Minutes - \$4.99'),
             ),
           ),
         ],
@@ -324,16 +314,17 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
     );
   }
 
-  /// Show Pro subscription options in a bottom sheet
-  void _showProUpgradeSheet() {
+  /// Show subscription options in a bottom sheet
+  void _showSubscriptionSheet() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => _ProUpgradeSheet(
+      builder: (context) => _SubscriptionSheet(
         onPurchaseComplete: () {
           // Refresh state after successful purchase
           ref.invalidate(voiceAINotifierProvider);
+          ref.invalidate(voiceQuotaProvider);
         },
       ),
     );
@@ -367,6 +358,40 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
     }
   }
 
+  void _showLowMinutesModal() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A3E),
+        title: const Text(
+          'Running low on voice time!',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          '+60 minutes for \$5.99',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Maybe Later'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _purchaseVoiceMinutes();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Buy Now'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuotaExhaustedPrompt(VoiceQuota? quota) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -383,7 +408,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
               Icon(Icons.timer_off, color: Colors.redAccent),
               SizedBox(width: 8),
               Text(
-                'Monthly Quota Exhausted',
+                'Voice Minutes Exhausted',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 16,
@@ -393,19 +418,18 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Text(
-            'You\'ve used all ${((quota?.monthlyLimitSeconds ?? 3600) / 60).round()} minutes '
-            'of voice chat this month. Your quota resets on the 1st.',
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          const Text(
+            'You\'ve used all your voice minutes this cycle. Buy more to continue.',
+            style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 12),
-          OutlinedButton(
+          ElevatedButton(
             onPressed: _purchaseVoiceMinutes,
-            style: OutlinedButton.styleFrom(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
               foregroundColor: Colors.white,
-              side: const BorderSide(color: Colors.white),
             ),
-            child: const Text('Buy 20 More Minutes'),
+            child: const Text('Buy 60 Minutes — \$5.99'),
           ),
         ],
       ),
@@ -413,17 +437,17 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   }
 }
 
-/// Bottom sheet for Pro subscription options
-class _ProUpgradeSheet extends ConsumerStatefulWidget {
+/// Bottom sheet for subscription options
+class _SubscriptionSheet extends ConsumerStatefulWidget {
   final VoidCallback? onPurchaseComplete;
 
-  const _ProUpgradeSheet({this.onPurchaseComplete});
+  const _SubscriptionSheet({this.onPurchaseComplete});
 
   @override
-  ConsumerState<_ProUpgradeSheet> createState() => _ProUpgradeSheetState();
+  ConsumerState<_SubscriptionSheet> createState() => _SubscriptionSheetState();
 }
 
-class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
+class _SubscriptionSheetState extends ConsumerState<_SubscriptionSheet> {
   bool _isLoading = false;
   String? _error;
 
@@ -432,9 +456,9 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
     final offeringsAsync = ref.watch(subscriptionOfferingsProvider);
 
     return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF1C1C2E),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      decoration: const BoxDecoration(
+        color: Color(0xFF1C1C2E),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: SafeArea(
         child: Padding(
@@ -455,7 +479,7 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
 
               // Title
               const Text(
-                'Upgrade to Pro',
+                'Subscribe',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 24,
@@ -466,13 +490,20 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
 
               // Description
               Text(
-                'Get 60 minutes of Voice AI per month',
+                'Unlock the full bartender experience',
                 style: TextStyle(
                   color: Colors.grey.shade400,
                   fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              // Feature list
+              _buildFeatureRow(Icons.mic, 'Voice AI conversations'),
+              _buildFeatureRow(Icons.auto_awesome, 'AI cocktail concierge'),
+              _buildFeatureRow(Icons.camera_alt, 'Smart Scanner'),
+              _buildFeatureRow(Icons.local_bar, 'Unlimited cocktail access'),
+              const SizedBox(height: 20),
 
               // Error message
               if (_error != null) ...[
@@ -514,14 +545,32 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
                   error: (e, _) => _buildErrorState(e.toString()),
                 ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+
+              // Compliance text
+              Text(
+                'Trial auto-converts to \$9.99/month unless canceled before trial ends.',
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 12),
+
+              // Restore purchases link
+              TextButton(
+                onPressed: _restorePurchases,
+                child: Text(
+                  'Restore Purchases',
+                  style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+                ),
+              ),
 
               // Cancel button
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
                   'Cancel',
-                  style: TextStyle(color: Colors.grey.shade400),
+                  style: TextStyle(color: Colors.grey.shade500),
                 ),
               ),
             ],
@@ -531,22 +580,35 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
     );
   }
 
+  Widget _buildFeatureRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.amber.shade400, size: 18),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildOfferingOptions(Offerings? offerings) {
     if (offerings == null || offerings.current == null) {
       return _buildErrorState('No subscription options available');
     }
 
-    // Find Pro packages from the current offering
-    final packages = offerings.current!.availablePackages
-        .where((p) =>
-            p.storeProduct.identifier.contains('pro'))
-        .toList();
+    // Show ALL available packages from the current offering
+    final packages = offerings.current!.availablePackages.toList();
 
     if (packages.isEmpty) {
-      return _buildErrorState('Pro subscription not available');
+      return _buildErrorState('No subscription options available');
     }
 
-    // Sort to show monthly first, then yearly
+    // Sort: monthly first, then yearly
     packages.sort((a, b) {
       final aIsMonthly = a.storeProduct.identifier.contains('monthly');
       final bIsMonthly = b.storeProduct.identifier.contains('monthly');
@@ -557,18 +619,114 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
 
     return Column(
       children: packages.map((package) {
-        final isYearly = package.storeProduct.identifier.contains('yearly');
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _SubscriptionOptionTile(
-            title: isYearly ? 'Pro Yearly' : 'Pro Monthly',
-            price: package.storeProduct.priceString,
-            period: isYearly ? '/year' : '/month',
-            badge: isYearly ? 'Save 17%' : null,
-            onTap: () => _purchasePackage(package),
-          ),
-        );
+        final isYearly = package.storeProduct.identifier.contains('yearly') ||
+            package.storeProduct.identifier.contains('annual');
+        final isMonthly = !isYearly;
+
+        if (isMonthly) {
+          // Monthly with trial — primary CTA
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildMonthlyTile(package),
+          );
+        } else {
+          // Annual — secondary CTA with savings badge
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildAnnualTile(package),
+          );
+        }
       }).toList(),
+    );
+  }
+
+  Widget _buildMonthlyTile(Package package) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _purchasePackage(package),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.amber.shade700, width: 2),
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: [
+                Colors.amber.shade900.withOpacity(0.3),
+                Colors.orange.shade900.withOpacity(0.15),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(
+            children: [
+              const Text(
+                'Start 3-Day Free Trial',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Then ${package.storeProduct.priceString}/month. Cancel anytime.',
+                style: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnnualTile(Package package) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _purchasePackage(package),
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade700),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                '${package.storeProduct.priceString}/year',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: const Text(
+                  'Save over 15%',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -589,6 +747,46 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
     );
   }
 
+  Future<void> _restorePurchases() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final subscriptionService = ref.read(subscriptionServiceProvider);
+      final result = await subscriptionService.restorePurchases();
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        if (result != null) {
+          Navigator.of(context).pop();
+          widget.onPurchaseComplete?.call();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Purchases restored successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No purchases found to restore.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _error = e.toString();
+        });
+      }
+    }
+  }
+
   Future<void> _purchasePackage(Package package) async {
     setState(() {
       _isLoading = true;
@@ -606,7 +804,7 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Welcome to Pro! You now have 60 voice minutes per month.'),
+            content: Text('Welcome! You now have 60 voice minutes per month.'),
             backgroundColor: Colors.green,
           ),
         );
@@ -624,125 +822,5 @@ class _ProUpgradeSheetState extends ConsumerState<_ProUpgradeSheet> {
         });
       }
     }
-  }
-}
-
-/// Individual subscription option tile
-class _SubscriptionOptionTile extends StatelessWidget {
-  final String title;
-  final String price;
-  final String period;
-  final String? badge;
-  final VoidCallback onTap;
-
-  const _SubscriptionOptionTile({
-    required this.title,
-    required this.price,
-    required this.period,
-    this.badge,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.amber.shade700),
-            borderRadius: BorderRadius.circular(12),
-            gradient: LinearGradient(
-              colors: [
-                Colors.amber.shade900.withOpacity(0.2),
-                Colors.orange.shade900.withOpacity(0.1),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (badge != null) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              badge!,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '60 voice minutes/month',
-                      style: TextStyle(
-                        color: Colors.grey.shade400,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    price,
-                    style: TextStyle(
-                      color: Colors.amber.shade400,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    period,
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: Colors.amber.shade400,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

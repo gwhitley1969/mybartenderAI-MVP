@@ -99,7 +99,7 @@ class _VoiceButtonState extends State<VoiceButton>
       widget.state == VoiceAIState.idle ||
       widget.state == VoiceAIState.error ||
       widget.state == VoiceAIState.quotaExhausted ||
-      widget.state == VoiceAIState.tierRequired;
+      widget.state == VoiceAIState.entitlementRequired;
 
   void _handlePointerDown(PointerDownEvent event) {
     _pressStartTime = DateTime.now();
@@ -358,7 +358,7 @@ class _VoiceButtonState extends State<VoiceButton>
           ),
           100.0,
         ),
-      VoiceAIState.quotaExhausted || VoiceAIState.tierRequired => (
+      VoiceAIState.quotaExhausted || VoiceAIState.entitlementRequired => (
           Icons.lock,
           const LinearGradient(
             colors: [Color(0xFF6B7280), Color(0xFF4B5563)],

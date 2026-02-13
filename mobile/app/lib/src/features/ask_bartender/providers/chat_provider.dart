@@ -77,7 +77,7 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       String errorMessage = 'Sorry, I had trouble processing your request.';
 
       if (e.toString().contains('429') || e.toString().contains('quota')) {
-        errorMessage = 'You\'ve reached your monthly limit. Please upgrade your plan or wait until next month.';
+        errorMessage = 'You\'ve reached your monthly limit. Please subscribe or wait until next month.';
       } else if (e.toString().contains('401') || e.toString().contains('403')) {
         errorMessage = 'Please sign in again to continue our conversation.';
       } else if (e.toString().contains('timeout') || e.toString().contains('connection')) {

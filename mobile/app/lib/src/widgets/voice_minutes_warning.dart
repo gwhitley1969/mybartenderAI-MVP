@@ -24,8 +24,8 @@ class VoiceMinutesWarning extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only show for Premium and Pro tiers
-    if (quota.tier != 'premium' && quota.tier != 'pro') {
+    // Only show for subscribers
+    if (!quota.hasAccess) {
       return const SizedBox.shrink();
     }
 
@@ -46,9 +46,9 @@ class VoiceMinutesWarning extends ConsumerWidget {
   }
 
   WarningLevel _getWarningLevel() {
-    final totalMinutes = quota.remainingMinutes + (quota.addonSecondsRemaining ~/ 60);
+    final totalMinutes = quota.remainingMinutes;
 
-    if (totalMinutes == 0) return WarningLevel.empty;
+    if (totalMinutes <= 0) return WarningLevel.empty;
     if (totalMinutes <= 2) return WarningLevel.critical;
     if (totalMinutes <= 5) return WarningLevel.low;
     return WarningLevel.none;
@@ -64,7 +64,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
           textColor: Colors.red.shade900,
           icon: Icons.mic_off,
           message: "You're out of voice minutes!",
-          buttonText: 'Get 10 minutes',
+          buttonText: 'Get 60 minutes',
         );
       case WarningLevel.critical:
         return _WarningStyling(
@@ -73,7 +73,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
           iconColor: Colors.orange,
           textColor: Colors.orange.shade900,
           icon: Icons.warning_amber,
-          message: 'Only ${quota.remainingMinutes} minutes remaining',
+          message: 'Only ${quota.remainingMinutes.floor()} minutes remaining',
           buttonText: 'Get more',
         );
       case WarningLevel.low:
@@ -83,7 +83,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
           iconColor: Colors.amber.shade700,
           textColor: Colors.amber.shade900,
           icon: Icons.info_outline,
-          message: 'Running low: ${quota.remainingMinutes} minutes left',
+          message: 'Running low: ${quota.remainingMinutes.floor()} minutes left',
           buttonText: 'Top up',
         );
       case WarningLevel.none:
@@ -133,7 +133,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
               label: Text(
                 productDetails != null
                     ? '${styling.buttonText} - ${productDetails.price}'
-                    : '${styling.buttonText} - \$4.99',
+                    : '${styling.buttonText} - \$5.99',
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -149,14 +149,14 @@ class VoiceMinutesWarning extends ConsumerWidget {
             error: (_, __) => ElevatedButton.icon(
               onPressed: onPurchase,
               icon: const Icon(Icons.add, size: 18),
-              label: Text('${styling.buttonText} - \$4.99'),
+              label: Text('${styling.buttonText} - \$5.99'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
             ),
           ),
-          if (quota.tier == 'pro' && quota.remainingMinutes > 0) ...[
+          if (quota.hasAccess && quota.remainingMinutes > 0) ...[
             const SizedBox(height: 8),
             Text(
               _getResetText(),
@@ -208,7 +208,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                productDetails != null ? productDetails.price : '\$4.99',
+                productDetails != null ? productDetails.price : '\$5.99',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.green,
@@ -223,7 +223,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
             error: (_, __) => TextButton(
               onPressed: onPurchase,
               child: const Text(
-                '\$4.99',
+                '\$5.99',
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
               ),
             ),

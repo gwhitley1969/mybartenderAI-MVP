@@ -38,8 +38,8 @@ class PurchaseResult {
 /// 5. Delegate verification to backend
 /// 6. Complete purchase with Google Play
 class PurchaseService {
-  // Product ID for voice minutes pack: $4.99 for 20 minutes (was 10 minutes)
-  static const String voiceMinutesProductId = 'voice_minutes_20';
+  // Product ID for voice minutes pack: $5.99 for 60 minutes
+  static const String voiceMinutesProductId = 'voice_minutes_60';
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
@@ -238,7 +238,7 @@ class PurchaseService {
           state: PurchaseState.success,
           minutesAdded: result['minutesAdded'] ?? 10,
           totalMinutes: result['totalPurchasedMinutes'] ?? 10,
-          message: result['message'] ?? '20 voice minutes added!',
+          message: result['message'] ?? '60 voice minutes added!',
         ));
       } else {
         _purchaseController.add(PurchaseResult(

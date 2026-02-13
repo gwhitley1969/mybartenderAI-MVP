@@ -65,11 +65,11 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
         quota: sessionInfo.quota,
         voiceState: VoiceAIState.listening,
       );
-    } on VoiceAITierRequiredException catch (e) {
+    } on VoiceAIEntitlementRequiredException catch (e) {
       state = state.copyWith(
         isLoading: false,
         error: e.message,
-        voiceState: VoiceAIState.tierRequired,
+        voiceState: VoiceAIState.entitlementRequired,
         requiresUpgrade: true,
       );
     } on VoiceAIQuotaExceededException catch (e) {
@@ -207,7 +207,7 @@ class VoiceAISessionState {
 
   bool get isConnected => voiceState != VoiceAIState.idle &&
                           voiceState != VoiceAIState.error &&
-                          voiceState != VoiceAIState.tierRequired &&
+                          voiceState != VoiceAIState.entitlementRequired &&
                           voiceState != VoiceAIState.quotaExhausted;
 
   bool get canStartSession => voiceState == VoiceAIState.idle && !isLoading;

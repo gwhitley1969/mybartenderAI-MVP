@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import '../services/backend_service.dart';
 import '../services/subscription_service.dart';
 import 'backend_provider.dart';
 
@@ -21,7 +20,7 @@ final subscriptionStatusProvider = StreamProvider<SubscriptionStatus>((ref) {
 final currentSubscriptionProvider = FutureProvider<SubscriptionStatus>((ref) async {
   final service = ref.watch(subscriptionServiceProvider);
   if (!service.isInitialized) {
-    return SubscriptionStatus.free;
+    return SubscriptionStatus.none;
   }
   return service.getStatus();
 });
@@ -33,33 +32,23 @@ final subscriptionOfferingsProvider = FutureProvider<Offerings?>((ref) async {
   return service.getOfferings();
 });
 
-/// Provider for checking if user has premium or higher subscription
-final isPremiumOrHigherProvider = Provider<bool>((ref) {
+/// Provider for checking if user has active subscription
+final isPaidProvider = Provider<bool>((ref) {
   final statusAsync = ref.watch(subscriptionStatusProvider);
   return statusAsync.when(
-    data: (status) => status.isPremiumOrHigher,
+    data: (status) => status.isPaid,
     loading: () => false,
     error: (_, __) => false,
   );
 });
 
-/// Provider for checking if user has pro subscription
-final isProSubscriberProvider = Provider<bool>((ref) {
+/// Provider for subscription status string (trialing/active/expired/none)
+final subscriptionStatusStringProvider = Provider<String>((ref) {
   final statusAsync = ref.watch(subscriptionStatusProvider);
   return statusAsync.when(
-    data: (status) => status.isPro,
-    loading: () => false,
-    error: (_, __) => false,
-  );
-});
-
-/// Provider for the current subscription tier
-final currentTierProvider = Provider<SubscriptionTier>((ref) {
-  final statusAsync = ref.watch(subscriptionStatusProvider);
-  return statusAsync.when(
-    data: (status) => status.tier,
-    loading: () => SubscriptionTier.free,
-    error: (_, __) => SubscriptionTier.free,
+    data: (status) => status.subscriptionStatus,
+    loading: () => 'none',
+    error: (_, __) => 'none',
   );
 });
 
@@ -166,11 +155,11 @@ final isSubscriptionProcessingProvider = Provider<bool>((ref) {
 });
 
 /// Convenience provider for determining if upgrade prompt should be shown
-/// Returns true if user is on free tier and not currently processing a purchase
+/// Returns true if user is not paid and not currently processing a purchase
 final shouldShowUpgradePromptProvider = Provider<bool>((ref) {
-  final tier = ref.watch(currentTierProvider);
+  final isPaid = ref.watch(isPaidProvider);
   final isProcessing = ref.watch(isSubscriptionProcessingProvider);
-  return tier == SubscriptionTier.free && !isProcessing;
+  return !isPaid && !isProcessing;
 });
 
 /// Provider for management URL (to cancel/modify subscription in Play Store)

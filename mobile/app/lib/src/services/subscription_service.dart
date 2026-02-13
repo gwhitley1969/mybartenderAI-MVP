@@ -4,16 +4,10 @@ import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import 'backend_service.dart';
 
-/// Subscription tier levels
-enum SubscriptionTier {
-  free,
-  premium,
-  pro,
-}
-
 /// Subscription status from RevenueCat
 class SubscriptionStatus {
-  final SubscriptionTier tier;
+  final bool isPaid;
+  final String subscriptionStatus; // 'trialing', 'active', 'expired', 'none'
   final String? productId;
   final bool isActive;
   final bool willRenew;
@@ -21,7 +15,8 @@ class SubscriptionStatus {
   final String? managementUrl;
 
   const SubscriptionStatus({
-    required this.tier,
+    required this.isPaid,
+    this.subscriptionStatus = 'none',
     this.productId,
     this.isActive = false,
     this.willRenew = false,
@@ -29,16 +24,11 @@ class SubscriptionStatus {
     this.managementUrl,
   });
 
-  /// Free tier default
-  static const SubscriptionStatus free = SubscriptionStatus(
-    tier: SubscriptionTier.free,
+  static const SubscriptionStatus none = SubscriptionStatus(
+    isPaid: false,
+    subscriptionStatus: 'none',
     isActive: false,
   );
-
-  bool get isPremiumOrHigher =>
-      tier == SubscriptionTier.premium || tier == SubscriptionTier.pro;
-
-  bool get isPro => tier == SubscriptionTier.pro;
 }
 
 /// Service for managing subscriptions via RevenueCat
@@ -56,17 +46,8 @@ class SubscriptionService {
   // NO hardcoded keys in code - retrieved at runtime from secure backend
   String? _revenueCatApiKey;
 
-  // Entitlement identifiers (must match RevenueCat dashboard)
-  static const String _premiumEntitlement = 'premium';
-  static const String _proEntitlement = 'pro';
-
-  // Product identifiers (must match Google Play Console & RevenueCat)
-  static const Set<String> subscriptionProductIds = {
-    'premium_monthly',
-    'premium_yearly',
-    'pro_monthly',
-    'pro_yearly',
-  };
+  // Entitlement identifier (must match RevenueCat dashboard)
+  static const String _paidEntitlement = 'paid';
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -129,37 +110,26 @@ class SubscriptionService {
 
   /// Parse CustomerInfo into our SubscriptionStatus
   SubscriptionStatus _parseCustomerInfo(CustomerInfo info) {
-    // Check entitlements (pro takes priority over premium)
-    final proEntitlement = info.entitlements.active[_proEntitlement];
-    final premiumEntitlement = info.entitlements.active[_premiumEntitlement];
+    final paidEntitlement = info.entitlements.active[_paidEntitlement];
 
-    if (proEntitlement != null && proEntitlement.isActive) {
+    if (paidEntitlement != null && paidEntitlement.isActive) {
+      // Determine subscription status from entitlement period type
+      final status = paidEntitlement.periodType == PeriodType.trial
+          ? 'trialing' : 'active';
       return SubscriptionStatus(
-        tier: SubscriptionTier.pro,
-        productId: proEntitlement.productIdentifier,
+        isPaid: true,
+        subscriptionStatus: status,
+        productId: paidEntitlement.productIdentifier,
         isActive: true,
-        willRenew: proEntitlement.willRenew,
-        expirationDate: proEntitlement.expirationDate != null
-            ? DateTime.tryParse(proEntitlement.expirationDate!)
+        willRenew: paidEntitlement.willRenew,
+        expirationDate: paidEntitlement.expirationDate != null
+            ? DateTime.tryParse(paidEntitlement.expirationDate!)
             : null,
         managementUrl: info.managementURL,
       );
     }
 
-    if (premiumEntitlement != null && premiumEntitlement.isActive) {
-      return SubscriptionStatus(
-        tier: SubscriptionTier.premium,
-        productId: premiumEntitlement.productIdentifier,
-        isActive: true,
-        willRenew: premiumEntitlement.willRenew,
-        expirationDate: premiumEntitlement.expirationDate != null
-            ? DateTime.tryParse(premiumEntitlement.expirationDate!)
-            : null,
-        managementUrl: info.managementURL,
-      );
-    }
-
-    return SubscriptionStatus.free;
+    return SubscriptionStatus.none;
   }
 
   /// Get available subscription offerings
@@ -252,7 +222,7 @@ class SubscriptionService {
   Future<SubscriptionStatus> getStatus() async {
     final customerInfo = await getCustomerInfo();
     if (customerInfo == null) {
-      return SubscriptionStatus.free;
+      return SubscriptionStatus.none;
     }
     return _parseCustomerInfo(customerInfo);
   }
@@ -263,27 +233,11 @@ class SubscriptionService {
     _statusController.add(status);
   }
 
-  /// Check if user has premium entitlement (premium or pro)
-  bool isPremiumOrHigher([CustomerInfo? info]) {
+  /// Check if user has active paid subscription
+  bool isPaid([CustomerInfo? info]) {
     final customerInfo = info ?? _cachedCustomerInfo;
     if (customerInfo == null) return false;
-
-    return customerInfo.entitlements.active.containsKey(_premiumEntitlement) ||
-        customerInfo.entitlements.active.containsKey(_proEntitlement);
-  }
-
-  /// Check if user has pro entitlement
-  bool isPro([CustomerInfo? info]) {
-    final customerInfo = info ?? _cachedCustomerInfo;
-    if (customerInfo == null) return false;
-
-    return customerInfo.entitlements.active.containsKey(_proEntitlement);
-  }
-
-  /// Get the current tier from cached info
-  SubscriptionTier get currentTier {
-    if (_cachedCustomerInfo == null) return SubscriptionTier.free;
-    return _parseCustomerInfo(_cachedCustomerInfo!).tier;
+    return customerInfo.entitlements.active.containsKey(_paidEntitlement);
   }
 
   /// Log out current user (call when user signs out)
@@ -294,7 +248,7 @@ class SubscriptionService {
     try {
       await Purchases.logOut();
       _cachedCustomerInfo = null;
-      _statusController.add(SubscriptionStatus.free);
+      _statusController.add(SubscriptionStatus.none);
     } catch (e) {
       debugPrint('SubscriptionService: Logout error: $e');
     }

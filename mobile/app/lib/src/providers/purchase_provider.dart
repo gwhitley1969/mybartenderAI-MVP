@@ -97,7 +97,7 @@ final purchaseNotifierProvider =
 final canPurchaseVoiceMinutesProvider = Provider<bool>((ref) {
   final quotaAsync = ref.watch(voiceQuotaProvider);
   return quotaAsync.when(
-    data: (quota) => quota.tier == 'premium' || quota.tier == 'pro',
+    data: (quota) => quota.hasAccess,
     loading: () => false,
     error: (_, __) => false,
   );
@@ -109,7 +109,7 @@ final needsVoiceMinutesPurchaseProvider = Provider<bool>((ref) {
   return quotaAsync.when(
     data: (quota) =>
         !quota.hasQuota &&
-        (quota.tier == 'premium' || quota.tier == 'pro'),
+        (quota.hasAccess),
     loading: () => false,
     error: (_, __) => false,
   );
@@ -123,7 +123,7 @@ final lowVoiceMinutesWarningProvider = Provider<bool>((ref) {
         quota.hasQuota &&
         quota.remainingMinutes <= 5 &&
         quota.remainingMinutes > 0 &&
-        (quota.tier == 'premium' || quota.tier == 'pro'),
+        (quota.hasAccess),
     loading: () => false,
     error: (_, __) => false,
   );
@@ -137,7 +137,7 @@ final criticalVoiceMinutesWarningProvider = Provider<bool>((ref) {
         quota.hasQuota &&
         quota.remainingMinutes <= 2 &&
         quota.remainingMinutes > 0 &&
-        (quota.tier == 'premium' || quota.tier == 'pro'),
+        (quota.hasAccess),
     loading: () => false,
     error: (_, __) => false,
   );

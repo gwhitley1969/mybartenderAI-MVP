@@ -4,6 +4,56 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-009: Voice Session Auto-Close "Last Session Wins" — PostgreSQL Parameter Type Error
+
+**Date Fixed**: February 13, 2026
+**Severity**: High (Feature-breaking)
+**Component**: Voice AI (Backend)
+**Files Modified**: `backend/functions/index.js`
+**Backend Changes**: Yes (single-line fix in voice-session function)
+
+### Context
+
+After deploying the "last session wins" fix (replacing the 409 Conflict block with auto-close logic in the `voice-session` function), tapping "Talk" on the Voice AI screen returned:
+
+> "could not determine data type of parameter $3"
+
+### Root Cause
+
+The `usage_tracking` INSERT added as part of the auto-close logic passes `$3` and `$4` inside `jsonb_build_object()`. PostgreSQL's `jsonb_build_object()` has the signature `VARIADIC "any"` — unlike an `INSERT ... VALUES ($1, $2)` where column types provide inference context, PostgreSQL has no way to determine the types of parameterized placeholders inside a variadic function.
+
+```javascript
+// BROKEN — PostgreSQL can't infer types of $3 and $4 inside jsonb_build_object()
+jsonb_build_object('session_id', $3, 'wall_clock_seconds', $4, 'billing_method', 'last_session_wins')
+```
+
+The existing SQL migrations (006, 010) don't have this problem because they use typed PL/pgSQL variables, not parameterized placeholders from `node-postgres`.
+
+### Fix Applied
+
+Added explicit type casts to resolve the ambiguity:
+
+```javascript
+// FIXED — explicit casts tell PostgreSQL what types to expect
+jsonb_build_object('session_id', $3::text, 'wall_clock_seconds', $4::integer, 'billing_method', 'last_session_wins')
+```
+
+- `$3::text` — session IDs become JSON strings in JSONB regardless; `::text` is idiomatic
+- `$4::integer` — `wallClock` is an integer (seconds); explicit cast resolves the ambiguity
+
+### Verification
+
+1. Deployed to `func-mba-fresh` (Feb 13, 2026)
+2. Device test: Voice AI → Talk → session starts cleanly
+3. If a stale session existed, `Auto-closing orphaned session:` appears in Azure logs
+4. DB verification: `SELECT * FROM usage_tracking WHERE metadata->>'billing_method' = 'last_session_wins' ORDER BY created_at DESC LIMIT 5;`
+
+### Design Lesson
+
+When using `node-postgres` parameterized queries with PostgreSQL functions that accept `VARIADIC "any"` (like `jsonb_build_object`, `json_build_object`, `COALESCE` in some contexts), always add explicit type casts (`::text`, `::integer`, etc.) to the placeholders. This is only needed when parameters appear inside such functions — column-context queries (`INSERT INTO ... VALUES ($1, $2)`) infer types automatically.
+
+---
+
 ## BUG-008: Mobile API Providers Using Unauthenticated Dio (No JWT Token)
 
 **Date Fixed**: February 11, 2026
@@ -90,6 +140,8 @@ This bug illustrates the "two instances" anti-pattern in dependency injection. H
 ---
 
 ## BUG-007: Server-Side Authoritative Voice Metering (Trust Boundary Violation)
+
+> **Update (Feb 13, 2026):** The 409 Conflict concurrent session enforcement described below was replaced with "last session wins" auto-close logic. See BUG-009 for details. The server-authoritative billing, stale session expiry, and hourly cleanup timer remain unchanged.
 
 **Date Fixed**: February 11, 2026
 **Severity**: High (Security)
@@ -179,7 +231,7 @@ New `voice-session-cleanup` timer runs every hour. Calls `expire_stale_voice_ses
 | Zero: client 0, wall-clock 300s | billed 90 (30%) |
 | Short: client 0, wall-clock 5s | billed 0, method `short_session_free` |
 | Idempotency: call twice | second returns `already_recorded` |
-| Concurrent: Start A, then B | 409 Conflict for B |
+| Concurrent: Start A, then B | A auto-closed and billed, B starts (last-session-wins) |
 | Stale cleanup: 3h old active session | `expire_stale_voice_sessions(2)` → expired with billing |
 
 ### Deployment
@@ -444,4 +496,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 11, 2026
+**Last Updated**: February 13, 2026

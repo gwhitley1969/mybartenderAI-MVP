@@ -2,11 +2,18 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 12, 2026
+**Last Updated**: February 13, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Voice Session "Last Session Wins" Auto-Close + Parameter Type Fix** (Feb 13): Replaced the 409 Conflict concurrent session block with a "last session wins" auto-close strategy, then fixed a PostgreSQL parameter type error (`could not determine data type of parameter $3`) in the `usage_tracking` INSERT. In a mobile-only app, when the user taps "Talk," any previous active session is definitionally dead (WebRTC/audio/state already destroyed client-side). Instead of blocking with 409, the `voice-session` function now: (1) auto-expires stale sessions >2h via `close_user_stale_sessions()`, (2) auto-closes any remaining active session with `status = 'expired'` and bills 30% of wall-clock time, (3) logs the auto-close with `billing_method: 'last_session_wins'` in `usage_tracking`, then (4) creates the new session. The parameter type fix adds explicit casts (`$3::text`, `$4::integer`) inside `jsonb_build_object()` — PostgreSQL's `VARIADIC "any"` signature can't infer types from parameterized placeholders without column context.
+
+  **File modified:**
+  - `backend/functions/index.js`: Replaced 409 block with auto-close logic; added `::text` and `::integer` casts in `jsonb_build_object()`
+
+  See `docs/BUG_FIXES.md` (BUG-009) for full details.
 
 - **Home Screen "Scan My Bar" Rename** (Feb 12): Renamed the Scanner tile in the AI Cocktail Concierge grid from "Scanner" to "Scan My Bar" to better communicate the feature's purpose. Subtitle "Identify bottles" unchanged. This change applies only to the home screen — the My Bar screen's Scanner button remains as-is.
 
@@ -47,10 +54,10 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 - **Server-Side Authoritative Voice Metering** (Feb 11): Hardened voice billing to prevent quota abuse. Previously, the backend trusted the client-reported `durationSeconds` without validation (CWE-602). A modified client could report 0 duration for unlimited free voice minutes, or never call `/v1/voice/usage` to leave sessions active with 0 billed. Now all duration computation happens in PostgreSQL using server-controlled timestamps (`NOW() - started_at`). Five changes applied:
   1. **SQL migration `010_voice_metering_server_auth.sql`**: New server-authoritative `record_voice_session()` that computes wall-clock time as a tamper-proof ceiling, caps client duration, and returns billing transparency. New `expire_stale_voice_sessions()` and `close_user_stale_sessions()` functions. Added `'expired'` status. Updated `check_voice_quota()` and `voice_usage_summary` to count expired sessions
-  2. **Concurrent session enforcement**: Before creating a new voice session, stale sessions (>2h) are auto-expired and any remaining active session returns **409 Conflict** — prevents quota leakage from parallel sessions
+  2. **Concurrent session enforcement**: Before creating a new voice session, stale sessions (>2h) are auto-expired and any remaining active session is auto-closed (~~returns **409 Conflict**~~ → replaced with "last session wins" auto-close on Feb 13, see above)
   3. **Billing result capture**: `/v1/voice/usage` now returns `billing.billedSeconds`, `billing.wallClockSeconds`, `billing.clientReportedSeconds`, and `billing.method` for full audit transparency
   4. **Hourly cleanup timer**: New `voice-session-cleanup` timer function runs every hour, expiring stale sessions that clients never closed. Bills 30% of wall-clock time as a conservative estimate
-  5. **Flutter 409 handling**: Client now handles 409 Conflict with user-friendly "active session" error message, and logs server billing details for debugging
+  5. **Flutter 409 handling**: Client handles 409 Conflict with user-friendly error message (no longer triggered after Feb 13 "last session wins" change), and logs server billing details for debugging
 
   **Files modified:**
   - `backend/functions/migrations/010_voice_metering_server_auth.sql` (NEW): Server-authoritative SQL functions
@@ -754,4 +761,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 12, 2026
+**Last Updated**: February 13, 2026

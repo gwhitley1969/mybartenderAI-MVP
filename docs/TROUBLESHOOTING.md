@@ -1,6 +1,6 @@
 # Azure Functions - Troubleshooting Guide
 
-**Last Updated:** 2025-12-11
+**Last Updated:** 2026-02-13
 
 ## Current Status ✅
 
@@ -655,6 +655,41 @@ az monitor app-insights query \
 ---
 
 ## Voice AI Issues
+
+### Issue 14: Voice Session "could not determine data type of parameter $3" ✅ RESOLVED
+
+**Date**: February 13, 2026
+
+**Symptoms:**
+- Tapping "Talk" on Voice AI screen shows "could not determine data type of parameter $3"
+- Error occurs during the auto-close logic when billing a stale session
+- New sessions cannot be created
+
+**Root Cause:** PostgreSQL `jsonb_build_object()` has the signature `VARIADIC "any"` — parameterized placeholders (`$3`, `$4`) inside this function have no column context for type inference, so PostgreSQL can't determine their types.
+
+```javascript
+// BROKEN — $3 and $4 types are ambiguous inside jsonb_build_object()
+jsonb_build_object('session_id', $3, 'wall_clock_seconds', $4, ...)
+```
+
+**Note:** This only affects `node-postgres` parameterized queries. PL/pgSQL functions (migrations 006, 010) use typed variables and don't have this issue.
+
+**Solution:** Add explicit type casts to the parameterized placeholders:
+
+```javascript
+// FIXED
+jsonb_build_object('session_id', $3::text, 'wall_clock_seconds', $4::integer, ...)
+```
+
+**Files Modified:**
+- `backend/functions/index.js` — Added `::text` and `::integer` casts in `jsonb_build_object()` call (line ~2934)
+
+**Key Learning:**
+When using `node-postgres` with PostgreSQL functions that accept `VARIADIC "any"` (`jsonb_build_object`, `json_build_object`, etc.), always add explicit type casts to parameterized placeholders. Column-context queries (`INSERT INTO ... VALUES ($1)`) don't need this because PostgreSQL infers types from the target columns.
+
+**See Also:** `docs/BUG_FIXES.md` (BUG-009)
+
+---
 
 ### Issue 13: Voice AI 401 Error - "Voice AI requires authentication" ✅ RESOLVED
 

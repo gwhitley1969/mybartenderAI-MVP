@@ -204,6 +204,8 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
 - `404` - User not found
 - `500` - Configuration error or token generation failed
 
+**Note**: Previous versions returned `409 Conflict` for concurrent sessions. As of February 13, 2026, the function uses "last session wins" — any existing active session is auto-closed and billed before the new session is created.
+
 ### 2. Voice Usage - `voice-usage`
 
 **Route**: POST `/api/v1/voice/usage`
@@ -1350,9 +1352,10 @@ IF client <= 0 AND wall_clock <= 10 → billed = 0          -- short session, be
 
 ### Backend Changes (`index.js`)
 
-1. **Concurrent session enforcement** — Before creating a new `voice_sessions` row:
+1. **"Last session wins" auto-close** — Before creating a new `voice_sessions` row:
    - Auto-expire stale sessions (>2h) via `close_user_stale_sessions()`
-   - If active sessions remain: return **409 Conflict**
+   - Auto-close any remaining active session: marks it `expired`, bills 30% of wall-clock time, logs to `usage_tracking` with `billing_method: 'last_session_wins'`
+   - **No 409 Conflict** — in a mobile-only app, a new session request means the old session is definitionally dead (WebRTC/audio/state already destroyed client-side)
 
 2. **Billing result capture** — `voice-usage` endpoint now captures and returns the SQL function's billing breakdown:
    ```json
@@ -1370,8 +1373,8 @@ IF client <= 0 AND wall_clock <= 10 → billed = 0          -- short session, be
 
 ### Flutter Client Updates (`voice_ai_service.dart`)
 
-- **409 handler** in `startSession()` — surfaces "active session" message
 - **Billing logging** in `endSession()` — logs server billing details for debugging
+- **Note**: The 409 handler from the original implementation is no longer triggered — the backend now auto-closes stale sessions instead of returning 409
 
 ### Threat Model
 
@@ -1380,7 +1383,7 @@ IF client <= 0 AND wall_clock <= 10 → billed = 0          -- short session, be
 | Report `durationSeconds: 0` | 0 billed, free minutes | Server bills 30% of wall-clock |
 | Report inflated duration | Overcharged (self-harm) | Capped at wall-clock |
 | Never call `/v1/voice/usage` | `active` forever, 0 billed | Timer expires after 2h, bills 30% |
-| Multiple concurrent sessions | Unlimited | 409 Conflict; stale auto-expired |
+| Multiple concurrent sessions | Unlimited | Auto-closed and billed; "last session wins" |
 | Session > 60 minutes | No cap | Capped at 3600s |
 
 ### Deployment
@@ -1393,4 +1396,4 @@ See `docs/BUG_FIXES.md` (BUG-007) for full details.
 
 ---
 
-**Last Updated**: February 13, 2026 (Subscription model migration: paid/none entitlement)
+**Last Updated**: February 13, 2026 (Last-session-wins auto-close + jsonb_build_object type cast fix)

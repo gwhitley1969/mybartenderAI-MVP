@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 11, 2026 - server-authoritative voice metering)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 13, 2026 - "last session wins" auto-close replaces 409 Conflict)
 
 ## Overview
 

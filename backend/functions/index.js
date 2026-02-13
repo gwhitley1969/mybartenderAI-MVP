@@ -2896,7 +2896,9 @@ Never provide:
                 context.log('Auto-expired', staleClosed, 'stale voice session(s) for user');
             }
 
-            // Step 2: Check for remaining active sessions (recent, <2h)
+            // Step 2: Auto-close any remaining active session (last-session-wins)
+            // In a mobile-only app, if the user is requesting a new session, any previous
+            // session is definitionally dead (WebRTC/audio/state already destroyed client-side).
             const activeCheck = await db.query(
                 `SELECT id, started_at FROM voice_sessions
                  WHERE user_id = $1 AND status = 'active'
@@ -2905,18 +2907,34 @@ Never provide:
             );
 
             if (activeCheck.rows.length > 0) {
-                const activeSession = activeCheck.rows[0];
-                context.log('Concurrent session blocked. Existing active session:', activeSession.id, 'started:', activeSession.started_at);
-                return {
-                    status: 409,
-                    headers,
-                    jsonBody: {
-                        success: false,
-                        error: 'concurrent_session',
-                        message: 'You already have an active voice session. Please end it before starting a new one.',
-                        existingSessionId: activeSession.id
-                    }
-                };
+                const staleSession = activeCheck.rows[0];
+                const wallClock = Math.min(
+                    Math.floor((Date.now() - new Date(staleSession.started_at).getTime()) / 1000),
+                    3600
+                );
+                const billedSeconds = wallClock > 10 ? Math.floor(wallClock * 0.3) : 0;
+
+                context.log('Auto-closing orphaned session:', staleSession.id,
+                    'age:', wallClock, 's, billed:', billedSeconds, 's');
+
+                await db.query(
+                    `UPDATE voice_sessions
+                     SET status = 'expired',
+                         ended_at = NOW(),
+                         duration_seconds = $2,
+                         error_message = 'Auto-closed: new session requested (last-session-wins)'
+                     WHERE id = $1`,
+                    [staleSession.id, billedSeconds]
+                );
+
+                if (billedSeconds > 0) {
+                    await db.query(
+                        `INSERT INTO usage_tracking (user_id, feature_type, usage_count, usage_value, month_year, metadata)
+                         VALUES ($1, 'voice_minutes', 1, $2, TO_CHAR(NOW(), 'YYYY-MM'),
+                                 jsonb_build_object('session_id', $3::text, 'wall_clock_seconds', $4::integer, 'billing_method', 'last_session_wins'))`,
+                        [user.id, billedSeconds / 60.0, staleSession.id, wallClock]
+                    );
+                }
             }
 
             // NOW create session record in database with the realtime session_id

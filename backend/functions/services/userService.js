@@ -42,6 +42,15 @@ const TIER_QUOTAS = {
 };
 
 /**
+ * Entitlement-based quota definitions (Phase 2)
+ * Binary model: paid gets everything, none gets nothing
+ */
+const ENTITLEMENT_QUOTAS = {
+    none: { tokensPerMonth: 0, scansPerMonth: 0, voiceEnabled: false, aiEnabled: false },
+    paid: { tokensPerMonth: 1000000, scansPerMonth: 100, voiceEnabled: true, aiEnabled: true }
+};
+
+/**
  * Valid tier values (must match database constraint)
  */
 const VALID_TIERS = ['free', 'premium', 'pro'];
@@ -72,7 +81,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
     try {
         // First, try to find existing user
         const selectResult = await pool.query(
-            `SELECT id, azure_ad_sub, tier, email, display_name, created_at, last_login_at
+            `SELECT id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at
              FROM users
              WHERE azure_ad_sub = $1`,
             [azureAdSub]
@@ -88,18 +97,20 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
                      email = COALESCE($2, email),
                      display_name = COALESCE($3, display_name)
                  WHERE id = $1
-                 RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at`,
+                 RETURNING id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at`,
                 [user.id, email, displayName]
             );
 
             const updatedUser = updateResult.rows[0];
 
-            log(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}`);
+            log(`[UserService] Found existing user: ${updatedUser.id}, tier: ${updatedUser.tier}, entitlement: ${updatedUser.entitlement}`);
 
             return {
                 id: updatedUser.id,
                 azureAdSub: updatedUser.azure_ad_sub,
                 tier: updatedUser.tier,
+                entitlement: updatedUser.entitlement,
+                subscriptionStatus: updatedUser.subscription_status,
                 email: updatedUser.email,
                 displayName: updatedUser.display_name,
                 createdAt: updatedUser.created_at,
@@ -107,24 +118,26 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
             };
         }
 
-        // User doesn't exist - create with default 'pro' tier (beta testing)
+        // User doesn't exist - create with default 'pro' tier + 'paid' entitlement (beta testing)
         log(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`);
 
         const insertResult = await pool.query(
-            `INSERT INTO users (azure_ad_sub, tier, email, display_name, created_at, updated_at, last_login_at)
-             VALUES ($1, 'pro', $2, $3, NOW(), NOW(), NOW())
-             RETURNING id, azure_ad_sub, tier, email, display_name, created_at, last_login_at`,
+            `INSERT INTO users (azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, updated_at, last_login_at)
+             VALUES ($1, 'pro', 'paid', 'active', $2, $3, NOW(), NOW(), NOW())
+             RETURNING id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at`,
             [azureAdSub, email, displayName]
         );
 
         const newUser = insertResult.rows[0];
 
-        log(`[UserService] Created new user: ${newUser.id}, tier: pro`);
+        log(`[UserService] Created new user: ${newUser.id}, tier: pro, entitlement: paid`);
 
         return {
             id: newUser.id,
             azureAdSub: newUser.azure_ad_sub,
             tier: newUser.tier,
+            entitlement: newUser.entitlement,
+            subscriptionStatus: newUser.subscription_status,
             email: newUser.email,
             displayName: newUser.display_name,
             createdAt: newUser.created_at,
@@ -137,7 +150,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
             logWarn(`[UserService] Race condition detected, retrying lookup`);
 
             const retryResult = await pool.query(
-                `SELECT id, azure_ad_sub, tier, email, display_name, created_at, last_login_at
+                `SELECT id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at
                  FROM users
                  WHERE azure_ad_sub = $1`,
                 [azureAdSub]
@@ -149,6 +162,8 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
                     id: user.id,
                     azureAdSub: user.azure_ad_sub,
                     tier: user.tier,
+                    entitlement: user.entitlement,
+                    subscriptionStatus: user.subscription_status,
                     email: user.email,
                     displayName: user.display_name,
                     createdAt: user.created_at,
@@ -180,14 +195,25 @@ function getTierQuotas(tier) {
 }
 
 /**
- * Check if a user has access to a specific feature based on their tier
+ * Get quota limits for a given entitlement level
  *
- * @param {string} tier - The user's subscription tier
+ * @param {string} entitlement - The user's entitlement ('paid', 'none')
+ * @returns {object} Quota limits for the entitlement
+ */
+function getEntitlementQuotas(entitlement) {
+    return ENTITLEMENT_QUOTAS[entitlement] || ENTITLEMENT_QUOTAS.none;
+}
+
+/**
+ * Check if a user has access to a specific feature based on their tier or entitlement
+ *
+ * @param {string} tierOrEntitlement - The user's tier ('free','premium','pro') or entitlement ('paid','none')
  * @param {string} feature - The feature to check ('ai', 'voice', 'scan')
  * @returns {boolean} Whether the user has access to the feature
  */
-function hasFeatureAccess(tier, feature) {
-    const quotas = getTierQuotas(tier);
+function hasFeatureAccess(tierOrEntitlement, feature) {
+    // Try entitlement first, fall back to tier
+    const quotas = ENTITLEMENT_QUOTAS[tierOrEntitlement] || getTierQuotas(tierOrEntitlement);
 
     switch (feature) {
         case 'ai':
@@ -255,7 +281,7 @@ async function getUserById(userId) {
     const pool = getPool();
 
     const result = await pool.query(
-        `SELECT id, azure_ad_sub, tier, email, display_name, created_at, last_login_at
+        `SELECT id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at
          FROM users
          WHERE id = $1`,
         [userId]
@@ -270,6 +296,8 @@ async function getUserById(userId) {
         id: user.id,
         azureAdSub: user.azure_ad_sub,
         tier: user.tier,
+        entitlement: user.entitlement,
+        subscriptionStatus: user.subscription_status,
         email: user.email,
         displayName: user.display_name,
         createdAt: user.created_at,
@@ -280,9 +308,11 @@ async function getUserById(userId) {
 module.exports = {
     getOrCreateUser,
     getTierQuotas,
+    getEntitlementQuotas,
     hasFeatureAccess,
     updateUserTier,
     getUserById,
     TIER_QUOTAS,
+    ENTITLEMENT_QUOTAS,
     VALID_TIERS
 };

@@ -77,25 +77,25 @@ module.exports = async function (context, req) {
             displayName: userName
         });
         userTier = user.tier;
-        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);
+        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}, Entitlement: ${user.entitlement}`);
 
-        // Voice AI is PRO tier only
-        if (!hasFeatureAccess(userTier, 'voice')) {
-            context.log.warn(`[Auth] User tier ${userTier} does not have voice access`);
+        // Voice AI requires paid entitlement
+        if (user.entitlement !== 'paid') {
+            context.log.warn(`[Auth] User entitlement ${user.entitlement} does not have voice access`);
             context.res = {
                 status: 403,
                 headers,
                 body: {
-                    error: 'Pro subscription required',
-                    message: 'Voice AI is available exclusively for Pro subscribers. Please upgrade your subscription to access this feature.',
+                    error: 'Subscription required',
+                    message: 'Voice AI is available exclusively for subscribers. Please subscribe to access this feature.',
                     tier: userTier,
-                    requiredTier: 'pro'
+                    entitlement: user.entitlement
                 }
             };
             return;
         }
 
-        context.log('[Auth] Pro tier verified - voice access granted');
+        context.log('[Auth] Paid entitlement verified - voice access granted');
         // Check for required Azure Speech Services configuration
         const speechKey = process.env.AZURE_SPEECH_KEY;
         const speechRegion = process.env.AZURE_SPEECH_REGION;

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.incrementAndCheck = exports.checkQuotaWithoutIncrement = exports.getCurrentUsage = exports.QuotaExceededError = void 0;
 
 const postgresPool_js_1 = require("../shared/db/postgresPool.js");
-const { TIER_QUOTAS } = require("./userService.js");
+const { TIER_QUOTAS, ENTITLEMENT_QUOTAS } = require("./userService.js");
 
 /**
  * Default monthly cap (fallback if tier lookup fails)
@@ -40,27 +40,33 @@ exports.QuotaExceededError = QuotaExceededError;
  */
 const getMonthlyCap = async (client, userId) => {
     try {
-        // Look up user's tier from the users table
+        // Look up user's tier and entitlement from the users table
         const result = await client.query(
-            'SELECT tier FROM users WHERE azure_ad_sub = $1',
+            'SELECT tier, entitlement FROM users WHERE azure_ad_sub = $1',
             [userId]
         );
 
         if (result.rowCount === 0) {
-            // User not found - use free tier as default
-            console.log(`[TokenQuota] User ${userId.substring(0, 8)}... not found, using free tier cap`);
-            return TIER_QUOTAS.free.tokensPerMonth;
+            console.log(`[TokenQuota] User ${userId.substring(0, 8)}... not found, using default cap`);
+            return DEFAULT_MONTHLY_CAP;
         }
 
-        const tier = result.rows[0].tier || 'free';
-        const quotas = TIER_QUOTAS[tier] || TIER_QUOTAS.free;
+        const { tier, entitlement } = result.rows[0];
 
-        console.log(`[TokenQuota] User tier: ${tier}, monthly cap: ${quotas.tokensPerMonth}`);
+        // Use entitlement-based quotas first, fall back to tier
+        if (entitlement && ENTITLEMENT_QUOTAS[entitlement]) {
+            const cap = ENTITLEMENT_QUOTAS[entitlement].tokensPerMonth;
+            console.log(`[TokenQuota] User entitlement: ${entitlement}, monthly cap: ${cap}`);
+            return cap;
+        }
+
+        const normalizedTier = tier || 'free';
+        const quotas = TIER_QUOTAS[normalizedTier] || TIER_QUOTAS.free;
+        console.log(`[TokenQuota] User tier: ${normalizedTier}, monthly cap: ${quotas.tokensPerMonth}`);
         return quotas.tokensPerMonth;
 
     } catch (error) {
         console.error(`[TokenQuota] Error looking up user tier: ${error.message}`);
-        // Fall back to default cap on error
         return DEFAULT_MONTHLY_CAP;
     }
 };
@@ -106,14 +112,19 @@ const getCurrentUsage = async (userId, now = new Date()) => {
     const month = normalizeMonth(now);
     const pool = postgresPool_js_1.getPool();
 
-    // Get user's tier-based cap
+    // Get user's entitlement and tier
     const tierResult = await pool.query(
-        'SELECT tier FROM users WHERE azure_ad_sub = $1',
+        'SELECT tier, entitlement FROM users WHERE azure_ad_sub = $1',
         [userId]
     );
 
+    const entitlement = tierResult.rows[0]?.entitlement;
     const tier = tierResult.rows[0]?.tier || 'free';
-    const monthlyCap = TIER_QUOTAS[tier]?.tokensPerMonth || DEFAULT_MONTHLY_CAP;
+
+    // Use entitlement-based cap first, fall back to tier
+    const monthlyCap = (entitlement && ENTITLEMENT_QUOTAS[entitlement])
+        ? ENTITLEMENT_QUOTAS[entitlement].tokensPerMonth
+        : (TIER_QUOTAS[tier]?.tokensPerMonth || DEFAULT_MONTHLY_CAP);
 
     // Get current usage
     const usageResult = await pool.query(

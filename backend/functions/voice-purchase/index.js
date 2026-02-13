@@ -2,18 +2,18 @@
  * Voice Minute Purchase Endpoint - POST /v1/voice/purchase
  *
  * Validates Google Play purchase and credits voice minutes to user account.
- * Uses the EXISTING voice_addon_purchases table which is already integrated
- * with check_voice_quota() function - no changes needed to other endpoints.
+ * Writes to voice_addon_purchases (legacy) + voice_purchase_transactions (Phase 2)
+ * and increments voice_minutes_purchased_balance on users table.
  *
  * Flow:
  * 1. Validate JWT and extract Azure AD sub
  * 2. Look up internal user UUID from users table
- * 3. Check user tier (must be pro or premium)
+ * 3. Check entitlement (must be 'paid')
  * 4. Check for duplicate transaction_id (idempotent)
  * 5. Verify purchase with Google Play API
  * 6. Acknowledge purchase with Google Play
- * 7. Insert into voice_addon_purchases
- * 8. Return success with updated quota from check_voice_quota()
+ * 7. Insert into voice_addon_purchases + voice_purchase_transactions
+ * 8. Return success with updated quota from get_remaining_voice_minutes()
  */
 
 const { google } = require('googleapis');
@@ -223,7 +223,7 @@ module.exports = async function (context, req) {
 
         // Look up internal user UUID from Azure AD sub (same pattern as voice-session)
         const userResult = await db.query(
-            'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+            'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
             [azureAdSub]
         );
 
@@ -238,18 +238,19 @@ module.exports = async function (context, req) {
 
         const user = userResult.rows[0];
         const internalUserId = user.id; // Internal UUID
-        console.log(`User found: internal ID ${internalUserId}, tier: ${user.tier}`);
+        console.log(`User found: internal ID ${internalUserId}, tier: ${user.tier}, entitlement: ${user.entitlement}`);
 
-        // Check user tier - only pro and premium can purchase voice minutes
-        if (user.tier !== 'pro' && user.tier !== 'premium') {
+        // Check user entitlement - only paid users can purchase voice minutes
+        if (user.entitlement !== 'paid') {
             context.res = {
                 status: 403,
                 headers,
                 body: {
                     success: false,
-                    error: 'tier_required',
-                    message: 'Voice minute purchases require Premium or Pro subscription',
-                    currentTier: user.tier
+                    error: 'entitlement_required',
+                    message: 'Voice minute purchases require an active subscription',
+                    currentTier: user.tier,
+                    entitlement: user.entitlement
                 }
             };
             return;
@@ -267,7 +268,7 @@ module.exports = async function (context, req) {
 
             // Get current quota to return
             const quotaResult = await db.query(
-                'SELECT * FROM check_voice_quota($1)',
+                'SELECT * FROM get_remaining_voice_minutes($1)',
                 [internalUserId]
             );
             const quota = quotaResult.rows[0];
@@ -281,10 +282,9 @@ module.exports = async function (context, req) {
                     message: 'Purchase already credited',
                     alreadyProcessed: true,
                     quota: {
-                        remainingSeconds: quota.total_remaining_seconds,
-                        monthlyUsedSeconds: quota.monthly_used_seconds,
-                        monthlyLimitSeconds: quota.monthly_limit_seconds,
-                        addonSecondsRemaining: quota.addon_seconds_remaining
+                        remainingMinutes: parseFloat(quota.total_remaining),
+                        includedRemaining: parseFloat(quota.included_remaining),
+                        purchasedRemaining: parseFloat(quota.purchased_remaining)
                     }
                 }
             };
@@ -307,8 +307,9 @@ module.exports = async function (context, req) {
 
         console.log('Purchase verified successfully, order:', verification.orderId);
 
-        // Insert into EXISTING voice_addon_purchases table
-        // This table is already integrated with check_voice_quota() function
+        const minutesCredited = SECONDS_PER_PURCHASE / 60;
+
+        // Insert into EXISTING voice_addon_purchases table (backward compat)
         await db.query(
             `INSERT INTO voice_addon_purchases
                 (user_id, seconds_purchased, price_cents, transaction_id, platform, purchased_at)
@@ -316,11 +317,21 @@ module.exports = async function (context, req) {
             [internalUserId, SECONDS_PER_PURCHASE, PRICE_CENTS, purchaseToken, 'android']
         );
 
-        console.log(`Credited ${SECONDS_PER_PURCHASE} seconds (${SECONDS_PER_PURCHASE / 60} minutes) to user ${internalUserId}`);
+        // Also update purchased balance on users table and record in new transactions table
+        await db.query(
+            'UPDATE users SET voice_minutes_purchased_balance = voice_minutes_purchased_balance + $2 WHERE id = $1',
+            [internalUserId, minutesCredited]
+        );
+        await db.query(
+            'INSERT INTO voice_purchase_transactions (user_id, transaction_id, minutes_credited) VALUES ($1, $2, $3)',
+            [internalUserId, purchaseToken, minutesCredited]
+        );
 
-        // Get updated quota using existing check_voice_quota function
+        console.log(`Credited ${minutesCredited} minutes to user ${internalUserId}`);
+
+        // Get updated quota using new function
         const quotaResult = await db.query(
-            'SELECT * FROM check_voice_quota($1)',
+            'SELECT * FROM get_remaining_voice_minutes($1)',
             [internalUserId]
         );
         const quota = quotaResult.rows[0];
@@ -331,18 +342,17 @@ module.exports = async function (context, req) {
             headers,
             body: {
                 success: true,
-                minutesAdded: SECONDS_PER_PURCHASE / 60,
-                message: `${SECONDS_PER_PURCHASE / 60} voice minutes added to your account`,
+                minutesAdded: minutesCredited,
+                message: `${minutesCredited} voice minutes added to your account`,
                 quota: {
-                    remainingSeconds: quota.total_remaining_seconds,
-                    monthlyUsedSeconds: quota.monthly_used_seconds,
-                    monthlyLimitSeconds: quota.monthly_limit_seconds,
-                    addonSecondsRemaining: quota.addon_seconds_remaining
+                    remainingMinutes: parseFloat(quota.total_remaining),
+                    includedRemaining: parseFloat(quota.included_remaining),
+                    purchasedRemaining: parseFloat(quota.purchased_remaining)
                 }
             }
         };
 
-        console.log(`Purchase completed. Addon seconds remaining: ${quota.addon_seconds_remaining}`);
+        console.log(`Purchase completed. Purchased balance remaining: ${quota.purchased_remaining}`);
 
     } catch (error) {
         console.error('Voice purchase error:', error.message);

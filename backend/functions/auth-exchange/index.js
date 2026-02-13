@@ -4,6 +4,7 @@ const { TableClient } = require('@azure/data-tables');
 const jwt = require('jsonwebtoken');
 const jwksClient = require('jwks-rsa');
 const monitoring = require('../shared/monitoring');
+const { ENTITLEMENT_QUOTAS, getEntitlementQuotas } = require('../services/userService');
 
 // Configuration from environment variables
 const APIM_SUBSCRIPTION_ID = process.env.AZURE_SUBSCRIPTION_ID;
@@ -327,6 +328,9 @@ module.exports = async function (context, req) {
             endpoint: '/v1/auth/exchange'
         });
 
+        // Determine entitlement from tier (paid for pro/premium, none for free)
+        const entitlement = (tier === 'pro' || tier === 'premium') ? 'paid' : 'none';
+
         // Return subscription key and metadata (no PII)
         context.res = {
             status: 200,
@@ -336,15 +340,16 @@ module.exports = async function (context, req) {
             },
             body: {
                 subscriptionKey: subscription.primaryKey,
-                tier: subscription.tier,
+                tier: subscription.tier,          // kept for backward compat
+                entitlement: entitlement,          // Phase 3 will use this
                 productId: subscription.productId,
                 expiresIn: expiresIn,
                 expiresAt: new Date(jwtExpiry * 1000).toISOString(),
-                quotas: getQuotasForTier(tier)
+                quotas: getEntitlementQuotas(entitlement)
             }
         };
 
-        console.log(`Exchange successful for user ${userId}, tier: ${tier}, key: ${maskKey(subscription.primaryKey)}`);
+        console.log(`Exchange successful for user ${userId}, tier: ${tier}, entitlement: ${entitlement}, key: ${maskKey(subscription.primaryKey)}`);
 
     } catch (error) {
         console.error('Auth exchange error:', error.message);
@@ -357,25 +362,9 @@ module.exports = async function (context, req) {
     }
 };
 
-// Helper to get quota information for tier
+// Legacy helper — kept for reference, no longer called.
+// Quota lookup now uses getEntitlementQuotas() from userService.js
 function getQuotasForTier(tier) {
-    const quotas = {
-        'free': {
-            tokensPerMonth: 10000,
-            scansPerMonth: 2,
-            aiEnabled: true  // Now enabled with limited quota
-        },
-        'premium': {
-            tokensPerMonth: 300000,
-            scansPerMonth: 30,
-            aiEnabled: true
-        },
-        'pro': {
-            tokensPerMonth: 1000000,
-            scansPerMonth: 100,
-            aiEnabled: true
-        }
-    };
-
-    return quotas[tier] || quotas.free;
+    const entitlement = (tier === 'pro' || tier === 'premium') ? 'paid' : 'none';
+    return getEntitlementQuotas(entitlement);
 }

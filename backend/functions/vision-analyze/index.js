@@ -1,6 +1,6 @@
 const axios = require('axios');
 const { authenticateRequest, AuthenticationError } = require('../shared/auth/jwtMiddleware');
-const { getOrCreateUser, getTierQuotas, TIER_QUOTAS } = require('../services/userService');
+const { getOrCreateUser, getTierQuotas, getEntitlementQuotas, TIER_QUOTAS } = require('../services/userService');
 const { getPool } = require('../shared/db/postgresPool');
 
 module.exports = async function (context, req) {
@@ -70,12 +70,12 @@ module.exports = async function (context, req) {
         });
         userTier = user.tier;
         userDbId = user.id;
-        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}`);
+        context.log(`[User] User ID: ${user.id}, Tier: ${userTier}, Entitlement: ${user.entitlement}`);
 
         // ========================================
         // STEP 3: Check Scan Quota
         // ========================================
-        const quotas = getTierQuotas(userTier);
+        const quotas = getEntitlementQuotas(user.entitlement);
         const monthlyLimit = quotas.scansPerMonth;
 
         if (monthlyLimit === 0) {

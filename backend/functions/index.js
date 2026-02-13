@@ -2720,32 +2720,32 @@ app.http('voice-session', {
                 displayName: userName
             });
 
-            if (user.tier !== 'pro') {
+            if (user.entitlement !== 'paid') {
                 return {
                     status: 403,
                     headers,
                     jsonBody: {
                         success: false,
-                        error: 'tier_required',
-                        requiredTier: 'pro',
+                        error: 'entitlement_required',
                         currentTier: user.tier,
-                        message: 'Voice AI is a Pro tier feature. Upgrade to Pro to access real-time voice conversations.'
+                        entitlement: user.entitlement,
+                        message: 'Voice AI requires an active subscription. Please subscribe to access real-time voice conversations.'
                     }
                 };
             }
 
-            context.log('User is Pro tier, checking quota for internal user.id:', user.id);
+            context.log('User is paid, checking voice quota for internal user.id:', user.id);
 
-            // Check voice quota using database function (uses internal UUID, not azure_ad_sub)
+            // Check voice quota using new column-based function
             const quotaResult = await db.query(
-                'SELECT * FROM check_voice_quota($1)',
+                'SELECT * FROM get_remaining_voice_minutes($1)',
                 [user.id]
             );
 
             const quota = quotaResult.rows[0];
-            context.log('Quota check result:', quota);
+            context.log('Voice quota result:', quota);
 
-            if (!quota.has_quota) {
+            if (parseFloat(quota.total_remaining) <= 0) {
                 return {
                     status: 403,
                     headers,
@@ -2753,10 +2753,9 @@ app.http('voice-session', {
                         success: false,
                         error: 'quota_exceeded',
                         quota: {
-                            monthlyUsedSeconds: quota.monthly_used_seconds,
-                            monthlyLimitSeconds: quota.monthly_limit_seconds,
-                            addonSecondsRemaining: quota.addon_seconds_remaining,
-                            totalRemainingSeconds: quota.total_remaining_seconds
+                            remainingMinutes: 0,
+                            includedRemaining: parseFloat(quota.included_remaining),
+                            purchasedRemaining: parseFloat(quota.purchased_remaining)
                         },
                         message: 'Voice quota exhausted. Purchase additional minutes to continue.'
                     }
@@ -2950,11 +2949,12 @@ Never provide:
                     },
                     webrtcUrl: webrtcUrl,
                     quota: {
-                        remainingSeconds: quota.total_remaining_seconds,
-                        monthlyUsedSeconds: quota.monthly_used_seconds,
-                        monthlyLimitSeconds: quota.monthly_limit_seconds,
-                        addonSecondsRemaining: quota.addon_seconds_remaining,
-                        warningThreshold: 360 // 6 minutes = 80% of 30 min used
+                        remainingMinutes: parseFloat(quota.total_remaining),
+                        includedRemaining: parseFloat(quota.included_remaining),
+                        purchasedRemaining: parseFloat(quota.purchased_remaining),
+                        monthlyIncluded: quota.monthly_included,
+                        usedThisCycle: parseFloat(quota.used_this_cycle),
+                        warningThresholdMinutes: 6
                     }
                 }
             };
@@ -3073,6 +3073,16 @@ app.http('voice-usage', {
                 method: billing.billing_method
             });
 
+            // Deduct from voice minutes balance (included first, then purchased)
+            const billedMinutes = billing.billed_seconds / 60.0;
+            if (billedMinutes > 0) {
+                await db.query(
+                    'SELECT * FROM consume_voice_minutes($1, $2)',
+                    [internalUserId, billedMinutes]
+                );
+                context.log('Consumed', billedMinutes.toFixed(2), 'voice minutes');
+            }
+
             // Save transcripts if provided
             if (transcripts && Array.isArray(transcripts) && transcripts.length > 0) {
                 for (const msg of transcripts) {
@@ -3085,9 +3095,9 @@ app.http('voice-usage', {
                 context.log('Saved', transcripts.length, 'transcript messages');
             }
 
-            // Get updated quota (using internal UUID)
+            // Get updated quota using new column-based function
             const quotaResult = await db.query(
-                'SELECT * FROM check_voice_quota($1)',
+                'SELECT * FROM get_remaining_voice_minutes($1)',
                 [internalUserId]
             );
             const quota = quotaResult.rows[0];
@@ -3106,10 +3116,11 @@ app.http('voice-usage', {
                         method: billing.billing_method
                     },
                     quota: {
-                        remainingSeconds: quota.total_remaining_seconds,
-                        monthlyUsedSeconds: quota.monthly_used_seconds,
-                        monthlyLimitSeconds: quota.monthly_limit_seconds,
-                        addonSecondsRemaining: quota.addon_seconds_remaining
+                        remainingMinutes: parseFloat(quota.total_remaining),
+                        includedRemaining: parseFloat(quota.included_remaining),
+                        purchasedRemaining: parseFloat(quota.purchased_remaining),
+                        monthlyIncluded: quota.monthly_included,
+                        usedThisCycle: parseFloat(quota.used_this_cycle)
                     }
                 }
             };
@@ -3160,9 +3171,9 @@ app.http('voice-quota', {
                 };
             }
 
-            // Check user tier - look up by azure_ad_sub (the JWT sub claim)
+            // Check user entitlement - look up by azure_ad_sub (the JWT sub claim)
             const userResult = await db.query(
-                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
                 [userId]
             );
 
@@ -3176,8 +3187,8 @@ app.http('voice-quota', {
 
             const user = userResult.rows[0];
 
-            // Non-Pro users don't have voice quota
-            if (user.tier !== 'pro') {
+            // Non-paid users don't have voice quota
+            if (user.entitlement !== 'paid') {
                 return {
                     status: 200,
                     headers,
@@ -3185,21 +3196,23 @@ app.http('voice-quota', {
                         success: true,
                         hasAccess: false,
                         tier: user.tier,
-                        message: 'Voice AI requires Pro tier'
+                        entitlement: user.entitlement,
+                        message: 'Voice AI requires an active subscription'
                     }
                 };
             }
 
-            // Get quota from database function (using internal UUID)
+            // Get quota from new column-based function
             const quotaResult = await db.query(
-                'SELECT * FROM check_voice_quota($1)',
+                'SELECT * FROM get_remaining_voice_minutes($1)',
                 [user.id]
             );
             const quota = quotaResult.rows[0];
 
-            // Calculate warning threshold (6 minutes = 360 seconds)
-            const warningThreshold = 360;
-            const showWarning = quota.total_remaining_seconds <= warningThreshold && quota.total_remaining_seconds > 0;
+            const totalRemaining = parseFloat(quota.total_remaining);
+            // Warning at 6 minutes remaining
+            const warningThresholdMinutes = 6;
+            const showWarning = totalRemaining <= warningThresholdMinutes && totalRemaining > 0;
 
             return {
                 status: 200,
@@ -3207,19 +3220,22 @@ app.http('voice-quota', {
                 jsonBody: {
                     success: true,
                     hasAccess: true,
-                    hasQuota: quota.has_quota,
+                    hasQuota: totalRemaining > 0,
                     tier: user.tier,
+                    entitlement: user.entitlement,
                     quota: {
-                        remainingSeconds: quota.total_remaining_seconds,
-                        remainingMinutes: Math.floor(quota.total_remaining_seconds / 60),
-                        monthlyUsedSeconds: quota.monthly_used_seconds,
-                        monthlyLimitSeconds: quota.monthly_limit_seconds,
-                        addonSecondsRemaining: quota.addon_seconds_remaining,
-                        percentUsed: Math.round((quota.monthly_used_seconds / quota.monthly_limit_seconds) * 100)
+                        remainingMinutes: totalRemaining,
+                        includedRemaining: parseFloat(quota.included_remaining),
+                        purchasedRemaining: parseFloat(quota.purchased_remaining),
+                        monthlyIncluded: quota.monthly_included,
+                        usedThisCycle: parseFloat(quota.used_this_cycle),
+                        percentUsed: quota.monthly_included > 0
+                            ? Math.round((parseFloat(quota.used_this_cycle) / quota.monthly_included) * 100)
+                            : 0
                     },
                     showWarning: showWarning,
                     warningMessage: showWarning ?
-                        `${Math.floor(quota.total_remaining_seconds / 60)} minutes remaining this month` : null
+                        `${Math.floor(totalRemaining)} minutes remaining this month` : null
                 }
             };
 
@@ -3237,7 +3253,7 @@ app.http('voice-quota', {
 // =============================================================================
 // 33. Voice Purchase - POST /v1/voice/purchase
 // Validates Google Play purchase and credits voice minutes to user account
-// Uses existing voice_addon_purchases table integrated with check_voice_quota()
+// Uses voice_addon_purchases + voice_purchase_transactions, quota via get_remaining_voice_minutes()
 // =============================================================================
 app.http('voice-purchase', {
     methods: ['POST', 'OPTIONS'],
@@ -3302,7 +3318,7 @@ app.http('voice-purchase', {
 
             // Look up internal user UUID from Azure AD sub
             const userResult = await db.query(
-                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
                 [userId]
             );
 
@@ -3316,18 +3332,19 @@ app.http('voice-purchase', {
 
             const user = userResult.rows[0];
             const internalUserId = user.id;
-            context.log(`User found: internal ID ${internalUserId}, tier: ${user.tier}`);
+            context.log(`User found: internal ID ${internalUserId}, tier: ${user.tier}, entitlement: ${user.entitlement}`);
 
-            // Check user tier - only pro and premium can purchase
-            if (user.tier !== 'pro' && user.tier !== 'premium') {
+            // Check user entitlement - only paid users can purchase
+            if (user.entitlement !== 'paid') {
                 return {
                     status: 403,
                     headers,
                     jsonBody: {
                         success: false,
-                        error: 'tier_required',
-                        message: 'Voice minute purchases require Premium or Pro subscription',
-                        currentTier: user.tier
+                        error: 'entitlement_required',
+                        message: 'Voice minute purchases require an active subscription',
+                        currentTier: user.tier,
+                        entitlement: user.entitlement
                     }
                 };
             }
@@ -3342,7 +3359,7 @@ app.http('voice-purchase', {
                 context.log('Purchase already processed, returning success (idempotent)');
 
                 const quotaResult = await db.query(
-                    'SELECT * FROM check_voice_quota($1)',
+                    'SELECT * FROM get_remaining_voice_minutes($1)',
                     [internalUserId]
                 );
                 const quota = quotaResult.rows[0];
@@ -3356,10 +3373,9 @@ app.http('voice-purchase', {
                         message: 'Purchase already credited',
                         alreadyProcessed: true,
                         quota: {
-                            remainingSeconds: quota.total_remaining_seconds,
-                            monthlyUsedSeconds: quota.monthly_used_seconds,
-                            monthlyLimitSeconds: quota.monthly_limit_seconds,
-                            addonSecondsRemaining: quota.addon_seconds_remaining
+                            remainingMinutes: parseFloat(quota.total_remaining),
+                            includedRemaining: parseFloat(quota.included_remaining),
+                            purchasedRemaining: parseFloat(quota.purchased_remaining)
                         }
                     }
                 };
@@ -3435,7 +3451,9 @@ app.http('voice-purchase', {
 
             context.log('Purchase verified successfully, order:', verification.orderId);
 
-            // Insert into existing voice_addon_purchases table
+            const minutesCredited = SECONDS_PER_PURCHASE / 60;
+
+            // Insert into existing voice_addon_purchases table (backward compat)
             await db.query(
                 `INSERT INTO voice_addon_purchases
                     (user_id, seconds_purchased, price_cents, transaction_id, platform, purchased_at)
@@ -3443,11 +3461,21 @@ app.http('voice-purchase', {
                 [internalUserId, SECONDS_PER_PURCHASE, PRICE_CENTS, purchaseToken, 'android']
             );
 
-            context.log(`Credited ${SECONDS_PER_PURCHASE} seconds (${SECONDS_PER_PURCHASE / 60} minutes) to user`);
+            // Also update purchased balance on users table and record in new transactions table
+            await db.query(
+                'UPDATE users SET voice_minutes_purchased_balance = voice_minutes_purchased_balance + $2 WHERE id = $1',
+                [internalUserId, minutesCredited]
+            );
+            await db.query(
+                'INSERT INTO voice_purchase_transactions (user_id, transaction_id, minutes_credited) VALUES ($1, $2, $3)',
+                [internalUserId, purchaseToken, minutesCredited]
+            );
 
-            // Get updated quota
+            context.log(`Credited ${minutesCredited} minutes to user`);
+
+            // Get updated quota using new function
             const quotaResult = await db.query(
-                'SELECT * FROM check_voice_quota($1)',
+                'SELECT * FROM get_remaining_voice_minutes($1)',
                 [internalUserId]
             );
             const quota = quotaResult.rows[0];
@@ -3457,13 +3485,12 @@ app.http('voice-purchase', {
                 headers,
                 jsonBody: {
                     success: true,
-                    minutesAdded: SECONDS_PER_PURCHASE / 60,
-                    message: `${SECONDS_PER_PURCHASE / 60} voice minutes added to your account`,
+                    minutesAdded: minutesCredited,
+                    message: `${minutesCredited} voice minutes added to your account`,
                     quota: {
-                        remainingSeconds: quota.total_remaining_seconds,
-                        monthlyUsedSeconds: quota.monthly_used_seconds,
-                        monthlyLimitSeconds: quota.monthly_limit_seconds,
-                        addonSecondsRemaining: quota.addon_seconds_remaining
+                        remainingMinutes: parseFloat(quota.total_remaining),
+                        includedRemaining: parseFloat(quota.included_remaining),
+                        purchasedRemaining: parseFloat(quota.purchased_remaining)
                     }
                 }
             };
@@ -3691,6 +3718,35 @@ app.http('subscription-webhook', {
                     context.log('Subscription paused');
                     break;
 
+                case 'NON_RENEWING_PURCHASE':
+                    // Consumable purchase (e.g., voice minutes pack)
+                    if (productId && productId.includes('voice_minutes')) {
+                        // Idempotency via voice_purchase_transactions
+                        const existingTx = await db.query(
+                            'SELECT id FROM voice_purchase_transactions WHERE transaction_id = $1',
+                            [eventId]
+                        );
+                        if (existingTx.rows.length === 0) {
+                            const minutesCredited = 60; // Voice pack: 60 minutes
+                            await db.query(
+                                'INSERT INTO voice_purchase_transactions (user_id, transaction_id, minutes_credited) VALUES ($1, $2, $3)',
+                                [internalUserId, eventId, minutesCredited]
+                            );
+                            await db.query(
+                                'UPDATE users SET voice_minutes_purchased_balance = voice_minutes_purchased_balance + $2 WHERE id = $1',
+                                [internalUserId, minutesCredited]
+                            );
+                            context.log(`Voice pack credited: ${minutesCredited} minutes via webhook`);
+                        } else {
+                            context.log('Voice pack already credited (idempotent)');
+                        }
+                    }
+                    return {
+                        status: 200,
+                        headers,
+                        jsonBody: { received: true, processed: true, event_type: eventType }
+                    };
+
                 default:
                     context.log(`Unhandled event type: ${eventType}`);
                     return {
@@ -3707,6 +3763,36 @@ app.http('subscription-webhook', {
                     [internalUserId, appUserId, productId, isActive, autoRenewing, expiresAt, cancelReason]
                 );
                 context.log('Subscription upserted successfully');
+            }
+
+            // === Entitlement lifecycle handling (Phase 2) ===
+
+            if (eventType === 'INITIAL_PURCHASE') {
+                await db.query(
+                    `UPDATE users SET entitlement = 'paid', subscription_status = 'active',
+                     voice_minutes_used_this_cycle = 0, voice_cycle_started_at = NOW()
+                     WHERE id = $1`,
+                    [internalUserId]
+                );
+                context.log('Entitlement set to paid + voice cycle initialized on INITIAL_PURCHASE');
+            }
+
+            if (eventType === 'RENEWAL') {
+                await db.query(
+                    `UPDATE users SET entitlement = 'paid', subscription_status = 'active',
+                     voice_minutes_used_this_cycle = 0, voice_cycle_started_at = NOW()
+                     WHERE id = $1`,
+                    [internalUserId]
+                );
+                context.log('Voice cycle reset on RENEWAL');
+            }
+
+            if (!isActive) {
+                await db.query(
+                    `UPDATE users SET entitlement = 'none', subscription_status = 'expired' WHERE id = $1`,
+                    [internalUserId]
+                );
+                context.log('Entitlement revoked (purchased balance preserved)');
             }
 
             return {

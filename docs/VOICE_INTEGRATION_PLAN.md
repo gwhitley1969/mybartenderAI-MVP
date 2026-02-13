@@ -1,5 +1,7 @@
 # Voice Integration Plan with Azure Speech Services
 
+> **Note (February 2026):** This document describes the original plan to use Azure Speech Services with a client-side SDK approach and the old Free/Premium/Pro tier model. The voice architecture has since been replaced with **GPT-realtime-mini** via Azure OpenAI Realtime API (server-side WebSocket), and the subscription model simplified to a binary `paid`/`none` entitlement managed via RevenueCat. See `VOICE_AI_IMPLEMENTATION.md` and `VOICE_AI_DEPLOYED.md` for the current architecture, and `SUBSCRIPTION_DEPLOYMENT.md` for the current subscription model.
+
 ## Overview
 
 After cost analysis, we've decided to use **Azure Speech Services** instead of OpenAI's Realtime API. This approach provides **93% cost savings** while maintaining excellent voice interaction quality for cocktail-making guidance.

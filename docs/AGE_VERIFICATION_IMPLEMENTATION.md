@@ -15,11 +15,11 @@
 
 ### Layer 2: Mobile App Age Gate (First Launch)
 - **When**: First app launch (before any content access)
-- **Purpose**: Verify age for free tier users who don't authenticate
+- **Purpose**: Verify age for users before content access
 - **Storage**: Local only, no backend transmission
 
 ### Layer 3: Entra External ID (Account Creation)
-- **When**: User creates account for Premium/Pro features
+- **When**: User creates account for subscriber features
 - **Purpose**: Verify and store age verification status in identity system
 - **Storage**: `age_verified: true` boolean attribute (no birthdate stored)
 

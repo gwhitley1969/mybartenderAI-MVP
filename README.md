@@ -2,21 +2,21 @@
 
 AI-powered bartender app that helps users discover and create cocktails based on their preferences and available ingredients.
 
-## 🚀 Current Status (December 2025)
+## Current Status (February 2026)
 
-- **Backend**: ✅ Azure Functions v4 (`func-mba-fresh`) - All functions deployed
-- **API Gateway**: ✅ Azure API Management (`apim-mba-002`) - Basic V2 tier
-- **Database**: ✅ PostgreSQL operational (`pg-mybartenderdb`)
-- **Storage**: ✅ Blob Storage configured (`mbacocktaildb3`)
-- **AI**: ✅ Azure OpenAI GPT-4o-mini + Claude Haiku (Smart Scanner)
-- **Authentication**: ✅ Entra External ID (Google, Facebook, Email) - JWT-only
-- **Vision**: ✅ Claude Haiku for bottle/ingredient identification
-- **Voice AI**: ✅ Azure OpenAI Realtime API via WebRTC (Pro tier, 60 min/month + top-ups)
-- **Mobile**: 📱 Flutter app - All core features complete
-- **Social Sharing**: ✅ Friends via Code fully deployed
-- **Subscriptions**: ✅ RevenueCat integration ready (webhook, config, status endpoints)
-- **Static Website**: ✅ Azure Front Door (`share.mybartenderai.com`)
-- **Status**: 🚀 Release Candidate - Ready for Play Store deployment
+- **Backend**: Azure Functions v4 (`func-mba-fresh`) - All functions deployed
+- **API Gateway**: Azure API Management (`apim-mba-002`) - Basic V2 tier
+- **Database**: PostgreSQL operational (`pg-mybartenderdb`)
+- **Storage**: Blob Storage configured (`mbacocktaildb3`)
+- **AI**: Azure OpenAI GPT-4.1-mini + Claude Haiku (Smart Scanner)
+- **Authentication**: Entra External ID (Google, Facebook, Email) - JWT-only
+- **Vision**: Claude Haiku for bottle/ingredient identification
+- **Voice AI**: Azure OpenAI Realtime API via WebRTC (subscribers, 60 min/month + $5.99/60 min add-ons)
+- **Mobile**: Flutter app - All core features complete
+- **Social Sharing**: Friends via Code fully deployed
+- **Subscriptions**: RevenueCat integration (single `paid` entitlement model)
+- **Static Website**: Azure Front Door (`share.mybartenderai.com`)
+- **Status**: Release Candidate - Ready for Play Store deployment
 
 ### Mobile App Features
 
@@ -29,10 +29,10 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - ✅ Today's Special with daily notifications
 - ✅ User Profile with settings and preferences
 - ✅ **Friends via Code** - Social recipe sharing
-- ✅ **Voice AI Bartender** - Real-time voice conversations (Pro tier only)
+- **Voice AI Bartender** - Real-time voice conversations (subscribers only)
   - WebRTC-based audio streaming via Azure OpenAI Realtime API
   - Live transcription of user and AI speech
-  - 60 minutes/month quota for Pro users (+ $4.99 for 20 min top-up)
+  - 60 minutes/month included (+ $5.99 for 60 min add-on packs)
   - Active speech time metering (only user + AI talking time counts)
   - Visual status indicators (listening, thinking, speaking)
   - Bar inventory integration - AI knows your ingredients via session.update
@@ -51,13 +51,13 @@ AI-powered bartender app that helps users discover and create cocktails based on
 
 **Voice AI Feature (December 2025):**
 
-- ✅ Voice AI backend functions deployed (voice-session, voice-usage, voice-quota)
-- ✅ Azure OpenAI Realtime API integration via WebRTC
-- ✅ Database schema for voice sessions, messages, and quota tracking
-- ✅ Flutter Voice AI screen with real-time transcription
-- ✅ Pro tier gating with 45 minutes/month quota
-- ✅ Consolidated transcript display with accessibility support
-- ✅ Bar inventory integration via session.update (December 27, 2025)
+- Voice AI backend functions deployed (voice-session, voice-usage, voice-quota)
+- Azure OpenAI Realtime API integration via WebRTC
+- Database schema for voice sessions, messages, and quota tracking
+- Flutter Voice AI screen with real-time transcription
+- Subscriber-only gating with 60 minutes/month + purchasable add-ons
+- Consolidated transcript display with accessibility support
+- Bar inventory integration via session.update
 
 **Database & Sync Fixes (December 12, 2025):**
 
@@ -132,7 +132,7 @@ mybartenderAI-MVP/
   - Tier: Basic V2 (~$150/month)
   - JWT-only authentication (no subscription keys on client)
   - JWT validation via `validate-jwt` policy
-  - Tier quotas enforced by backend functions (PostgreSQL lookup)
+  - Entitlement quotas enforced by backend functions (PostgreSQL lookup)
 - **Backend**: Azure Functions (`func-mba-fresh`)
   - Hosting Plan: Premium Consumption (Windows)
   - Runtime: Node.js 22
@@ -151,7 +151,7 @@ mybartenderAI-MVP/
 - **Security**: Azure Key Vault (`kv-mybartenderai-prod`)
   - Region: East US
   - Resource Group: rg-mba-dev
-- **AI**: Azure OpenAI (GPT-4o-mini) + Claude Haiku for Smart Scanner
+- **AI**: Azure OpenAI (GPT-4.1-mini) + Claude Haiku for Smart Scanner
 - **Region**: South Central US (primary)
 - **Resource Group**: rg-mba-prod (except Key Vault)
 
@@ -235,10 +235,10 @@ mybartenderAI-MVP/
 ### Key Features
 
 - **Offline First**: Complete cocktail database (SQLite with Zstandard compression) available offline
-- **AI Recommendations**: GPT-4o-mini powered suggestions using official @azure/openai SDK (~$0.007/session)
+- **AI Recommendations**: GPT-4.1-mini powered suggestions using official @azure/openai SDK (~$0.007/session)
 - **Social Sharing**: Share recipes internally (by alias) or externally (via invite links)
 - **Privacy-Focused**: System-generated aliases (@adjective-animal-###), minimal PII collection
-- **Tiered Access**: Free/Premium/Pro subscription levels with quotas enforced by backend
+- **Subscription Access**: Single `paid` entitlement with quotas enforced by backend
 - **Secure Storage**: Managed Identity for Key Vault and Storage access
 - **Global CDN**: Azure Front Door for fast recipe sharing worldwide
 
@@ -345,34 +345,33 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - [Monitoring Script](infrastructure/monitoring/check-social-metrics.ps1) - Real-time metrics dashboard
 - [JWT Policy Guide](infrastructure/apim/JWT_POLICY_DEPLOYMENT_GUIDE.md) - APIM authentication setup
 
-## 🎯 Feature Tiers
+## Subscription Model
 
-### Free Tier
+### Free (No Subscription)
 
-- ✅ Offline cocktail database (~621 drinks)
-- ✅ Local search and filtering
-- ✅ My Bar inventory management
-- ✅ Favorites/Bookmarks
-- ✅ Limited AI chat: 10,000 tokens/month
-- ✅ Smart Scanner: 2 scans/month
+- Offline cocktail database (~621 drinks)
+- Local search and filtering
+- My Bar inventory management
+- Favorites/Bookmarks
 
-### Premium Tier ($4.99/month or $39.99/year)
+### Paid Subscription ($9.99/month or $99.99/year)
 
-- ✅ Everything in Free
-- ✅ AI chat: 300,000 tokens/month
-- ✅ Smart Scanner: 15 scans/month
-- ✅ Create Studio with AI Refine
-- ✅ Social sharing features
-- ✅ **Voice AI**: Available for purchase ($4.99/20 minutes)
+- Everything above, plus:
+- AI Bartender Chat: 1,000,000 tokens/month
+- Smart Scanner: 100 scans/month
+- Voice AI Bartender: 60 minutes/month included
+- Create Studio with AI Refine
+- Social sharing features
+- Unlimited custom recipes
+- 3-day free trial on monthly plan
 
-### Pro Tier ($7.99/month or $79.99/year)
+### Voice Add-On ($5.99)
 
-- ✅ Everything in Premium
-- ✅ AI chat: 1,000,000 tokens/month
-- ✅ Smart Scanner: 50 scans/month
-- ✅ **Voice AI Bartender**: 60 minutes/month (+ $4.99/20 min top-up)
-- ✅ Unlimited custom recipes
-- ✅ Priority support
+- +60 voice minutes (consumable, repeatable)
+- Requires active subscription
+- Purchased minutes never expire
+
+See [SUBSCRIPTION_DEPLOYMENT.md](docs/SUBSCRIPTION_DEPLOYMENT.md) for full details.
 
 ## 🔮 Roadmap
 
@@ -383,7 +382,7 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - ✅ Official Azure OpenAI SDK integration
 - ✅ APIM configuration with JWT validation
 - ✅ SQLite snapshot generation with Zstandard compression
-- ✅ GPT-4o-mini integration
+- ✅ GPT-4.1-mini integration
 - ✅ Authentication with Entra External ID
 - ✅ Server-side age verification (21+)
 - ✅ Managed Identity for Key Vault and Storage access
@@ -453,20 +452,20 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - Application Insights: ~$5/month
 - **Total: ~$$$300 - $$$400/month base + usage**
 
-### Per-User Costs (Premium)
+### Per-User Costs (Subscribers)
 
-- AI (GPT-4o-mini): ~$0.40/month
-- Vision (Smart Scanner): ~ unknown as of 12/08/2025
-- **Total: ~$.75/user/month**
+- AI (GPT-4.1-mini): ~$0.40/month
+- Vision (Smart Scanner): ~ TBD
+- **Total: ~$0.75/user/month**
 
 ### Revenue Model
 
-- 1,000 Premium users @ $4.99 = $4,990/month
-- 200 Pro users @ $7.99 = $1,598/month
-- **Total Revenue**: $6,588/month
-- AI costs: ~$540/month
-- Infrastructure: ~$650/month
-- **Net Profit**: ~$5,398/month (~65% margin)
+- 1,000 subscribers @ $9.99 = $9,990/month
+- Voice add-on purchases: ~$500/month (estimated)
+- **Total Revenue**: ~$10,490/month
+- AI costs: ~$750/month
+- Infrastructure: ~$400/month
+- **Net Profit**: ~$9,340/month (~89% margin)
 
 ## 🔐 Security
 
@@ -475,7 +474,7 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - Microsoft Entra External ID (Azure AD B2C successor)
 - JWT tokens validated at APIM layer (`validate-jwt` policy)
 - JWT-only authentication (no subscription keys on mobile client)
-- Tier-based access control via PostgreSQL lookup
+- Entitlement-based access control via PostgreSQL lookup
 - Quotas enforced by backend functions
 
 ### Secrets Management
@@ -589,7 +588,7 @@ curl -X POST https://apim-mba-002.azure-api.net/api/v1/social/invite \
 - Error rates by endpoint
 - Response time percentiles (P50, P95, P99)
 - Rate limit violations (429 responses)
-- User tier distribution
+- User entitlement distribution
 - Database query performance
 
 ### Dashboards
@@ -620,7 +619,7 @@ Proprietary - All rights reserved
 - Flutter (Mobile)
 - Azure Functions (Backend)
 - Azure API Management (Gateway)
-- Azure OpenAI GPT-4o-mini (AI Chat)
+- Azure OpenAI GPT-4.1-mini (AI Chat)
 - Azure OpenAI Realtime API (Voice AI)
 - Claude Haiku (Smart Scanner)
 - Azure Front Door (CDN)
@@ -631,6 +630,6 @@ Proprietary - All rights reserved
 
 ---
 
-**Last Updated**: December 2025
+**Last Updated**: February 2026
 **Version**: 1.0.0-rc
 **Status**: Release Candidate - Ready for Play Store deployment

@@ -32,10 +32,9 @@ graph LR
 - **5,000-100,000 transactions/month**: $0.65 per 1,000 transactions
 - **Estimated cost for 1,000 users (5 scans/month each)**: ~$5/month
 
-### Tier Limits (via APIM)
-- **Free Tier**: No access to Smart Scanner
-- **Premium Tier ($4.99/month)**: 5 scans per month
-- **Pro Tier ($9.99/month)**: 50 scans per month
+### Entitlement Limits
+- **Free (none)**: No access to Smart Scanner
+- **Subscriber (paid, $9.99/month)**: 100 scans per month
 
 ## Implementation Steps
 

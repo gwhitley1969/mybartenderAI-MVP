@@ -6,7 +6,7 @@
 
 ## Overview
 
-Real-time voice conversations with an AI bartender using Azure OpenAI's GPT-realtime-mini Realtime API via WebRTC. Pro tier only.
+Real-time voice conversations with an AI bartender using Azure OpenAI's GPT-realtime-mini Realtime API via WebRTC. Subscribers only (paid entitlement required).
 
 ## UI Location
 
@@ -66,8 +66,8 @@ CREATE INDEX idx_voice_messages_session ON voice_messages(session_id, timestamp)
 CREATE TABLE voice_addon_purchases (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
-    seconds_purchased INTEGER NOT NULL, -- 1200 = 20 minutes
-    price_cents INTEGER NOT NULL, -- 499 = $4.99
+    seconds_purchased INTEGER NOT NULL, -- 3600 = 60 minutes
+    price_cents INTEGER NOT NULL, -- 599 = $5.99
     transaction_id VARCHAR(255),
     platform VARCHAR(20), -- 'ios', 'android'
     purchased_at TIMESTAMPTZ DEFAULT NOW()
@@ -82,7 +82,7 @@ CREATE TABLE voice_addon_purchases (
 
 Location: `apps/backend/v4-deploy/voice-session/index.js`
 
-Purpose: Validate Pro tier, check quota, return ephemeral token for WebRTC connection.
+Purpose: Validate paid entitlement, check quota, return ephemeral token for WebRTC connection.
 
 ```javascript
 const { app } = require('@azure/functions');
@@ -94,7 +94,7 @@ app.http('voice-session', {
     route: 'v1/voice/session',
     handler: async (request, context) => {
         // 1. Validate JWT from Authorization header
-        // 2. Check user is Pro tier
+        // 2. Check user has paid entitlement
         // 3. Check voice quota (monthly_seconds_used < 1800 OR addon_seconds_remaining > 0)
         // 4. Get user's inventory from request body
         // 5. Request ephemeral token from Azure OpenAI
@@ -432,7 +432,7 @@ AZURE_OPENAI_REALTIME_DEPLOYMENT=gpt-realtime-mini
 AZURE_OPENAI_REALTIME_REGION=eastus2
 ```
 
-Pro tier quota constants:
+Subscriber quota constants:
 ```javascript
 const MONTHLY_VOICE_SECONDS = 1800;  // 30 minutes
 const ADDON_VOICE_SECONDS = 1200;    // 20 minutes

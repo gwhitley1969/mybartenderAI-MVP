@@ -360,7 +360,11 @@ Once deployed, the backend will have BOTH paths:
 | `subscription_service.dart` enum | free, premium, pro |
 | RevenueCat products | premium_monthly, premium_yearly, pro_monthly, pro_yearly |
 
-### Proposed: Single Pro Tier ($9.99/month, 3-Day Free Trial, 20 Voice Minutes)
+### ~~Proposed: Single Pro Tier~~ — SUPERSEDED
+
+> **Note (February 2026):** This Phase 4 proposal was superseded by the binary `paid`/`none` entitlement model. The actual implementation uses $9.99/month (or $99.99/year) with 60 voice minutes/month and $5.99/60 min add-ons. See `SUBSCRIPTION_DEPLOYMENT.md` for details.
+
+### Original Proposal (archived): Single Pro Tier ($9.99/month, 3-Day Free Trial, 20 Voice Minutes)
 
 > **Decision (2026-01-30):** Price changed from $7.99 to $9.99/month. Voice minutes changed from 60 to 20/month.
 > **Decision (2026-01-30):** Wait for Apple approval before making ANY tier/quota changes — deploy backend + Flutter together to avoid UI mismatch.

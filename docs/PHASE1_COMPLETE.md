@@ -1,5 +1,7 @@
 # Phase 1: Azure Infrastructure - Configuration Complete ✅
 
+> **Note (February 2026):** This document describes the original APIM product/tier configuration (Free/Premium/Pro). The subscription model has since been simplified to a binary `paid`/`none` entitlement model managed via RevenueCat. See `SUBSCRIPTION_DEPLOYMENT.md` for the current architecture. APIM no longer manages subscription tiers — backend functions check `users.entitlement` in PostgreSQL.
+
 **Date**: October 22, 2025
 **Status**: Configuration files created - Ready for deployment
 

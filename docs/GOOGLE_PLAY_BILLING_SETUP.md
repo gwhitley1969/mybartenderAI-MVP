@@ -5,11 +5,13 @@ This guide covers the setup required for server-side verification of voice minut
 ## Overview
 
 The voice minute purchase flow:
-1. User purchases `voice_minutes_20` ($4.99) in the app
+1. User purchases `voice_minutes_60` ($5.99) in the app
 2. Google Play processes payment and returns a `purchaseToken`
 3. App sends token to backend: `POST /v1/voice/purchase`
 4. Backend verifies token with Google Play Developer API
-5. Backend acknowledges purchase and credits 20 minutes (1200 seconds)
+5. Backend acknowledges purchase and credits 60 minutes
+
+**Note (Discrepancy):** The backend `voice-purchase/index.js` module still references `voice_minutes_20` and credits 1200 seconds (20 minutes). The mobile app sends `voice_minutes_60`. The RevenueCat `NON_RENEWING_PURCHASE` webhook handler in `index.js` correctly credits 60 minutes via the `voice_purchase_transactions` table. This discrepancy should be resolved in a future backend update.
 6. Existing `check_voice_quota()` function includes addon minutes automatically
 
 ## Prerequisites
@@ -85,10 +87,10 @@ The voice minute purchase flow:
 
 | Field | Value |
 |-------|-------|
-| Product ID | `voice_minutes_20` |
-| Name | 20 Voice Minutes |
-| Description | Add 20 minutes to your voice AI balance. Minutes never expire! |
-| Default price | $4.99 USD |
+| Product ID | `voice_minutes_60` |
+| Name | 60 Voice Minutes |
+| Description | Add 60 minutes to your voice AI balance. Minutes never expire! |
+| Default price | $5.99 USD |
 | Product type | Consumable (one-time purchase) |
 
 5. Click **Save**
@@ -230,9 +232,9 @@ The JSON key file looks like this (keep it secure!):
 | Item | Value |
 |------|-------|
 | Package Name | `ai.mybartender.mybartenderai` |
-| Product ID | `voice_minutes_20` |
-| Price | $4.99 USD |
-| Minutes Added | 20 (1200 seconds) |
+| Product ID | `voice_minutes_60` |
+| Price | $5.99 USD |
+| Minutes Added | 60 |
 | API Endpoint | `POST /v1/voice/purchase` |
 | Function App Setting | `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY` |
 | Key Vault Secret | `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY` |

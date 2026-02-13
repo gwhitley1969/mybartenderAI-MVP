@@ -341,25 +341,24 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 2. JWT token included in API requests (`Authorization: Bearer <token>`)
 3. APIM validates JWT (signature, expiration, audience)
 4. Backend functions receive validated user ID via `X-User-Id` header
-5. Functions check user tier in PostgreSQL database
+5. Functions check user entitlement in PostgreSQL database
 
 **API Gateway**: `https://apim-mba-002.azure-api.net`
 
 ---
 
-## Subscription Tiers
+## Subscription Model
 
-| Tier    | Monthly | Annual | AI Tokens | Scans | Voice                   |
-| ------- | ------- | ------ | --------- | ----- | ----------------------- |
-| Free    | $0      | -      | 10,000    | 2     | -                       |
-| Premium | $4.99   | $39.99 | 300,000   | 15    | $4.99/20 min purchase   |
-| Pro     | $7.99   | $79.99 | 1,000,000 | 50    | 60 min + $4.99/20 min   |
+| Entitlement | Monthly | Annual   | AI Tokens | Scans | Voice                                 |
+| ----------- | ------- | -------- | --------- | ----- | ------------------------------------- |
+| Free (none) | $0      | -        | 0         | 0     | -                                     |
+| Paid        | $9.99   | $99.99   | 1,000,000 | 100   | 60 min included + $5.99/60 min add-on |
 
-Tier validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
+Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
-**Voice Minutes:** Premium users can purchase voice minutes at $4.99 for 20 minutes. Pro users get 60 minutes included per month and can purchase additional minutes at the same rate. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
+**Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $5.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 
-**Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.tier` updates via PostgreSQL trigger.
+**Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.entitlement` updates via PostgreSQL trigger.
 
 ---
 
@@ -375,7 +374,7 @@ All functions deployed to `func-mba-fresh`:
 | `recommend`            | POST   | `/api/v1/recommend`              | JWT       | Working |
 | `snapshots-latest`     | GET    | `/api/v1/snapshots/latest`       | JWT       | Working |
 | `vision-analyze`       | POST   | `/api/v1/vision/analyze`         | JWT       | Working |
-| `voice-session`        | POST   | `/api/v1/voice/session`          | JWT (Pro) | Working |
+| `voice-session`        | POST   | `/api/v1/voice/session`          | JWT (Paid)| Working |
 | `refine-cocktail`      | POST   | `/api/v1/create-studio/refine`   | JWT       | Working |
 | `cocktail-preview`     | GET    | `/api/v1/cocktails/preview/{id}` | Public    | Working |
 | `users-me`             | GET    | `/api/v1/users/me`               | JWT       | Working |
@@ -456,7 +455,7 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 
 **Service**: `blueb-midjmnz5-eastus2` (East US 2)
 **Deployment**: `gpt-realtime-mini`
-**Used for**: Voice AI (Pro tier only)
+**Used for**: Voice AI (Subscribers only)
 
 | Feature         | Function        | Model            |
 | --------------- | --------------- | ---------------- |
@@ -487,7 +486,7 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 | Cocktail Details      | `cocktail_detail_screen.dart` | Complete       |
 | My Bar (Inventory)    | `my_bar_screen.dart`          | Complete       |
 | Smart Scanner         | `smart_scanner_screen.dart`   | Complete       |
-| Voice Bartender       | `voice_bartender_screen.dart` | Complete (Pro) |
+| Voice Bartender       | `voice_bartender_screen.dart` | Complete (Paid)|
 | Create Studio         | `create_studio_screen.dart`   | Complete       |
 | User Profile          | `profile_screen.dart`         | Complete       |
 | Login                 | `login_screen.dart`           | Complete       |
@@ -558,12 +557,12 @@ APIM (apim-mba-002.azure-api.net)
 Azure Function (func-mba-fresh)
     ↓ Primary: X-User-Id header (from APIM validate-jwt + set-header)
     ↓ Fallback: JWT decode from Authorization header (jwtDecode.js)
-PostgreSQL (tier lookup + email/display_name storage)
+PostgreSQL (entitlement lookup + email/display_name storage)
 ```
 
 **Note**: All APIM operations now have appropriate security — 13 protected operations received `validate-jwt` policies on Feb 11, 2026 (completing Phase 2 of the APIM security plan). 5 operations remain intentionally public (health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback). See `APIM_SECURITY_USER_PROFILE_PLAN.md`.
 
-### Voice AI Flow (Pro Tier)
+### Voice AI Flow (Subscribers Only)
 
 ```
 Mobile App
@@ -590,7 +589,7 @@ subscription-webhook function
     ↓ (verify signature, check idempotency)
 PostgreSQL (user_subscriptions)
     ↓ (trigger)
-PostgreSQL (users.tier updated)
+PostgreSQL (users.entitlement updated)
 ```
 
 **Webhook Features:**

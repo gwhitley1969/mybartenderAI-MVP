@@ -1,9 +1,9 @@
 # Voice AI Feature - Deployment Documentation
 
 **Date Deployed**: December 8, 2025
-**Last Updated**: December 27, 2025
+**Last Updated**: February 13, 2026
 **Status**: ✅ Deployed and Tested
-**Tier Requirement**: Pro only
+**Entitlement Requirement**: Subscribers only (paid entitlement)
 **Latest APK**: `mobile/app/build/app/outputs/flutter-apk/app-release.apk`
 
 ---
@@ -13,11 +13,11 @@
 Real-time voice conversations with an AI bartender using Azure OpenAI GPT-realtime-mini API via WebRTC. Users can speak naturally and receive spoken responses with live transcription.
 
 ### Business Model
-- **Pro Tier**: 60 minutes/month included ($7.99/month)
-- **Add-on Packs**: 20 minutes for $4.99 (non-expiring)
+- **Subscribers**: 60 minutes/month included ($9.99/month or $99.99/year)
+- **Add-on Packs**: 60 minutes for $5.99 (non-expiring)
 - **Voice Metering**: Active speech time only (user + AI talking, not idle time)
 - **Estimated Cost**: ~$0.03/minute (~$1.80 for 60 min usage)
-- **Margin**: ~$3.50+ per Pro user after 30% app store cut
+- **Margin**: ~$5.00+ per subscriber after 30% app store cut
 
 ---
 
@@ -72,8 +72,8 @@ Tracks add-on minute pack purchases (non-expiring).
 CREATE TABLE voice_addon_purchases (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    seconds_purchased INTEGER NOT NULL,           -- 1200 = 20 minutes
-    price_cents INTEGER NOT NULL,                 -- 499 = $4.99
+    seconds_purchased INTEGER NOT NULL,           -- 3600 = 60 minutes
+    price_cents INTEGER NOT NULL,                 -- 599 = $5.99
     transaction_id VARCHAR(255),                  -- App Store/Play Store transaction ID
     platform VARCHAR(20) CHECK (platform IN ('ios', 'android', 'web')),
     purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -200,7 +200,7 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
 
 **Error Responses**:
 - `401` - Unauthorized (no user ID)
-- `403` - Tier required (not Pro) or quota exceeded
+- `403` - Entitlement required (not paid) or quota exceeded
 - `404` - User not found
 - `500` - Configuration error or token generation failed
 
@@ -274,13 +274,13 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
 }
 ```
 
-**Success Response** (200 - Non-Pro user):
+**Success Response** (200 - Non-subscriber):
 ```json
 {
   "success": true,
   "hasAccess": false,
   "tier": "free",
-  "message": "Voice AI requires Pro tier"
+  "message": "Voice AI requires paid entitlement"
 }
 ```
 
@@ -342,11 +342,11 @@ Core service managing WebRTC connection and voice state.
 
 **Key Classes**:
 - `VoiceAIService` - Main service class
-- `VoiceAIState` - Enum: idle, connecting, listening, processing, speaking, error, quotaExhausted, tierRequired
+- `VoiceAIState` - Enum: idle, connecting, listening, processing, speaking, error, quotaExhausted, entitlementRequired
 - `VoiceQuota` - Quota data model
 - `VoiceSessionInfo` - Session metadata
 - `VoiceTranscript` - Transcript entry (role, text, timestamp)
-- `VoiceAIException`, `VoiceAITierRequiredException`, `VoiceAIQuotaExceededException` - Exception types
+- `VoiceAIException`, `VoiceAIEntitlementRequiredException`, `VoiceAIQuotaExceededException` - Exception types
 
 **Key Methods**:
 ```dart
@@ -387,7 +387,7 @@ Main conversation UI screen featuring:
 - Scrollable transcript view
 - Status indicator (listening, speaking, processing, etc.)
 - Animated voice button
-- Upgrade prompt for non-Pro users
+- Upgrade prompt for non-subscriber users
 - Quota exhausted prompt with add-on purchase option
 
 #### `lib/src/features/voice_ai/widgets/voice_button.dart`
@@ -480,7 +480,7 @@ Never provide:
 
 1. **Start Session**: Flutter calls POST `/v1/voice/session`
 2. **Backend**:
-   - Validates Pro tier
+   - Validates paid entitlement
    - Checks quota via `check_voice_quota()`
    - Creates database session record
    - Requests ephemeral token from Azure OpenAI Realtime API
@@ -504,8 +504,8 @@ Never provide:
 ## Quota Constants
 
 ```javascript
-const MONTHLY_VOICE_SECONDS = 3600;  // 60 minutes for Pro at $7.99/mo
-const ADDON_VOICE_SECONDS = 1200;    // 20 minutes per add-on pack ($4.99)
+const MONTHLY_VOICE_SECONDS = 3600;  // 60 minutes for subscribers at $9.99/mo
+const ADDON_VOICE_SECONDS = 3600;    // 60 minutes per add-on pack ($5.99)
 const WARNING_THRESHOLD = 720;       // Show warning at 12 minutes remaining (80% used)
 ```
 
@@ -513,8 +513,8 @@ const WARNING_THRESHOLD = 720;       // Show warning at 12 minutes remaining (80
 
 ## Testing Checklist
 
-- [x] Non-Pro user sees upgrade prompt when opening Voice AI
-- [x] Pro user can start voice session
+- [x] Non-subscriber sees upgrade prompt when opening Voice AI
+- [x] Subscriber can start voice session
 - [x] Microphone permission flow works (Android)
 - [x] Real-time transcription displays correctly
 - [x] AI responds audibly
@@ -1393,4 +1393,4 @@ See `docs/BUG_FIXES.md` (BUG-007) for full details.
 
 ---
 
-**Last Updated**: February 11, 2026 (Server-authoritative voice metering)
+**Last Updated**: February 13, 2026 (Subscription model migration: paid/none entitlement)

@@ -3,7 +3,7 @@
 ## System Overview
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter) - Android and iOS
-- Azure API Management (`apim-mba-002`) as API gateway for tier management and security
+- Azure API Management (`apim-mba-002`) as API gateway for entitlement management and security
 - **Azure Functions v4 Programming Model** - 35 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features
@@ -23,10 +23,10 @@
 - ✅ Favorites/bookmarks
 - ✅ User authentication (Entra External ID with JWT)
 - ✅ JWT-only authentication (APIM validates JWT on all 13 protected operations, no subscription keys on client)
-- ✅ AI Bartender Chat (all tiers, including Free with limited quota)
-- ✅ Smart Scanner (Claude Haiku for bottle detection - Premium/Pro)
-- ✅ Voice AI (Azure OpenAI Realtime API - Pro tier only, 60 min/month + top-ups)
-- ✅ User tier validation (backend checks tier in PostgreSQL)
+- ✅ AI Bartender Chat (all users, including free with limited quota)
+- ✅ Smart Scanner (Claude Haiku for bottle detection - Subscribers, 100/month)
+- ✅ Voice AI (Azure OpenAI Realtime API - Subscribers only, 60 min/month + $5.99/60 min add-ons)
+- ✅ User entitlement validation (backend checks entitlement in PostgreSQL)
 - ✅ Rate limiting per user
 - ✅ Monitoring and alerting (Application Insights)
 - ✅ **Azure Functions v4 Migration Complete** - All functions migrated and deployed
@@ -60,7 +60,7 @@
 - ✅ **APIM JWT Coverage Complete**: All 13 previously-unprotected operations now have `validate-jwt` policies (Feb 11, 2026)
 - ✅ **Mobile Auth Fix**: All 4 API providers (`askBartenderApi`, `recommendApi`, `createStudioApi`, `visionApi`) now use authenticated Dio with JWT interceptor
 - ✅ **No Hardcoded Keys**: No API keys stored in source or APK
-- ✅ **Server-Side Tier Validation**: Backend checks user tier in PostgreSQL
+- ✅ **Server-Side Entitlement Validation**: Backend checks user entitlement in PostgreSQL
 - ✅ **Rate Limiting**: Azure Table Storage based per-user limits
 - ✅ **Attack Detection**: High failure rate monitoring (>50 failures/5 min)
 - ✅ **Managed Identity**: RBAC-based access to Key Vault and Storage
@@ -74,7 +74,7 @@
 - **35 Backend Functions**: 33 HTTP triggers + 2 timer triggers
 - Offline-first mobile experience with local SQLite
 - JWT-based authentication via Entra External ID (fully operational)
-- APIM-based rate limiting per tier (backend validates tier in PostgreSQL)
+- APIM-based rate limiting per entitlement (backend validates entitlement in PostgreSQL)
 - **Managed Identity**: Full RBAC-based access to Key Vault and Storage
 - **Age Verification**: 21+ requirement enforced at signup via Entra External ID Custom Authentication Extension
 - **Runtime Security**: No build-time keys, all credentials obtained at runtime
@@ -98,14 +98,14 @@ sequenceDiagram
   M->>APIM: HTTPS /v1/ask-bartender (JWT only)
   APIM->>APIM: Validate JWT (signature, expiration, audience)
   APIM->>F: Forward request with X-User-Id header
-  F->>DB: Lookup user tier
+  F->>DB: Lookup user entitlement
   F->>AI: GPT-4.1-mini processing
   F-->>M: AI response
 
-  Note over M,AI: Voice Flow (Pro Tier)
+  Note over M,AI: Voice Flow (Subscribers Only)
   M->>APIM: POST /v1/voice/session (JWT only)
   APIM->>F: Forward to voice-session function
-  F->>DB: Verify user has Pro tier
+  F->>DB: Verify user has paid entitlement
   F->>AI: Request ephemeral WebRTC token from Realtime API
   AI-->>F: Return ephemeral token
   F-->>M: Return WebRTC token + session info
@@ -122,12 +122,12 @@ sequenceDiagram
   APIM->>F: Forward webhook event
   F->>F: Verify signature, check idempotency
   F->>DB: Record event in subscription_events
-  F->>DB: Upsert user_subscriptions, trigger updates users.tier
+  F->>DB: Upsert user_subscriptions, trigger updates users.entitlement
   F-->>RC: 200 OK (processed)
   M->>APIM: GET /v1/subscription/status (JWT)
   APIM->>F: Forward to subscription-status
   F->>DB: Query subscription status
-  F-->>M: { tier, isActive, expiresAt }
+  F-->>M: { entitlement, isActive, expiresAt }
 ```
 
 **Note:** RC = RevenueCat server-to-server webhook
@@ -176,7 +176,7 @@ All 35 functions use the Azure Functions v4 programming model with code-centric 
 
 **Subscription Functions (3)**
 - `subscription-config` - RevenueCat API key for SDK initialization (GET /api/v1/subscription/config)
-- `subscription-status` - User subscription status and tier (GET /api/v1/subscription/status)
+- `subscription-status` - User subscription status and entitlement (GET /api/v1/subscription/status)
 - `subscription-webhook` - RevenueCat server-to-server webhook (POST /api/v1/subscription/webhook)
   - Handles: INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE, PRODUCT_CHANGE, UNCANCELLATION, SUBSCRIPTION_PAUSED
   - Features: Idempotency via event ID, sandbox filtering, grace period handling
@@ -241,30 +241,29 @@ const result = await client.getChatCompletions(deployment, messages, options);
   - ~$0.007 per cocktail conversation
   - **SDK**: Official Azure package for better integration and support
 - **Voice**: Azure OpenAI Realtime API (direct voice-to-voice)
-  - Pro tier only: 60 minutes/month included (+ $4.99 for 20 min top-up)
+  - Subscribers only: 60 minutes/month included (+ $5.99 for 60 min add-on)
   - Active speech time metering (only user + AI talking time counts)
   - WebRTC-based low-latency streaming
 - **Vision/Smart Scanner**: Claude Haiku (Anthropic) via Azure - bottle detection for inventory
-- **Prompt Optimization**: Structured prompts for GPT-4o-mini efficiency
+- **Prompt Optimization**: Structured prompts for GPT-4.1-mini efficiency
 
-## Tier Quotas (Monthly) - UPDATED
+## Entitlement Quotas (Monthly)
 
-| Feature            | Free      | Premium               | Pro                     |
-| ------------------ | --------- | --------------------- | ----------------------- |
-| AI Tokens          | 10,000    | 300,000               | 1,000,000               |
-| Scanner (Vision)   | 2 scans   | 15 scans              | 50 scans                |
-| Voice Assistant    | 0         | $4.99/20 min purchase | 60 min + $4.99/20 min   |
-| Custom Recipes     | 3         | 25                    | Unlimited               |
-| Snapshot Downloads | Unlimited | Unlimited             | Unlimited               |
-| Price              | Free      | $4.99/mo              | $7.99/mo                |
-| Annual (Upfront)   | Free      | $39.99/yr             | $79.99/yr               |
+| Feature            | Free (none) | Subscriber (paid)                     |
+| ------------------ | ----------- | ------------------------------------- |
+| AI Tokens          | 0           | 1,000,000                             |
+| Scanner (Vision)   | 0           | 100 scans                             |
+| Voice Assistant    | 0           | 60 min included + $5.99/60 min add-on |
+| Custom Recipes     | Unlimited   | Unlimited                             |
+| Snapshot Downloads | Unlimited   | Unlimited                             |
+| Price              | Free        | $9.99/mo or $99.99/yr                 |
 
-**Key Change**: Free tier now includes 10,000 AI tokens per month to enable a freemium model and drive conversion.
+**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 3-day free trial available on monthly plan.
 
 ## Authentication Architecture (JWT-Only)
 
 ### Overview
-The mobile app uses JWT-only authentication. APIM validates the JWT token via policy, and the backend functions check user tier in PostgreSQL.
+The mobile app uses JWT-only authentication. APIM validates the JWT token via policy, and the backend functions check user entitlement in PostgreSQL.
 
 ### Flow
 1. User authenticates with Entra External ID
@@ -272,8 +271,8 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 3. All API requests include `Authorization: Bearer <JWT>` header
 4. APIM validates JWT (signature, expiration, audience) via `validate-jwt` policy
 5. APIM extracts user ID and passes to backend via `X-User-Id` header
-6. Backend function looks up user tier in PostgreSQL
-7. Request processed based on user's tier and quotas
+6. Backend function looks up user entitlement in PostgreSQL
+7. Request processed based on user's entitlement and quotas
 
 ### Key Components
 
@@ -282,14 +281,14 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - Checks token expiration and audience
 - Extracts user ID for backend
 
-**Backend Tier Validation**:
-- Functions query PostgreSQL for user tier (free/premium/pro)
-- Quotas enforced server-side based on tier
+**Backend Entitlement Validation**:
+- Functions query PostgreSQL for user entitlement (paid/none)
+- Quotas enforced server-side based on entitlement
 - Usage tracked in database
 
 ### Security Benefits
 - **No API keys on client** - only JWT token
-- **Server-side tier validation** - cannot be bypassed
+- **Server-side entitlement validation** - cannot be bypassed
 - **Token expiration** - short-lived access tokens (~1 hour)
 - **Silent refresh** - automatic token renewal
 - **Audit trail** - all requests logged with user ID
@@ -303,34 +302,25 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Developer Portal**: https://apim-mba-002.developer.azure-api.net
 - **Current Tier**: Basic V2 (~$150/month)
 
-### Products (Subscription Tiers)
+### Subscription Entitlements
 
-**Free Tier Product:**
+**Free (none):**
 
-- Rate limit: 100 calls/day
-- Features: Local cocktail database, basic search, AI chat (10K tokens/month)
-- AI features: LIMITED (10,000 tokens per 30 days, 2 scans per 30 days)
+- Features: Local cocktail database, basic search, browse recipes
+- AI features: None (paywall shown)
 
-**Premium Tier Product:**
+**Subscriber (paid):**
 
-- Rate limit: 1,000 calls/day
-- Features: AI recommendations (300,000 tokens/30 days), Scanner (15 scans/30 days)
-- Voice AI: Available as $4.99/20 min purchase (no included minutes)
-- Price: $4.99/month or $39.99/year (paid upfront)
-- Priority routing
-
-**Pro Tier Product:**
-
-- Rate limit: Unlimited
-- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (50 scans/30 days), Voice AI (60 minutes/30 days)
-- Price: $7.99/month or $79.99/year (paid upfront)
-- Highest priority, dedicated support
+- Features: AI recommendations (1,000,000 tokens/30 days), Scanner (100 scans/30 days), Voice AI (60 minutes/30 days)
+- Voice add-on: $5.99 for 60 additional minutes (non-expiring)
+- Price: $9.99/month (3-day free trial) or $99.99/year
+- Managed via RevenueCat with single `paid` entitlement
 
 ### Backend Integration
 
 - APIM forwards requests to Function App: `func-mba-fresh.azurewebsites.net`
 - **Authentication**: JWT validation via APIM policy (subscriptionRequired: false)
-- Rate limiting based on user tier (checked in backend)
+- Rate limiting based on user entitlement (checked in backend)
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
 - **Public Endpoints** (5): health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback (no JWT required)
 - **Protected Endpoints** (13): All AI, subscription, scanner, voice, social, and auth endpoints (JWT required via `validate-jwt` policy)
@@ -346,14 +336,14 @@ All authentication and key management functions include comprehensive monitoring
 - AuthenticationSuccess/Failure
 - RateLimitExceeded
 - JwtValidationFailure
-- TierValidationFailure
+- EntitlementValidationFailure
 - SuspiciousActivity
 
 **Metrics for Alerting**:
 - High authentication failure rate (>50 in 5 min)
 - Rate limit violations per user
 - Key rotation failures
-- Tier distribution (free/premium/pro)
+- Entitlement distribution (paid/none)
 
 **Security Monitoring**:
 - Attack detection via failure rate analysis
@@ -433,7 +423,7 @@ sequenceDiagram
 - Metadata tracks version, size, drink count
 - Mobile app caches and checks for updates
 
-## Voice Interaction Architecture (Pro Tier)
+## Voice Interaction Architecture (Subscribers Only)
 
 ### Implementation: Azure OpenAI Realtime API
 
@@ -456,7 +446,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 - **Low Latency**: Real-time streaming via WebRTC (UDP-based)
 - **Natural Conversation**: AI bartender with cocktail expertise
 - **Pacing Control**: System prompt instructions for relaxed, clear speech
-- **Pro Tier Only**: 60 minutes/month included (+ $4.99/20 min top-up available)
+- **Subscribers Only**: 60 minutes/month included (+ $5.99/60 min add-on available)
 
 ### Voice Assistant Functions (v4)
 
@@ -495,19 +485,19 @@ Subscription management is handled via **RevenueCat** for unified subscription l
 
 **Functions:**
 - `subscription-config` - Returns RevenueCat public API key for SDK initialization
-- `subscription-status` - Returns user's current subscription tier and status
+- `subscription-status` - Returns user's current subscription entitlement and status
 - `subscription-webhook` - Receives RevenueCat server-to-server notifications
 
 ### Webhook Event Handling
 
 | Event Type | Action |
 |------------|--------|
-| `INITIAL_PURCHASE` | Activate subscription, set tier |
+| `INITIAL_PURCHASE` | Activate subscription, set entitlement to `paid` |
 | `RENEWAL` | Extend subscription, update expiry |
 | `CANCELLATION` | Keep active until expiry, set autoRenewing=false |
-| `EXPIRATION` | Deactivate subscription, revert to free tier |
+| `EXPIRATION` | Deactivate subscription, set entitlement to `none` |
 | `BILLING_ISSUE` | Check grace period; keep active if in grace |
-| `PRODUCT_CHANGE` | Update tier based on new product |
+| `PRODUCT_CHANGE` | Update billing interval based on new product |
 | `UNCANCELLATION` | Reactivate auto-renewal |
 | `SUBSCRIPTION_PAUSED` | Deactivate but retain renewal intent |
 
@@ -527,9 +517,9 @@ Subscription management is handled via **RevenueCat** for unified subscription l
 - Production webhook ignores `environment: 'SANDBOX'` events
 - Sandbox events logged for debugging but don't update subscriptions
 
-**Tier Sync Trigger:**
-- PostgreSQL trigger `sync_user_tier_from_subscription` automatically updates `users.tier`
-- Ensures authoritative tier is always in sync with subscription state
+**Entitlement Sync Trigger:**
+- PostgreSQL trigger `sync_user_tier_from_subscription` automatically updates `users.entitlement` and `users.tier` (backward compat)
+- Ensures authoritative entitlement is always in sync with subscription state
 
 ### Authentication
 
@@ -617,8 +607,8 @@ sequenceDiagram
 - **Current Status (January 2026)**:
   - JWT authentication via Microsoft Entra External ID (fully operational)
   - JWT-only authentication (APIM validates JWT via policy)
-  - Server-side tier validation in PostgreSQL
-  - Rate limiting based on user tier
+  - Server-side entitlement validation in PostgreSQL
+  - Rate limiting based on user entitlement
   - **Azure Functions v4 Programming Model**: All 35 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
   - **RevenueCat Subscriptions**: Webhook-based subscription management
@@ -684,7 +674,7 @@ sequenceDiagram
 - **Source**: TheCocktailDB images re-hosted in Azure Blob Storage (US region)
 - **Local Storage**: All images stored on device for instant offline access
 - **No Network**: Free features (browse, search, view recipes) work 100% offline
-- **Premium Features**: AI recommendations, vision, voice require network + JWT authentication
+- **Subscriber Features**: AI recommendations, vision, voice require network + JWT authentication + paid entitlement
 
 ## Future Enhancements
 
@@ -775,7 +765,7 @@ flutter build apk --release
 - **Functions**: Windows Consumption plan (~$0.20/million executions, minimal for MVP)
 - **Storage**: ~$0.50-1/month (snapshots + ~621 images)
 - **PostgreSQL**: Basic tier ~$12-30/month (smallest tier)
-- **Azure OpenAI (GPT-4o-mini)**: Pay-per-use, ~$0.40/user/month for Premium
+- **Azure OpenAI (GPT-4.1-mini)**: Pay-per-use, ~$0.40/user/month for subscribers
 - **Azure Speech Services**: Free tier: 5 hours/month, then $1/hour
 - **Application Insights**: ~$5/month for monitoring
 
@@ -785,21 +775,21 @@ flutter build apk --release
 - **Functions**: Same (~$0.20/million executions)
 - **Storage**: ~$0.50-1/month
 - **PostgreSQL**: Optimized tier ~$12-20/month
-- **AI Services**: Covered by Premium/Pro subscription revenue
+- **AI Services**: Covered by subscription revenue
 - **Speech Services**: ~$10-20/month for moderate usage
 - **Monitoring**: Scales with usage, covered by revenue
 
 ### Revenue Model
 
-- **Free ($0/month)**: Limited AI access drives conversion (10K tokens)
-- **Premium ($4.99/month)**: Covers AI + Speech costs ($0.40-0.50/user/month)
-- **Pro ($7.99/month)**: Higher limits, 60 min voice, improved margins
-- **Target**: 1,000 Premium users = $5,000 revenue, ~$500 AI costs = **90% margin**
+- **Free ($0/month)**: Local cocktail database only, drives conversion
+- **Subscriber ($9.99/month or $99.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
+- **Voice Add-on ($5.99)**: +60 minutes, non-expiring, repeatable
+- **Target**: 1,000 subscribers = $10,000 revenue, ~$500 AI costs = **95% margin**
 
 ---
 
-**Last Updated**: February 11, 2026
-**Architecture Version**: 3.6 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage)
+**Last Updated**: February 13, 2026
+**Architecture Version**: 3.7 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

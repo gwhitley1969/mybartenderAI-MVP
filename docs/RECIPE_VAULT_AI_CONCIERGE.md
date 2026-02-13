@@ -170,13 +170,12 @@ Sees AI Concierge card: "Can't find what you're looking for?"
 
 Both buttons are visible to all users regardless of subscription tier:
 
-| Tier | Chat | Voice |
-|------|------|-------|
-| Free | Available (limited tokens) | Shows upgrade prompt |
-| Premium | Available (300k tokens) | Available via purchase ($4.99/10 min) |
-| Pro | Available (1M tokens) | Available (45 min included + top-up) |
+| Entitlement | Chat | Voice |
+|-------------|------|-------|
+| Free (none) | Shows upgrade prompt | Shows upgrade prompt |
+| Subscriber (paid) | Available (1M tokens) | Available (60 min included + $5.99/60 min add-on) |
 
-Tier restrictions are handled by the destination screens, not the Recipe Vault buttons.
+Entitlement restrictions are handled by the destination screens, not the Recipe Vault buttons.
 
 ## What Was Removed
 

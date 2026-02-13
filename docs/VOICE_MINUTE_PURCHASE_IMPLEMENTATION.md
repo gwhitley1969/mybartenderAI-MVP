@@ -1,7 +1,9 @@
 # Voice Minute Purchase - Implementation Plan
 
+> **Note (February 2026):** This document was written during the original Free/Premium/Pro tier model. The subscription model has since been simplified to a binary `paid`/`none` entitlement with 60 included voice minutes/month and $5.99/60-minute add-on packs. The mobile app now sends product ID `voice_minutes_60`. See `SUBSCRIPTION_DEPLOYMENT.md` for the current architecture. **Known discrepancy:** The backend `voice-purchase/index.js` still references `voice_minutes_20` and credits 20 minutes at $4.99 — this needs a backend code update to align with the mobile app.
+
 **Created:** December 22, 2025
-**Status:** Planning
+**Status:** Planning (partially superseded)
 **Priority:** High
 **Phase:** Beta
 
@@ -9,15 +11,16 @@
 
 ## Overview
 
-Enable Premium and Pro users to purchase additional voice minutes ($4.99 for 20 minutes) via Google Play Billing.
+Enable subscribers to purchase additional voice minutes ($5.99 for 60 minutes) via Google Play Billing.
+
+**Note:** This document was the original planning doc. The actual implementation uses the binary `paid`/`none` entitlement model and minutes-based quota tracking via migration 011. See `SUBSCRIPTION_DEPLOYMENT.md` for the current architecture.
 
 ### Business Rules
 
-| User Tier | Included Minutes | Can Purchase | Notes |
-|-----------|------------------|--------------|-------|
-| Free | 0 | No | Must upgrade to Premium first |
-| Premium | 0 | Yes | $4.99 per 20 minutes |
-| Pro | 60/month | Yes | $4.99 per 20 minutes top-up |
+| Entitlement | Included Minutes | Can Purchase | Notes |
+|-------------|------------------|--------------|-------|
+| none (free) | 0 | No | Must subscribe first |
+| paid (subscriber) | 60/month | Yes | $5.99 per 60 minutes add-on |
 
 ### Key Policies
 

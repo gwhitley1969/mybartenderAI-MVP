@@ -2,11 +2,16 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 13, 2026
+**Last Updated**: February 14, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Create Studio Subtitle Text Update** (Feb 14): Updated the Create Studio banner subtitle from "Add your personal custom cocktail recipes here." to "Your personal recipe book — build and save your own cocktails" to better communicate the screen's purpose. The original text ("Craft your signature cocktails with AI-powered refinement") was too vague and AI-focused, confusing users about whether this was a creation tool or an AI feature. The new copy leads with a warm metaphor ("recipe book") and clearly states what users can do.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/create_studio/create_studio_screen.dart`: Updated subtitle text in banner section
 
 - **Voice Session "Last Session Wins" Auto-Close + Parameter Type Fix** (Feb 13): Replaced the 409 Conflict concurrent session block with a "last session wins" auto-close strategy, then fixed a PostgreSQL parameter type error (`could not determine data type of parameter $3`) in the `usage_tracking` INSERT. In a mobile-only app, when the user taps "Talk," any previous active session is definitionally dead (WebRTC/audio/state already destroyed client-side). Instead of blocking with 409, the `voice-session` function now: (1) auto-expires stale sessions >2h via `close_user_stale_sessions()`, (2) auto-closes any remaining active session with `status = 'expired'` and bills 30% of wall-clock time, (3) logs the auto-close with `billing_method: 'last_session_wins'` in `usage_tracking`, then (4) creates the new session. The parameter type fix adds explicit casts (`$3::text`, `$4::integer`) inside `jsonb_build_object()` — PostgreSQL's `VARIADIC "any"` signature can't infer types from parameterized placeholders without column context.
 
@@ -761,4 +766,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 13, 2026
+**Last Updated**: February 14, 2026

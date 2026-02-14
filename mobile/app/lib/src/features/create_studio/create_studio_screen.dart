@@ -150,7 +150,7 @@ class CreateStudioScreen extends ConsumerWidget {
           SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
-              'Craft your signature cocktails with AI-powered refinement',
+              'Your personal recipe book \u2014 build and save your own cocktails',
               style: AppTypography.caption.copyWith(
                 color: AppColors.textPrimary,
               ),

@@ -481,7 +481,7 @@ MOBILE APP                    APIM                         FUNCTION APP
 ---
 
 **Document Version:** 1.3
-**Last Updated:** February 15, 2026
+**Last Updated:** February 16, 2026
 
 ---
 
@@ -490,6 +490,17 @@ MOBILE APP                    APIM                         FUNCTION APP
 The original plan included passing user inventory context via the backend during session creation. This approach did not work for WebRTC sessions.
 
 **Solution:** Inventory context is now sent directly via the WebRTC data channel using a `session.update` event after connection. This is handled entirely client-side in `voice_ai_service.dart`. See `VOICE_AI_DEPLOYED.md` for implementation details.
+
+---
+
+## Note: iOS Background Audio Capture Fix (February 15, 2026)
+
+On iOS, `track.enabled = false` does not fully silence WebRTC audio — the microphone hardware stays active with `AVAudioSession` in `playAndRecord` + `voiceChat` mode. Background audio (TV, conversations) leaked through to Azure, producing unwanted user transcript bubbles even when the push-to-talk button was not held. Two-layer fix applied:
+
+1. **Transcript guard**: `_isMuted` check on `conversation.item.input_audio_transcription.completed` drops leaked transcripts
+2. **iOS `replaceTrack(null)`**: Swaps audio sender track to silence at WebRTC level so Azure receives zero audio data when muted
+
+Android was unaffected. See `VOICE_AI_DEPLOYED.md` and `BUG_FIXES.md` (BUG-011) for details.
 
 ---
 

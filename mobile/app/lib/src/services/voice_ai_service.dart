@@ -57,6 +57,9 @@ class VoiceAIService {
   Function(String, String, bool)? _onTranscript; // (role, text, isFinal)
   Function(VoiceQuota)? _onQuotaUpdate;
 
+  // Stored for iOS-specific replaceTrack muting
+  RTCRtpSender? _audioSender;
+
   // Buffer for accumulating streaming assistant response
   StringBuffer _currentAssistantResponse = StringBuffer();
 
@@ -187,7 +190,28 @@ class VoiceAIService {
     if (_localStream != null) {
       final audioTracks = _localStream!.getAudioTracks();
       for (final track in audioTracks) {
-        track.enabled = !muted;
+        track.enabled = !muted; // Works on Android; belt-and-suspenders on iOS
+      }
+
+      // iOS-specific: track.enabled = false doesn't fully silence audio on iOS.
+      // Use replaceTrack(null) to ensure zero audio data reaches Azure.
+      if (Platform.isIOS && _audioSender != null) {
+        if (muted) {
+          _audioSender!.replaceTrack(null).then((_) {
+            debugPrint('[VOICE-AI] iOS: Audio sender track replaced with null (silence)');
+          }).catchError((e) {
+            debugPrint('[VOICE-AI] iOS: replaceTrack(null) failed: $e');
+          });
+        } else {
+          final audioTrack = audioTracks.isNotEmpty ? audioTracks.first : null;
+          if (audioTrack != null) {
+            _audioSender!.replaceTrack(audioTrack).then((_) {
+              debugPrint('[VOICE-AI] iOS: Audio sender track restored');
+            }).catchError((e) {
+              debugPrint('[VOICE-AI] iOS: replaceTrack(restore) failed: $e');
+            });
+          }
+        }
       }
     }
 
@@ -495,6 +519,13 @@ class VoiceAIService {
       final audioTrack = _localStream!.getAudioTracks().first;
       await _peerConnection!.addTrack(audioTrack, _localStream!);
 
+      // Store the audio sender for iOS-specific replaceTrack muting
+      final senders = await _peerConnection!.getSenders();
+      _audioSender = senders.firstWhere(
+        (s) => s.track?.kind == 'audio',
+        orElse: () => senders.first,
+      );
+
       // Push-to-talk: Start with microphone muted
       // User must press and hold the button to speak
       _isMuted = true;
@@ -652,6 +683,12 @@ class VoiceAIService {
           break;
 
         case 'conversation.item.input_audio_transcription.completed':
+          // MUTE GUARD: If mic is muted, discard — this is background audio leaking
+          // through on iOS where track.enabled = false doesn't fully silence the stream.
+          if (_isMuted) {
+            debugPrint('[VOICE-AI] IGNORED user transcript - mic is MUTED (background audio on iOS)');
+            break;
+          }
           // User speech transcript - always comes as complete
           final transcript = data['transcript'] ?? '';
           if (transcript.isNotEmpty) {
@@ -929,6 +966,7 @@ class VoiceAIService {
       _realtimeSessionId = null;
       _sessionStartTime = null;
       _isMuted = true; // Reset to muted for next session
+      _audioSender = null;
 
       // Reset active speech time tracking
       _userSpeakingSeconds = 0;

@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 15, 2026 - push-to-talk interruption transcript fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 15, 2026 - iOS background audio capture fix)
 
 ## Overview
 
@@ -677,6 +677,41 @@ case 'input_audio_buffer.speech_stopped':
 **No backend changes needed** — client-only fix.
 
 See `docs/BUG_FIXES.md` (BUG-005) for complete technical analysis.
+
+---
+
+## iOS Background Audio Capture Fix (February 15, 2026)
+
+### Problem
+
+On iOS, Voice AI captured and transcribed background audio even when the push-to-talk button was not held down. User transcript bubbles appeared for TV dialogue, nearby conversations, etc. Android worked correctly.
+
+### Root Cause
+
+1. **iOS platform behavior**: `track.enabled = false` doesn't fully silence audio on iOS. With `AVAudioSession` in `playAndRecord` + `voiceChat`, microphone hardware stays active and audio flows through WebRTC to Azure.
+2. **Missing mute guard**: `conversation.item.input_audio_transcription.completed` handler had no `_isMuted` check, so leaked audio transcripts appeared in the UI.
+
+### Solution: Two-Layer Defense
+
+**Layer 1 — Transcript guard (all platforms):**
+Added `_isMuted` check as the first guard in the transcript completion handler. Drops background transcripts at the event level before they reach the UI. Provides immediate, zero-latency protection.
+
+**Layer 2 — `replaceTrack(null)` (iOS only):**
+On mute, swaps the audio sender's track to `null` via `RTCRtpSender.replaceTrack()`. The WebRTC connection sends silence frames instead of microphone data. On unmute, restores the original audio track. This prevents Azure from processing leaked audio (saves tokens, avoids AI context confusion).
+
+### Changes (5 total, 1 file)
+
+| # | Location | Change |
+|---|----------|--------|
+| 1 | Transcript handler | `_isMuted` guard on `input_audio_transcription.completed` |
+| 2 | Field declaration | `RTCRtpSender? _audioSender` for iOS replaceTrack |
+| 3 | After `addTrack()` | `getSenders()` to capture audio sender reference |
+| 4 | `setMicrophoneMuted()` | iOS-specific `replaceTrack(null)` / `replaceTrack(audioTrack)` |
+| 5 | `_cleanup()` | Reset `_audioSender = null` |
+
+**No backend changes needed** — client-only fix.
+
+See `docs/BUG_FIXES.md` (BUG-011) for complete technical analysis.
 
 ---
 

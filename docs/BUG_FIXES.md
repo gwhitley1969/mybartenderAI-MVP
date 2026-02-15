@@ -4,6 +4,110 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-011: Voice AI Captures Background Audio When Muted (iOS Only)
+
+**Date Fixed**: February 15, 2026
+**Severity**: Medium (UX confusion, wasted Azure compute)
+**Component**: Voice AI (Mobile Client)
+**Files Modified**: `mobile/app/lib/src/services/voice_ai_service.dart`
+**Backend Changes**: None
+
+### Symptoms
+
+1. **Background speech bubbles**: On iOS (TestFlight), user transcript bubbles appear for ambient audio (TV dialogue, nearby conversations) even when the push-to-talk button is **not** held down
+2. **Mic shows muted state**: The mic icon correctly shows muted with "Hold to speak," yet transcripts appear
+3. **Android unaffected**: The same build works correctly on Android — no background transcripts when muted
+
+### Root Cause (Two Layers)
+
+**Layer 1 — iOS platform behavior**: `track.enabled = false` on a WebRTC audio track does not fully silence the audio stream on iOS. With `AVAudioSession` configured as `playAndRecord` + `voiceChat`, the microphone hardware stays active and audio data continues flowing through the WebRTC connection to Azure OpenAI. Android's audio HAL properly silences the track when `track.enabled = false`.
+
+**Layer 2 — Missing mute guard on transcript handler**: The `conversation.item.input_audio_transcription.completed` event handler had **no `_isMuted` check**. It added every user transcript to the UI regardless of mute state. The existing `_isMuted` guards on `speech_started`/`speech_stopped` only prevented state transitions — they didn't stop Azure from receiving and transcribing the leaked audio.
+
+### Fix Applied (5 Changes in 1 File)
+
+#### Change 1: Guard transcript handler with `_isMuted` check (CRITICAL)
+
+```dart
+case 'conversation.item.input_audio_transcription.completed':
+  if (_isMuted) {
+    debugPrint('[VOICE-AI] IGNORED user transcript - mic is MUTED (background audio on iOS)');
+    break;
+  }
+  // ... existing transcript processing unchanged ...
+```
+
+This is the immediate fix — even if audio leaks through the WebRTC connection, the transcript is silently discarded before reaching the UI.
+
+#### Change 2: Add `_audioSender` field
+
+```dart
+RTCRtpSender? _audioSender; // Stored for iOS replaceTrack muting
+```
+
+#### Change 3: Store audio sender after `addTrack()`
+
+```dart
+final senders = await _peerConnection!.getSenders();
+_audioSender = senders.firstWhere(
+  (s) => s.track?.kind == 'audio',
+  orElse: () => senders.first,
+);
+```
+
+#### Change 4: iOS-specific `replaceTrack(null)` in `setMicrophoneMuted()`
+
+```dart
+// iOS-specific: track.enabled = false doesn't fully silence audio on iOS.
+// Use replaceTrack(null) to ensure zero audio data reaches Azure.
+if (Platform.isIOS && _audioSender != null) {
+  if (muted) {
+    _audioSender!.replaceTrack(null).then((_) {
+      debugPrint('[VOICE-AI] iOS: Audio sender track replaced with null (silence)');
+    }).catchError((e) {
+      debugPrint('[VOICE-AI] iOS: replaceTrack(null) failed: $e');
+    });
+  } else {
+    // Restore audio track when unmuting
+    _audioSender!.replaceTrack(audioTrack).then((_) { ... });
+  }
+}
+```
+
+**Why fire-and-forget (no await)?** `setMicrophoneMuted` is called synchronously from the button handler. The critical flag `_isMuted = true` is already set before this code runs, so the transcript guard (Change 1) is active immediately. The `replaceTrack` call completes ~5ms later.
+
+#### Change 5: Reset `_audioSender` in `_cleanup()`
+
+```dart
+_audioSender = null;
+```
+
+### Defense-in-Depth Strategy
+
+| Layer | What It Does | Protects Against |
+|-------|-------------|-----------------|
+| `_isMuted` guard on transcript handler | Drops background transcripts at event level | Audio leaking through on iOS (or any future platform bug) |
+| `replaceTrack(null)` on iOS | Swaps audio track to silence at WebRTC level | Azure processing leaked audio (saves tokens, prevents AI confusion) |
+| `track.enabled = false` (existing) | Standard WebRTC mute | Works correctly on Android; belt-and-suspenders on iOS |
+
+### Verification Tests
+
+| Test | Expected Result |
+|------|----------------|
+| iOS: Don't hold button, have TV playing | No user transcript bubbles; logs show `IGNORED user transcript - mic is MUTED` |
+| iOS: Hold button, speak, release | Speech transcribed, AI responds; logs show `Audio sender track restored` |
+| iOS: Check logs on mute | `iOS: Audio sender track replaced with null (silence)` appears |
+| Android: Same tests | Behavior unchanged (no background capture, push-to-talk works) |
+| Static analysis | Zero new warnings in `voice_ai_service.dart` |
+
+### Related Previous Fixes
+
+- **BUG-010** (Feb 15, 2026): Push-to-talk interruption transcript fix
+- **BUG-005** (Jan 31, 2026): Phantom "Thinking..." from muted-mic VAD events
+- **BUG-003** (Jan 7, 2026): Background noise state machine corruption
+
+---
+
 ## BUG-010: Voice AI "Repeating Itself" During Push-to-Talk Interruption
 
 **Date Fixed**: February 15, 2026
@@ -627,4 +731,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 15, 2026
+**Last Updated**: February 16, 2026

@@ -447,7 +447,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 - **Natural Conversation**: AI bartender with cocktail expertise
 - **Pacing Control**: System prompt instructions for relaxed, clear speech
 - **Subscribers Only**: 60 minutes/month included (+ $5.99/60 min add-on available)
-- **iOS Audio Muting**: Two-layer defense — `replaceTrack(null)` removes audio track from WebRTC sender on iOS (where `track.enabled = false` doesn't fully silence the stream), plus transcript guard filters any leaked audio
+- **iOS Audio Muting**: Two-layer defense — `replaceTrack(null)` removes audio track from WebRTC sender on iOS (where `track.enabled = false` doesn't fully silence the stream), plus transcript guard filters any leaked audio. Note: Audio sender captured via `getSenders().firstWhere()` without `orElse` — the `orElse` callback caused a Dart type inference crash on iOS (`RTCRtpSender` vs `RTCRtpSenderNative`); see BUG-012
 
 ### Voice Assistant Functions (v4)
 
@@ -790,7 +790,7 @@ flutter build apk --release
 ---
 
 **Last Updated**: February 16, 2026
-**Architecture Version**: 3.8 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix)
+**Architecture Version**: 3.9 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

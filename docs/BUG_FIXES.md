@@ -4,6 +4,82 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-012: WebRTC Connection Failed — Dart Type Error on iOS (`RTCRtpSender` vs `RTCRtpSenderNative`)
+
+**Date Fixed**: February 15, 2026
+**Severity**: Critical (Feature-breaking on iOS)
+**Component**: Voice AI (Mobile Client)
+**Files Modified**: `mobile/app/lib/src/services/voice_ai_service.dart`
+**Backend Changes**: None
+
+### Symptoms
+
+After deploying the BUG-011 fix (iOS background audio capture), Voice AI fails to connect on iOS with:
+
+```
+WebRTC connection failed: type '() => RTCRtpSender' is not a subtype of type '(() => RTCRtpSenderNative)?' of 'orElse'
+```
+
+The error occurs before any WebRTC handshake completes — the session never establishes.
+
+### Root Cause
+
+The `_audioSender` capture code introduced in BUG-011 (Change 3) used `firstWhere` with an `orElse` callback:
+
+```dart
+final senders = await _peerConnection!.getSenders();
+_audioSender = senders.firstWhere(
+    (s) => s.track?.kind == 'audio',
+    orElse: () => senders.first,  // <-- TYPE ERROR HERE
+);
+```
+
+On iOS, `flutter_webrtc`'s `getSenders()` returns `List<RTCRtpSenderNative>` (a concrete platform subclass), not `List<RTCRtpSender>` (the abstract supertype). Dart's `firstWhere` method on this list expects `orElse` to return `RTCRtpSenderNative`, but Dart infers the closure return type as `() => RTCRtpSender`. This runtime type mismatch crashes immediately.
+
+Android is unaffected because its `getSenders()` returns the abstract `List<RTCRtpSender>` type.
+
+### Fix Applied (1 Change in 1 File)
+
+Removed the `orElse` callback entirely:
+
+**Before:**
+```dart
+_audioSender = senders.firstWhere(
+    (s) => s.track?.kind == 'audio',
+    orElse: () => senders.first,
+);
+```
+
+**After:**
+```dart
+_audioSender = senders.firstWhere(
+    (s) => s.track?.kind == 'audio',
+);
+```
+
+**Why it's safe:** `addTrack(audioTrack, _localStream!)` is called on the line immediately before this code. The audio sender is guaranteed to exist in the senders list. The `orElse` was unnecessary defensive code.
+
+If the sender were somehow missing (shouldn't happen), `firstWhere` throws a `StateError` which is caught by the existing try/catch block at line 625 — producing a clear diagnostic message instead of the confusing type error.
+
+### Verification Tests
+
+| Test | Expected Result |
+|------|----------------|
+| iOS: Voice AI → Talk | Session connects without "WebRTC connection failed" error |
+| iOS: Push-to-talk works | Hold button to speak, release to hear AI respond |
+| iOS: Muting works | No background audio leaks when mic is muted (BUG-011 fix still functions) |
+| Android: Same tests | Behavior unchanged (was never affected by this bug) |
+
+### Design Lesson
+
+When using `firstWhere` on platform-specific list types in Flutter plugins, avoid `orElse` callbacks — Dart's type inference uses the abstract supertype for the closure return type, which may not match the list's runtime element type on specific platforms (iOS native vs Android). Either omit `orElse` (if the element is guaranteed to exist) or use a try/catch on `StateError` instead.
+
+### Related Fixes
+
+- **BUG-011** (Feb 15, 2026): iOS background audio capture — introduced the `_audioSender` capture code with the type-incompatible `orElse`
+
+---
+
 ## BUG-011: Voice AI Captures Background Audio When Muted (iOS Only)
 
 **Date Fixed**: February 15, 2026
@@ -51,9 +127,10 @@ RTCRtpSender? _audioSender; // Stored for iOS replaceTrack muting
 final senders = await _peerConnection!.getSenders();
 _audioSender = senders.firstWhere(
   (s) => s.track?.kind == 'audio',
-  orElse: () => senders.first,
 );
 ```
+
+> **Note:** The original code included `orElse: () => senders.first` but this caused a Dart type inference crash on iOS — see BUG-012. The `orElse` was removed since the audio sender is guaranteed to exist after `addTrack()`.
 
 #### Change 4: iOS-specific `replaceTrack(null)` in `setMicrophoneMuted()`
 

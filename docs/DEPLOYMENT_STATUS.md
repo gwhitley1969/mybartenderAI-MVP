@@ -8,6 +8,13 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Voice AI WebRTC Type Error Fix** (Feb 15): Fixed critical iOS-only crash where Voice AI failed to connect with `type '() => RTCRtpSender' is not a subtype of type '(() => RTCRtpSenderNative)?' of 'orElse'`. Introduced by the BUG-011 fix (iOS background audio capture). On iOS, `flutter_webrtc`'s `getSenders()` returns `List<RTCRtpSenderNative>` (concrete platform subclass), and Dart's `firstWhere` method expected the `orElse` closure to return `RTCRtpSenderNative`, but Dart inferred `() => RTCRtpSender` (abstract supertype). Fix: Removed the `orElse` callback — it was unnecessary since `addTrack()` guarantees the audio sender exists. Without `orElse`, `firstWhere` throws a `StateError` on failure (caught by existing try/catch), rather than a confusing type error. Android was unaffected.
+
+  **File modified:**
+  - `mobile/app/lib/src/services/voice_ai_service.dart`: Removed `orElse` callback from `senders.firstWhere()` (1 line)
+
+  See `docs/BUG_FIXES.md` (BUG-012) for full details.
+
 - **Voice AI iOS Background Audio Mute Fix** (Feb 15): Fixed iOS-only bug where Voice AI captured and transcribed background audio (TV dialogue, nearby conversations) even when the push-to-talk button was not held down. On iOS, `track.enabled = false` on a WebRTC audio track doesn't fully silence the stream — the microphone hardware stays active with `AVAudioSession` in `playAndRecord` + `voiceChat` mode. Additionally, the `conversation.item.input_audio_transcription.completed` event handler had no `_isMuted` check, so leaked audio transcripts appeared in the UI. Android was unaffected (its audio HAL properly silences disabled tracks). Two-layer defense applied:
   1. **Transcript guard**: Added `_isMuted` check on the transcript completion handler — drops background transcripts at the event level before they reach the UI
   2. **iOS `replaceTrack(null)`**: On mute, swaps the audio sender's track to `null` so the WebRTC connection sends silence frames instead of microphone data. On unmute, restores the original audio track. Prevents Azure from processing leaked audio (saves tokens and avoids AI context confusion)

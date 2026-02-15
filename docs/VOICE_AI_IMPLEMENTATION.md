@@ -705,13 +705,15 @@ On mute, swaps the audio sender's track to `null` via `RTCRtpSender.replaceTrack
 |---|----------|--------|
 | 1 | Transcript handler | `_isMuted` guard on `input_audio_transcription.completed` |
 | 2 | Field declaration | `RTCRtpSender? _audioSender` for iOS replaceTrack |
-| 3 | After `addTrack()` | `getSenders()` to capture audio sender reference |
+| 3 | After `addTrack()` | `getSenders()` to capture audio sender reference (BUG-012: `orElse` removed — caused iOS type error) |
 | 4 | `setMicrophoneMuted()` | iOS-specific `replaceTrack(null)` / `replaceTrack(audioTrack)` |
 | 5 | `_cleanup()` | Reset `_audioSender = null` |
 
 **No backend changes needed** — client-only fix.
 
 See `docs/BUG_FIXES.md` (BUG-011) for complete technical analysis.
+
+> **Follow-up (BUG-012):** The `getSenders()` capture originally used `firstWhere` with an `orElse` fallback. On iOS, `flutter_webrtc` returns `List<RTCRtpSenderNative>` and Dart infers the `orElse` closure as returning `RTCRtpSender` (abstract supertype), causing a runtime type mismatch. Removed `orElse` — audio sender is guaranteed after `addTrack()`. See `docs/BUG_FIXES.md` (BUG-012).
 
 ---
 

@@ -502,6 +502,8 @@ On iOS, `track.enabled = false` does not fully silence WebRTC audio — the micr
 
 Android was unaffected. See `VOICE_AI_DEPLOYED.md` and `BUG_FIXES.md` (BUG-011) for details.
 
+> **Follow-up (BUG-012):** The `getSenders()` audio sender capture used `firstWhere` with an `orElse` callback that triggered a Dart type inference error on iOS (`RTCRtpSender` vs `RTCRtpSenderNative`). Removed `orElse` — audio sender is guaranteed after `addTrack()`. See `BUG_FIXES.md` (BUG-012).
+
 ---
 
 ## Note: Background Noise Sensitivity Fix (December 2025 - January 2026)

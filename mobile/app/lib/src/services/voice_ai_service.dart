@@ -523,7 +523,6 @@ class VoiceAIService {
       final senders = await _peerConnection!.getSenders();
       _audioSender = senders.firstWhere(
         (s) => s.track?.kind == 'audio',
-        orElse: () => senders.first,
       );
 
       // Push-to-talk: Start with microphone muted

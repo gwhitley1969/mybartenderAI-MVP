@@ -1487,7 +1487,7 @@ On iOS (TestFlight), Voice AI captured and transcribed background audio (TV dial
 |---|--------|---------|
 | 1 | `_isMuted` guard on transcript handler | Drops background transcripts at event level |
 | 2 | `_audioSender` field (`RTCRtpSender?`) | Stores sender reference for `replaceTrack` |
-| 3 | `getSenders()` after `addTrack()` | Captures the audio sender reference |
+| 3 | `getSenders()` after `addTrack()` | Captures the audio sender reference (BUG-012: removed `orElse` fallback — caused `RTCRtpSenderNative` type error on iOS) |
 | 4 | iOS `replaceTrack(null)` in `setMicrophoneMuted()` | Swaps audio track to silence at WebRTC level |
 | 5 | Reset `_audioSender` in `_cleanup()` | Prevents stale references across sessions |
 
@@ -1534,6 +1534,20 @@ if (Platform.isIOS && _audioSender != null) {
 
 See `docs/BUG_FIXES.md` (BUG-011) for complete technical analysis.
 
+### Follow-up Fix: WebRTC Type Error (BUG-012, February 15, 2026)
+
+The `getSenders()` capture code (Change 3 above) originally included an `orElse` fallback:
+
+```dart
+// BROKEN — orElse closure inferred as () => RTCRtpSender, but iOS list is RTCRtpSenderNative
+_audioSender = senders.firstWhere(
+    (s) => s.track?.kind == 'audio',
+    orElse: () => senders.first,  // TYPE ERROR on iOS
+);
+```
+
+On iOS, `flutter_webrtc` returns `List<RTCRtpSenderNative>` (concrete subtype). Dart infers the `orElse` closure as `() => RTCRtpSender` (abstract supertype), which fails at runtime: `type '() => RTCRtpSender' is not a subtype of type '(() => RTCRtpSenderNative)?'`. Fix: removed `orElse` entirely — the audio sender is guaranteed to exist after `addTrack()`. See `docs/BUG_FIXES.md` (BUG-012).
+
 ---
 
-**Last Updated**: February 16, 2026 (iOS background audio capture fix)
+**Last Updated**: February 15, 2026 (BUG-012 WebRTC type error fix)

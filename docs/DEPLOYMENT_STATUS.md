@@ -2,11 +2,29 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 14, 2026
+**Last Updated**: February 15, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Voice AI Push-to-Talk Interruption Fix** (Feb 15): Fixed Voice AI "repeating itself" bug where interrupting the AI mid-sentence via push-to-talk caused duplicate/truncated messages in the transcript. When the user pressed the push-to-talk button while the AI was speaking, `_prepareForNewUtterance()` sent `response.cancel` to Azure but did not clean up the partial transcript that was already streaming. The `response.audio_transcript.done` event still fired for the cancelled response, permanently adding truncated text to the conversation. Then the new response naturally started with similar context, creating the "repeating" illusion. Nine changes applied across two files:
+  1. **State-tracking flags**: Added `_responseInProgress` and `_responseCancelled` booleans to `VoiceAIService`
+  2. **Cancellation cleanup in `_prepareForNewUtterance()`**: After `response.cancel`, marks response as cancelled, clears the StringBuffer, emits empty-text signal to remove partial UI message
+  3. **Guard on `_commitAudioBuffer()`**: Prevents duplicate `response.create` events if a response is already in progress
+  4. **Cancelled transcript filtering**: `response.audio_transcript.delta` and `response.audio_transcript.done` handlers skip events from cancelled responses
+  5. **`response.done` handler**: Resets `_responseInProgress` flag
+  6. **`response.cancelled` handler**: Properly cleans up all state flags and StringBuffer
+  7. **`_cleanup()` resets**: Both flags and StringBuffer cleared on session teardown
+  8. **Provider cancellation signal**: `_handleTranscript()` in provider removes partial assistant message when empty-text final signal received
+  9. **Build number bump**: `pubspec.yaml` version `1.0.0+9` → `1.0.0+10`
+
+  **Files modified:**
+  - `mobile/app/lib/src/services/voice_ai_service.dart`: 8 changes (flags, guards, event filters, cleanup)
+  - `mobile/app/lib/src/providers/voice_ai_provider.dart`: 1 change (empty-text cancellation signal handling)
+  - `mobile/app/pubspec.yaml`: Build number bump to +10
+
+  See `docs/BUG_FIXES.md` (BUG-010) for full details.
 
 - **Create Studio Subtitle Text Update** (Feb 14): Updated the Create Studio banner subtitle from "Add your personal custom cocktail recipes here." to "Your personal recipe book — build and save your own cocktails" to better communicate the screen's purpose. The original text ("Craft your signature cocktails with AI-powered refinement") was too vague and AI-focused, confusing users about whether this was a creation tool or an AI feature. The new copy leads with a warm metaphor ("recipe book") and clearly states what users can do.
 
@@ -766,4 +784,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 14, 2026
+**Last Updated**: February 15, 2026

@@ -2,7 +2,7 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 13, 2026 - "last session wins" auto-close replaces 409 Conflict)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 15, 2026 - push-to-talk interruption transcript fix)
 
 ## Overview
 
@@ -453,6 +453,7 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - [x] Push-to-talk: Quick tap ends session ✅ January 16, 2026
 - [x] Push-to-talk: Background noise ignored when not holding ✅ January 16, 2026
 - [x] Push-to-talk: Phantom "Thinking..." from muted-mic VAD events fixed ✅ January 31, 2026
+- [x] Push-to-talk: Interruption no longer causes duplicate/truncated transcripts ✅ February 15, 2026
 - [x] "How to use" instructions updated for push-to-talk ✅ January 16, 2026
 - [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
 - [x] "Minutes remaining" updates after each session ✅ February 9, 2026 (dispose + PopScope + quota nulling fix)
@@ -676,6 +677,40 @@ case 'input_audio_buffer.speech_stopped':
 **No backend changes needed** — client-only fix.
 
 See `docs/BUG_FIXES.md` (BUG-005) for complete technical analysis.
+
+---
+
+## Push-to-Talk Interruption Transcript Fix (February 15, 2026)
+
+### Problem
+
+Users reported the Voice AI bartender appearing to "repeat itself." The AI would start a response, the user would interrupt with push-to-talk, and then the AI's next response would begin with the same words — creating the illusion of duplicate messages.
+
+### Root Cause
+
+When the user presses push-to-talk while the AI is speaking, `_prepareForNewUtterance()` sends `response.cancel` to Azure but does **not** clean up the partial transcript already streaming. Azure's `response.audio_transcript.done` event still fires for the cancelled response (events are asynchronous), permanently adding truncated text to the conversation. The new response then starts with similar context, appearing duplicated.
+
+### Solution: 9 Changes across 2 Files
+
+| # | File | Change |
+|---|------|--------|
+| 1 | `voice_ai_service.dart` | Added `_responseInProgress` and `_responseCancelled` flags |
+| 2 | `voice_ai_service.dart` | `_prepareForNewUtterance()`: set cancelled flag, clear StringBuffer, emit empty-text signal |
+| 3 | `voice_ai_service.dart` | `_commitAudioBuffer()`: guard against duplicate `response.create` |
+| 4 | `voice_ai_service.dart` | `response.audio_transcript.delta`: skip if cancelled |
+| 5 | `voice_ai_service.dart` | `response.audio_transcript.done`: discard if cancelled |
+| 6 | `voice_ai_service.dart` | `response.done`: reset `_responseInProgress` |
+| 7 | `voice_ai_service.dart` | `response.cancelled`: clean up all flags + StringBuffer |
+| 8 | `voice_ai_service.dart` | `_cleanup()`: reset both flags + StringBuffer |
+| 9 | `voice_ai_provider.dart` | `_handleTranscript()`: remove partial message on empty-text signal |
+
+### Key Design Pattern: Empty-Text Cancellation Signal
+
+The service and provider communicate via the `_onTranscript` callback. Rather than adding a new callback, we send `('assistant', '', true)` as a sentinel value. The provider recognizes `text.isEmpty && isFinal` for an assistant message as "remove the partial bubble."
+
+**No backend changes needed** — client-only fix.
+
+See `docs/BUG_FIXES.md` (BUG-010) for complete technical analysis.
 
 ---
 

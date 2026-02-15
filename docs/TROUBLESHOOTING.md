@@ -1,6 +1,6 @@
 # Azure Functions - Troubleshooting Guide
 
-**Last Updated:** 2026-02-13
+**Last Updated:** 2026-02-15
 
 ## Current Status ✅
 
@@ -740,3 +740,50 @@ _voiceDio = Dio(BaseOptions(
 3. Check for interceptors that may modify headers
 
 **See Also:** `docs/VOICE_AI_DEPLOYED.md` - Troubleshooting section
+
+---
+
+### Issue 15: Voice AI "Repeating Itself" During Push-to-Talk Interruption ✅ RESOLVED
+
+**Date**: February 15, 2026
+
+**Symptoms:**
+- Voice AI appears to repeat itself when user interrupts with push-to-talk
+- AI starts a response, user interrupts, and the new response begins with the same words
+- Truncated partial messages remain in the transcript view
+- Occasionally, duplicate or near-duplicate messages appear in the conversation
+
+**Root Cause:** Asynchronous event race condition during push-to-talk interruption
+
+When the user presses the push-to-talk button while the AI is speaking:
+1. `_prepareForNewUtterance()` sends `response.cancel` to Azure
+2. Azure's `response.audio_transcript.done` event still fires for the cancelled response (events in-flight)
+3. The cancelled response's truncated text is permanently added to the transcript list
+4. The new response naturally starts with similar context, creating the "repeating" illusion
+
+**Secondary Issue:** `_commitAudioBuffer()` had no guard against being called while a response was already in progress, potentially producing duplicate `response.create` events.
+
+**Solution:** Added two state-tracking flags and 9 coordinated changes across 2 files:
+
+```dart
+// In voice_ai_service.dart
+bool _responseInProgress = false;  // Guards against duplicate response.create
+bool _responseCancelled = false;   // Filters stale transcript events
+```
+
+**Key changes:**
+1. Mark response as cancelled in `_prepareForNewUtterance()` and clear partial transcript
+2. Guard `_commitAudioBuffer()` against duplicate responses
+3. Filter cancelled transcript deltas and done events
+4. Handle `response.cancelled` Azure event with full cleanup
+5. Send empty-text cancellation signal to provider to remove partial UI bubble
+6. Reset flags in `_cleanup()` for session teardown
+
+**Files Modified:**
+- `mobile/app/lib/src/services/voice_ai_service.dart` — 8 changes (flags, guards, filters, cleanup)
+- `mobile/app/lib/src/providers/voice_ai_provider.dart` — 1 change (empty-text cancellation signal handler)
+
+**Key Learning:**
+Azure OpenAI Realtime API fires `response.audio_transcript.done` even for cancelled responses because events are already in-flight over the WebRTC data channel. Client-side filtering is required to prevent stale transcript data from appearing in the UI.
+
+**See Also:** `docs/BUG_FIXES.md` (BUG-010), `docs/VOICE_AI_DEPLOYED.md`

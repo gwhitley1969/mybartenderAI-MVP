@@ -1,7 +1,7 @@
 # Voice AI Feature - Deployment Documentation
 
 **Date Deployed**: December 8, 2025
-**Last Updated**: February 13, 2026
+**Last Updated**: February 15, 2026
 **Status**: ✅ Deployed and Tested
 **Entitlement Requirement**: Subscribers only (paid entitlement)
 **Latest APK**: `mobile/app/build/app/outputs/flutter-apk/app-release.apk`
@@ -1310,8 +1310,79 @@ Timer is also cancelled in `_cleanup()`.
 | `create_response: false` | Jan 2026 | VAD doesn't auto-trigger responses |
 | **`_isMuted` guards** | **Jan 31, 2026** | **Phantom "Thinking..." from muted-mic VAD events** |
 | **Processing safety timeout** | **Jan 31, 2026** | **Defensive catch-all for stuck processing state** |
+| **`_responseCancelled` filter** | **Feb 15, 2026** | **Push-to-talk interruption causing duplicate/truncated transcripts** |
 
-See `docs/BUG_FIXES.md` (BUG-005) for additional context.
+See `docs/BUG_FIXES.md` (BUG-005, BUG-010) for additional context.
+
+---
+
+## Push-to-Talk Interruption Transcript Fix (February 15, 2026)
+
+### Problem
+
+Users reported the Voice AI appearing to "repeat itself" during push-to-talk interruptions. The AI would start a response, the user would press push-to-talk to interrupt, and the AI's new response would begin with the same words — making it look like duplicate messages in the transcript.
+
+### Root Cause
+
+When the user presses push-to-talk while the AI is speaking, `_prepareForNewUtterance()` sends `response.cancel` to Azure but does **not** clean up the partial transcript that was already streaming. Azure's `response.audio_transcript.done` event still fires for the cancelled response (events are in-flight over WebRTC), permanently adding the truncated text to the conversation. The new response naturally starts with similar context, creating the "repeating" illusion.
+
+### Solution: Response State Tracking + Cancellation Filtering
+
+Added two boolean flags to track response lifecycle and filter stale events:
+
+```dart
+bool _responseInProgress = false;  // Guards against duplicate response.create
+bool _responseCancelled = false;   // Filters transcript events from cancelled responses
+```
+
+### Changes Summary (9 total)
+
+| # | Location | Change |
+|---|----------|--------|
+| 1 | Service: fields | Added `_responseInProgress` and `_responseCancelled` flags |
+| 2 | Service: `_prepareForNewUtterance()` | Set `_responseCancelled = true`, clear buffer, emit empty-text signal |
+| 3 | Service: `_commitAudioBuffer()` | Guard against duplicate `response.create`, reset flags |
+| 4 | Service: `response.audio_transcript.delta` | Skip deltas from cancelled responses |
+| 5 | Service: `response.audio_transcript.done` | Discard `done` events from cancelled responses |
+| 6 | Service: `response.done` | Reset `_responseInProgress` flag |
+| 7 | Service: `response.cancelled` | Full cleanup on Azure cancellation confirmation |
+| 8 | Service: `_cleanup()` | Reset both flags on session teardown |
+| 9 | Provider: `_handleTranscript()` | Handle empty-text cancellation signal to remove partial UI bubble |
+
+### Key Design Pattern: Empty-Text Sentinel
+
+The service sends `_onTranscript?.call('assistant', '', true)` as a cancellation signal. The provider recognizes empty final text as "remove the last partial assistant message":
+
+```dart
+// In voice_ai_provider.dart _handleTranscript()
+if (text.isEmpty && isFinal) {
+  // Remove the in-progress partial message from the UI
+  if (transcripts.last.role == 'assistant' && !transcripts.last.isFinal) {
+    transcripts.removeAt(lastIndex);
+  }
+}
+```
+
+### Files Modified
+
+| File | Changes |
+|------|---------|
+| `mobile/app/lib/src/services/voice_ai_service.dart` | 8 changes: flags, guards, filters, cleanup |
+| `mobile/app/lib/src/providers/voice_ai_provider.dart` | 1 change: empty-text cancellation signal handler |
+
+### Testing
+
+- [x] No duplicate/truncated messages during push-to-talk interruption
+- [x] AI responds cleanly to new question after interruption
+- [x] Normal conversation flow unaffected (regression)
+- [x] Debug log `[VOICE-AI] Discarding transcript.done for cancelled response` confirms fix is active
+
+### Build
+
+- **Version**: 1.0.0+10
+- **APK**: `mobile/app/build/app/outputs/flutter-apk/app-release.apk` (93.4MB)
+
+See `docs/BUG_FIXES.md` (BUG-010) for detailed root cause analysis.
 
 ---
 
@@ -1396,4 +1467,4 @@ See `docs/BUG_FIXES.md` (BUG-007) for full details.
 
 ---
 
-**Last Updated**: February 13, 2026 (Last-session-wins auto-close + jsonb_build_object type cast fix)
+**Last Updated**: February 15, 2026 (Push-to-talk interruption transcript fix)

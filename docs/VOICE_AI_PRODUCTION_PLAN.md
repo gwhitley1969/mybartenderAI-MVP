@@ -480,8 +480,8 @@ MOBILE APP                    APIM                         FUNCTION APP
 
 ---
 
-**Document Version:** 1.2
-**Last Updated:** January 7, 2026
+**Document Version:** 1.3
+**Last Updated:** February 15, 2026
 
 ---
 

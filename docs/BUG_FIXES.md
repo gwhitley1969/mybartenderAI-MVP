@@ -4,6 +4,137 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-010: Voice AI "Repeating Itself" During Push-to-Talk Interruption
+
+**Date Fixed**: February 15, 2026
+**Severity**: Medium (UX confusion)
+**Component**: Voice AI (Mobile Client)
+**Files Modified**: `mobile/app/lib/src/services/voice_ai_service.dart`, `mobile/app/lib/src/providers/voice_ai_provider.dart`
+**Backend Changes**: None
+
+### Symptoms
+
+1. **Duplicate messages**: User interrupts AI mid-sentence via push-to-talk, then the AI's next response begins with the same words — appearing to "repeat itself"
+2. **Truncated messages**: Partial AI responses persist in the transcript even after cancellation
+3. **Potential duplicate `response.create`**: Rapid push-to-talk cycles could produce overlapping response requests
+
+### Root Cause
+
+When the user presses the push-to-talk button while the AI is speaking, `_prepareForNewUtterance()` sends `response.cancel` to Azure but does **not** clean up the partial transcript that was already streaming. Azure's Realtime API fires events asynchronously — `response.audio_transcript.done` still arrives for the cancelled response, permanently adding truncated text to the conversation. The new response then naturally starts with similar context, creating the "repeating" illusion.
+
+**The broken flow:**
+```
+AI speaking: "Alright, let's break it down. First you need..."
+  → response.audio_transcript.delta streaming into StringBuffer
+
+User presses push-to-talk button:
+  → _prepareForNewUtterance() sends response.cancel
+  → BUT StringBuffer still contains "Alright, let's break it down. First you need..."
+  → AND response.audio_transcript.done fires for cancelled response
+  → Truncated text permanently added to _transcripts list
+
+User releases button, AI generates new response:
+  → AI naturally starts: "Alright, let's break it down..."
+  → User sees what looks like a duplicate message
+```
+
+**Secondary risk**: `_commitAudioBuffer()` had no guard against being called while a response was already in progress, which could produce duplicate `response.create` events in rapid push-to-talk edge cases.
+
+### Fix Applied (9 Changes across 2 Files + Build Bump)
+
+#### Changes 1-2: State-tracking flags + cancellation cleanup (`voice_ai_service.dart`)
+
+Added `_responseInProgress` and `_responseCancelled` boolean flags after `_currentAssistantResponse`. In `_prepareForNewUtterance()`, after sending `response.cancel`:
+
+```dart
+// Mark the current response as cancelled so its transcript.done is discarded
+_responseCancelled = true;
+
+// Clear the partial transcript buffer — this text is now stale
+_currentAssistantResponse = StringBuffer();
+
+// Remove the partial assistant message from the UI
+_onTranscript?.call('assistant', '', true);
+```
+
+#### Change 3: Guard on `_commitAudioBuffer()` (`voice_ai_service.dart`)
+
+```dart
+if (_responseInProgress) {
+  debugPrint('[VOICE-AI] Skipping commit — response already in progress');
+  return;
+}
+// Before response.create:
+_responseInProgress = true;
+_responseCancelled = false;
+```
+
+#### Changes 4-5: Cancelled transcript filtering (`voice_ai_service.dart`)
+
+```dart
+case 'response.audio_transcript.delta':
+  if (_responseCancelled) break; // Ignore deltas from cancelled response
+  // ... existing code ...
+
+case 'response.audio_transcript.done':
+  if (_responseCancelled) {
+    debugPrint('[VOICE-AI] Discarding transcript.done for cancelled response');
+    _currentAssistantResponse = StringBuffer();
+    break;
+  }
+  // ... existing code ...
+```
+
+#### Changes 6-7: Event handler cleanup (`voice_ai_service.dart`)
+
+- `response.done` / `response.audio.done`: Sets `_responseInProgress = false`
+- `response.cancelled`: Sets `_responseInProgress = false`, `_responseCancelled = true` (defensive), clears StringBuffer
+
+#### Change 8: `_cleanup()` resets (`voice_ai_service.dart`)
+
+Both flags and StringBuffer cleared during session teardown.
+
+#### Change 9: Provider cancellation signal (`voice_ai_provider.dart`)
+
+```dart
+if (role == 'assistant') {
+  // Empty final text = cancellation signal: remove the partial assistant message
+  if (text.isEmpty && isFinal) {
+    if (transcripts.isNotEmpty &&
+        transcripts.last.role == 'assistant' &&
+        !transcripts.last.isFinal) {
+      transcripts.removeAt(lastIndex);
+    }
+    state = state.copyWith(transcripts: transcripts);
+    return;
+  }
+  // ... existing partial/final logic unchanged ...
+```
+
+### Verification Tests
+
+| Test | Expected Result |
+|------|----------------|
+| Interrupt AI mid-sentence | No truncated/duplicate messages in transcript |
+| Normal conversation (no interruption) | Conversation flows naturally, no missing messages |
+| Rapid push-to-talk cycles | No duplicate response.create, clean transcript |
+| Debug logs during interruption | `[VOICE-AI] Discarding transcript.done for cancelled response` appears |
+| Session cleanup | Both flags reset, no stale state carries to next session |
+
+### Design Notes
+
+**Empty-text signal pattern**: Rather than adding a new callback or making the provider aware of cancellation semantics, we reuse the existing `_onTranscript` channel with a sentinel value (empty text + `isFinal=true`). The provider recognizes this as "drop the in-progress bubble" — maintaining clean separation between the service and UI layers.
+
+**Defensive redundancy**: The `response.cancelled` handler sets `_responseCancelled = true` even though `_prepareForNewUtterance()` already set it. This handles the rare case where Azure processes the cancellation before the client-side flag is set.
+
+### Related Previous Fixes
+
+- **BUG-005** (Jan 31, 2026): Phantom "Thinking..." from muted-mic VAD events
+- **BUG-003** (Jan 7, 2026): Background noise state machine corruption
+- Push-to-talk implementation (Jan 16, 2026): Added `create_response: false` and explicit `response.create`
+
+---
+
 ## BUG-009: Voice Session Auto-Close "Last Session Wins" — PostgreSQL Parameter Type Error
 
 **Date Fixed**: February 13, 2026
@@ -496,4 +627,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 13, 2026
+**Last Updated**: February 15, 2026

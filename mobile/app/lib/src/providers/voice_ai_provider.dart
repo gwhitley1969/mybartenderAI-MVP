@@ -111,6 +111,18 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
     final transcripts = List<VoiceTranscript>.from(state.transcripts);
 
     if (role == 'assistant') {
+      // Empty final text = cancellation signal: remove the partial assistant message
+      if (text.isEmpty && isFinal) {
+        final lastIndex = transcripts.length - 1;
+        if (transcripts.isNotEmpty &&
+            transcripts.last.role == 'assistant' &&
+            !transcripts.last.isFinal) {
+          transcripts.removeAt(lastIndex);
+        }
+        state = state.copyWith(transcripts: transcripts);
+        return;
+      }
+
       // Check if the last message is a partial assistant message
       final lastIndex = transcripts.length - 1;
       final hasPartialAssistant = transcripts.isNotEmpty &&

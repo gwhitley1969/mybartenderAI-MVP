@@ -60,6 +60,10 @@ class VoiceAIService {
   // Buffer for accumulating streaming assistant response
   StringBuffer _currentAssistantResponse = StringBuffer();
 
+  // Guards against duplicate response.create and filters cancelled transcripts
+  bool _responseInProgress = false;
+  bool _responseCancelled = false;
+
   // Pending instructions to send via session.update after connection
   String? _pendingInstructions;
 
@@ -217,6 +221,16 @@ class VoiceAIService {
       })));
       debugPrint('[VOICE-AI] Cancelled in-progress response');
 
+      // Mark the current response as cancelled so its transcript.done is discarded
+      _responseCancelled = true;
+
+      // Clear the partial transcript buffer — this text is now stale
+      _currentAssistantResponse = StringBuffer();
+
+      // Remove the partial assistant message from the UI
+      // Emit an empty-text final signal so the provider can drop it
+      _onTranscript?.call('assistant', '', true);
+
       _dataChannel!.send(RTCDataChannelMessage(jsonEncode({
         'type': 'output_audio_buffer.clear',
       })));
@@ -237,6 +251,11 @@ class VoiceAIService {
       return;
     }
 
+    if (_responseInProgress) {
+      debugPrint('[VOICE-AI] Skipping commit — response already in progress');
+      return;
+    }
+
     // Step 1: Commit the audio buffer (tells Azure we're done sending audio)
     final commitEvent = jsonEncode({
       'type': 'input_audio_buffer.commit',
@@ -246,6 +265,8 @@ class VoiceAIService {
 
     // Step 2: Explicitly request a response (don't wait for VAD processing)
     // This triggers immediate response generation without semantic VAD delay
+    _responseInProgress = true;
+    _responseCancelled = false;
     final responseEvent = jsonEncode({
       'type': 'response.create',
     });
@@ -597,6 +618,7 @@ class VoiceAIService {
 
       switch (type) {
         case 'response.audio_transcript.delta':
+          if (_responseCancelled) break; // Ignore deltas from cancelled response
           // AI response transcript - streaming word-by-word
           // Accumulate the delta into the current response buffer
           final delta = data['delta'] ?? '';
@@ -608,6 +630,11 @@ class VoiceAIService {
           break;
 
         case 'response.audio_transcript.done':
+          if (_responseCancelled) {
+            debugPrint('[VOICE-AI] Discarding transcript.done for cancelled response');
+            _currentAssistantResponse = StringBuffer();
+            break;
+          }
           // AI response complete - finalize the transcript
           final finalTranscript = data['transcript'] ?? _currentAssistantResponse.toString();
           if (finalTranscript.isNotEmpty) {
@@ -727,6 +754,7 @@ class VoiceAIService {
         // Do NOT change state here - let output_audio_buffer.stopped handle state transitions
         case 'response.audio.done':
         case 'response.done':
+          _responseInProgress = false;
           debugPrint('[VOICE-AI] Response generation complete (state: $_state, playback may still be ongoing)');
           // Note: We intentionally do NOT transition state here.
           // The output_audio_buffer.stopped event handles the actual end of playback.
@@ -764,6 +792,9 @@ class VoiceAIService {
           break;
 
         case 'response.cancelled':
+          _responseInProgress = false;
+          _responseCancelled = true; // Redundant but defensive
+          _currentAssistantResponse = StringBuffer();
           debugPrint('[VOICE-AI] Response cancelled successfully (user interrupted via push-to-talk)');
           break;
 
@@ -903,6 +934,11 @@ class VoiceAIService {
       _userSpeakingSeconds = 0;
       _aiSpeakingSeconds = 0;
       _userSpeechStartTime = null;
+
+      // Reset response state flags
+      _responseInProgress = false;
+      _responseCancelled = false;
+      _currentAssistantResponse = StringBuffer();
     } catch (e) {
       debugPrint('VoiceAIService: Error during cleanup: $e');
     }

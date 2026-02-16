@@ -3786,23 +3786,35 @@ app.http('subscription-webhook', {
             // === Entitlement lifecycle handling (Phase 2) ===
 
             if (eventType === 'INITIAL_PURCHASE') {
+                const periodType = event.event?.period_type;  // 'TRIAL' | 'NORMAL' | 'INTRO'
+                const isTrial = periodType === 'TRIAL';
+
                 await db.query(
-                    `UPDATE users SET entitlement = 'paid', subscription_status = 'active',
-                     voice_minutes_used_this_cycle = 0, voice_cycle_started_at = NOW()
+                    `UPDATE users SET
+                        entitlement = 'paid',
+                        subscription_status = $2,
+                        monthly_voice_minutes_included = $3,
+                        voice_minutes_used_this_cycle = 0,
+                        voice_cycle_started_at = NOW()
                      WHERE id = $1`,
-                    [internalUserId]
+                    [
+                        internalUserId,
+                        isTrial ? 'trialing' : 'active',
+                        isTrial ? 10 : 60
+                    ]
                 );
-                context.log('Entitlement set to paid + voice cycle initialized on INITIAL_PURCHASE');
+                context.log(`Entitlement set to paid, status=${isTrial ? 'trialing' : 'active'}, voice_mins=${isTrial ? 10 : 60}`);
             }
 
             if (eventType === 'RENEWAL') {
                 await db.query(
                     `UPDATE users SET entitlement = 'paid', subscription_status = 'active',
+                     monthly_voice_minutes_included = 60,
                      voice_minutes_used_this_cycle = 0, voice_cycle_started_at = NOW()
                      WHERE id = $1`,
                     [internalUserId]
                 );
-                context.log('Voice cycle reset on RENEWAL');
+                context.log('Renewed: voice cycle reset, limits set to full paid');
             }
 
             if (!isActive) {

@@ -393,23 +393,32 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   }
 
   Widget _buildQuotaExhaustedPrompt(VoiceQuota? quota) {
+    final isTrial = quota != null && quota.monthlyIncluded <= 10;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.shade900.withOpacity(0.3),
+        color: isTrial
+            ? Colors.amber.shade900.withOpacity(0.3)
+            : Colors.red.shade900.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade700),
+        border: Border.all(
+          color: isTrial ? Colors.amber.shade700 : Colors.red.shade700,
+        ),
       ),
       child: Column(
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.timer_off, color: Colors.redAccent),
-              SizedBox(width: 8),
+              Icon(
+                isTrial ? Icons.hourglass_empty : Icons.timer_off,
+                color: isTrial ? Colors.amber : Colors.redAccent,
+              ),
+              const SizedBox(width: 8),
               Text(
-                'Voice Minutes Exhausted',
-                style: TextStyle(
+                isTrial ? 'Trial Minutes Used' : 'Voice Minutes Exhausted',
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -418,19 +427,38 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          const Text(
-            'You\'ve used all your voice minutes this cycle. Buy more to continue.',
-            style: TextStyle(color: Colors.white70, fontSize: 14),
+          Text(
+            isTrial
+                ? 'You\'ve used your ${quota.monthlyIncluded} trial minutes. Subscribe to get 60 minutes per month.'
+                : 'You\'ve used all your voice minutes this cycle. Buy more to continue.',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 12),
-          ElevatedButton(
-            onPressed: _purchaseVoiceMinutes,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
+          if (isTrial)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _showSubscriptionSheet,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text(
+                  'Subscribe for 60 min/month',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            )
+          else
+            ElevatedButton(
+              onPressed: _purchaseVoiceMinutes,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Buy 60 Minutes — \$5.99'),
             ),
-            child: const Text('Buy 60 Minutes — \$5.99'),
-          ),
         ],
       ),
     );

@@ -75,7 +75,7 @@ module.exports = async function (context, req) {
         // ========================================
         // STEP 3: Check Scan Quota
         // ========================================
-        const quotas = getEntitlementQuotas(user.entitlement);
+        const quotas = getEntitlementQuotas(user.entitlement, user.subscriptionStatus);
         const monthlyLimit = quotas.scansPerMonth;
 
         if (monthlyLimit === 0) {

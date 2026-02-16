@@ -25,10 +25,35 @@ class VisionApi {
       );
 
       return VisionAnalysisResponse.fromJson(response.data!);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 429) {
+        final data = e.response?.data;
+        final quota = data is Map<String, dynamic> ? data['quota'] : null;
+        final used = quota?['used'] ?? 0;
+        final limit = quota?['limit'] ?? 0;
+        throw VisionQuotaExceededException(
+          used: used is int ? used : 0,
+          limit: limit is int ? limit : 0,
+        );
+      }
+      throw Exception('Failed to analyze image: $e');
     } catch (e) {
       throw Exception('Failed to analyze image: $e');
     }
   }
+}
+
+/// Thrown when scan quota is exceeded (HTTP 429)
+class VisionQuotaExceededException implements Exception {
+  final int used;
+  final int limit;
+
+  VisionQuotaExceededException({required this.used, required this.limit});
+
+  bool get isTrial => limit <= 5;
+
+  @override
+  String toString() => 'Scan limit reached ($used/$limit)';
 }
 
 class VisionAnalysisResponse {

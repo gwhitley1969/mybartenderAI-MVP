@@ -1,4 +1,4 @@
-# Architecture — MyBartenderAI (MVP)
+# Architecture — My AI Bartender (Release Candidate)
 
 ## System Overview
 
@@ -6,7 +6,7 @@
 - Azure API Management (`apim-mba-002`) as API gateway for entitlement management and security
 - **Azure Functions v4 Programming Model** - 35 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
-- **Official Azure OpenAI SDK** (@azure/openai) for all AI features
+- **Official Azure OpenAI SDK** (@azure/openai) for all AI features (except for "**Scan My Bar**", uses **Anthropic's Haiku**)
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
 - Azure Blob for cocktail images (US-hosted) and JSON snapshots
 - Key Vault for secrets (accessed via Managed Identity); App Insights for telemetry
@@ -33,6 +33,7 @@
 - ✅ **Official Azure OpenAI SDK** - All AI functions using @azure/openai package
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
 - ✅ **Subscription System** - RevenueCat webhook integration with idempotency
+- ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 
 ### Recent Backend Improvements
@@ -249,16 +250,18 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 ## Entitlement Quotas (Monthly)
 
-| Feature            | Free (none) | Subscriber (paid)                     |
-| ------------------ | ----------- | ------------------------------------- |
-| AI Tokens          | 0           | 1,000,000                             |
-| Scanner (Vision)   | 0           | 100 scans                             |
-| Voice Assistant    | 0           | 60 min included + $5.99/60 min add-on |
-| Custom Recipes     | Unlimited   | Unlimited                             |
-| Snapshot Downloads | Unlimited   | Unlimited                             |
-| Price              | Free        | $9.99/mo or $99.99/yr                 |
+| Feature            | Free (none) | Trial (3 days)     | Subscriber (paid)                     |
+| ------------------ | ----------- | ------------------ | ------------------------------------- |
+| AI Tokens          | 0           | 20,000             | 1,000,000                             |
+| Scanner (Vision)   | 0           | 5 scans            | 100 scans                             |
+| Voice Assistant    | 0           | 10 min             | 60 min included + $5.99/60 min add-on |
+| Custom Recipes     | Unlimited   | Unlimited          | Unlimited                             |
+| Snapshot Downloads | Unlimited   | Unlimited          | Unlimited                             |
+| Price              | Free        | Free (3 days)      | $9.99/mo or $99.99/yr                 |
 
-**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 3-day free trial available on monthly plan.
+**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 3-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
+
+**Trial Limit Enforcement**: Trial limits are enforced entirely server-side. The subscription webhook detects `period_type === 'TRIAL'` from RevenueCat and sets `subscription_status = 'trialing'` with reduced quotas. On trial→paid conversion (`RENEWAL` event), limits automatically upgrade to full paid quotas. No DB migration needed — reuses existing `subscription_status` column and `'trialing'` constraint from migration 011.
 
 ## Authentication Architecture (JWT-Only)
 
@@ -493,8 +496,8 @@ Subscription management is handled via **RevenueCat** for unified subscription l
 
 | Event Type | Action |
 |------------|--------|
-| `INITIAL_PURCHASE` | Activate subscription, set entitlement to `paid` |
-| `RENEWAL` | Extend subscription, update expiry |
+| `INITIAL_PURCHASE` | Activate subscription, set entitlement to `paid`. Detects `period_type === 'TRIAL'` → sets `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans) |
+| `RENEWAL` | Extend subscription, update expiry. On trial→paid conversion, upgrades to full paid limits (60 voice min, 1M tokens, 100 scans) |
 | `CANCELLATION` | Keep active until expiry, set autoRenewing=false |
 | `EXPIRATION` | Deactivate subscription, set entitlement to `none` |
 | `BILLING_ISSUE` | Check grace period; keep active if in grace |
@@ -790,7 +793,7 @@ flutter build apk --release
 ---
 
 **Last Updated**: February 16, 2026
-**Architecture Version**: 3.9 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix)
+**Architecture Version**: 4.0 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

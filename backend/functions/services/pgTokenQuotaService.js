@@ -40,9 +40,9 @@ exports.QuotaExceededError = QuotaExceededError;
  */
 const getMonthlyCap = async (client, userId) => {
     try {
-        // Look up user's tier and entitlement from the users table
+        // Look up user's tier, entitlement, and subscription status from the users table
         const result = await client.query(
-            'SELECT tier, entitlement FROM users WHERE azure_ad_sub = $1',
+            'SELECT tier, entitlement, subscription_status FROM users WHERE azure_ad_sub = $1',
             [userId]
         );
 
@@ -51,12 +51,15 @@ const getMonthlyCap = async (client, userId) => {
             return DEFAULT_MONTHLY_CAP;
         }
 
-        const { tier, entitlement } = result.rows[0];
+        const { tier, entitlement, subscription_status } = result.rows[0];
 
         // Use entitlement-based quotas first, fall back to tier
+        // Trial users get reduced quotas via the 'trialing' key
         if (entitlement && ENTITLEMENT_QUOTAS[entitlement]) {
-            const cap = ENTITLEMENT_QUOTAS[entitlement].tokensPerMonth;
-            console.log(`[TokenQuota] User entitlement: ${entitlement}, monthly cap: ${cap}`);
+            const effectiveKey = (entitlement === 'paid' && subscription_status === 'trialing')
+                ? 'trialing' : entitlement;
+            const cap = ENTITLEMENT_QUOTAS[effectiveKey].tokensPerMonth;
+            console.log(`[TokenQuota] User entitlement: ${entitlement}, status: ${subscription_status}, monthly cap: ${cap}`);
             return cap;
         }
 
@@ -112,18 +115,22 @@ const getCurrentUsage = async (userId, now = new Date()) => {
     const month = normalizeMonth(now);
     const pool = postgresPool_js_1.getPool();
 
-    // Get user's entitlement and tier
+    // Get user's entitlement, subscription status, and tier
     const tierResult = await pool.query(
-        'SELECT tier, entitlement FROM users WHERE azure_ad_sub = $1',
+        'SELECT tier, entitlement, subscription_status FROM users WHERE azure_ad_sub = $1',
         [userId]
     );
 
     const entitlement = tierResult.rows[0]?.entitlement;
+    const subscriptionStatus = tierResult.rows[0]?.subscription_status;
     const tier = tierResult.rows[0]?.tier || 'free';
 
     // Use entitlement-based cap first, fall back to tier
-    const monthlyCap = (entitlement && ENTITLEMENT_QUOTAS[entitlement])
-        ? ENTITLEMENT_QUOTAS[entitlement].tokensPerMonth
+    // Trial users get reduced quotas via the 'trialing' key
+    const effectiveKey = (entitlement === 'paid' && subscriptionStatus === 'trialing')
+        ? 'trialing' : entitlement;
+    const monthlyCap = (entitlement && ENTITLEMENT_QUOTAS[effectiveKey])
+        ? ENTITLEMENT_QUOTAS[effectiveKey].tokensPerMonth
         : (TIER_QUOTAS[tier]?.tokensPerMonth || DEFAULT_MONTHLY_CAP);
 
     // Get current usage

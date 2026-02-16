@@ -8,6 +8,31 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Free Trial Guardrailed Limits** (Feb 16): Implemented server-side enforcement of reduced quotas for 3-day free trial users to prevent API abuse during trials. Trial users now get 10 voice minutes (vs 60), 20,000 chat tokens (vs 1,000,000), and 5 scanner scans (vs 100). Changes:
+  1. **Subscription webhook** (`index.js`): `INITIAL_PURCHASE` handler now detects `period_type === 'TRIAL'` from RevenueCat payload and sets `subscription_status = 'trialing'` with `monthly_voice_minutes_included = 10`. `RENEWAL` handler explicitly sets full paid limits (60 min, 1M tokens, 100 scans)
+  2. **Centralized quotas** (`userService.js`): Added `trialing` entry to `ENTITLEMENT_QUOTAS` with reduced limits. `getEntitlementQuotas()` now accepts optional `subscriptionStatus` parameter for trial-aware lookup
+  3. **Scan enforcement** (`vision-analyze/index.js`): Passes `user.subscriptionStatus` to get trial-aware 5-scan limit
+  4. **Chat token enforcement** (`pgTokenQuotaService.js`): Both `getMonthlyCap()` and `getCurrentUsage()` query `subscription_status` and apply 20K token cap for trial users
+  5. **Voice enforcement**: No code changes needed — webhook sets `monthly_voice_minutes_included = 10` in DB, existing `get_remaining_voice_minutes()` reads from DB
+  6. **Mobile UX**: Trial-specific "limit reached" messages for Smart Scanner (`VisionQuotaExceededException`), Chat (updated 429 message), and Voice AI (trial-aware quota exhausted prompt)
+  7. **No DB migration needed**: Reuses existing `subscription_status` column and `'trialing'` constraint from migration 011
+
+  **Files modified (backend):**
+  - `backend/functions/index.js`: Webhook INITIAL_PURCHASE and RENEWAL blocks
+  - `backend/functions/services/userService.js`: ENTITLEMENT_QUOTAS + getEntitlementQuotas()
+  - `backend/functions/vision-analyze/index.js`: Pass subscriptionStatus
+  - `backend/functions/services/pgTokenQuotaService.js`: getMonthlyCap() + getCurrentUsage()
+
+  **Files modified (mobile):**
+  - `mobile/app/lib/src/api/vision_api.dart`: VisionQuotaExceededException class
+  - `mobile/app/lib/src/features/smart_scanner/smart_scanner_screen.dart`: Trial-specific scan limit message
+  - `mobile/app/lib/src/features/ask_bartender/providers/chat_provider.dart`: Trial-specific chat limit message
+  - `mobile/app/lib/src/features/voice_ai/voice_ai_screen.dart`: Trial-aware quota exhausted prompt
+
+  **Deployment**: Backend deployed to `func-mba-fresh` (35 functions synced, health check passed). Release AAB (68.7MB) built for Play Store beta.
+
+- **Android Release Signing Setup** (Feb 16): Created release signing keystore (`upload-keystore.jks`) and `key.properties` for signed release builds. Built release APK (93.4MB) and AAB (68.7MB) for Google Play Store deployment. `build.gradle.kts` updated to make signing config conditional on keystore existence.
+
 - **Voice AI WebRTC Type Error Fix** (Feb 15): Fixed critical iOS-only crash where Voice AI failed to connect with `type '() => RTCRtpSender' is not a subtype of type '(() => RTCRtpSenderNative)?' of 'orElse'`. Introduced by the BUG-011 fix (iOS background audio capture). On iOS, `flutter_webrtc`'s `getSenders()` returns `List<RTCRtpSenderNative>` (concrete platform subclass), and Dart's `firstWhere` method expected the `orElse` closure to return `RTCRtpSenderNative`, but Dart inferred `() => RTCRtpSender` (abstract supertype). Fix: Removed the `orElse` callback — it was unnecessary since `addTrack()` guarantees the audio sender exists. Without `orElse`, `firstWhere` throws a `StateError` on failure (caught by existing try/catch), rather than a confusing type error. Android was unaffected.
 
   **File modified:**
@@ -399,12 +424,15 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 
 ## Subscription Model
 
-| Entitlement | Monthly | Annual   | AI Tokens | Scans | Voice                                 |
-| ----------- | ------- | -------- | --------- | ----- | ------------------------------------- |
-| Free (none) | $0      | -        | 0         | 0     | -                                     |
-| Paid        | $9.99   | $99.99   | 1,000,000 | 100   | 60 min included + $5.99/60 min add-on |
+| Entitlement    | Monthly | Annual | AI Tokens | Scans | Voice                                 |
+| -------------- | ------- | ------ | --------- | ----- | ------------------------------------- |
+| Free (none)    | $0      | -      | 0         | 0     | -                                     |
+| Trial (3 days) | Free    | -      | 20,000    | 5     | 10 min                                |
+| Paid           | $9.99   | $99.99 | 1,000,000 | 100   | 60 min included + $5.99/60 min add-on |
 
 Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
+
+**Free Trial:** 3-day trial available on the monthly plan. Trial users get reduced quotas (20,000 tokens, 5 scans, 10 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
 
 **Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $5.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 

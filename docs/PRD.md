@@ -2,8 +2,8 @@
 
 ## My AI Bartender
 
-**Document Version**: 2.2
-**Last Updated**: January 1, 2026
+**Document Version**: 3.1
+**Last Updated**: February 16, 2026
 **Product Owner**: Gene Whitley
 **Status**: Release Candidate
 
@@ -34,7 +34,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 1. **Launch MVP** on Android by Q4 2025
 2. **Acquire 1,000 users** in first 3 months
 3. **Convert 10%** to paid subscribers
-4. **Maintain 90% profit margin** on subscription revenue
+4. **Maintain 70% profit margin** on subscription revenue
 5. **Achieve 4.5+ star** rating on Play Store
 
 ### Success Metrics
@@ -189,9 +189,9 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 ### Subscriber Features ($9.99/month or $99.99/year)
 
-All features below require an active subscription (3-day free trial available on monthly plan).
+All features below require an active subscription (3-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
 
-#### 2. AI Bartender Chat (1,000,000 tokens/month)
+#### 2. AI Bartender Chat (1,000,000 tokens/month; Trial: 20,000)
 
 **Description**: Conversational AI assistant for cocktail guidance and recommendations.
 
@@ -215,7 +215,7 @@ All features below require an active subscription (3-day free trial available on
 - Conversation history saved for session
 - Preferences learned and applied
 
-#### 3. Smart Scanner (100 scans/month)
+#### 3. Smart Scanner (100 scans/month; Trial: 5)
 
 **Description**: AI-powered bar inventory scanning using Claude Haiku vision model.
 
@@ -261,7 +261,7 @@ All features below require an active subscription (3-day free trial available on
 - As Emma, I want to organize recipes by season or occasion
 - As Sarah, I want AI to help improve my recipe ratios
 
-#### 5. Voice AI Bartender (60 minutes/month)
+#### 5. Voice AI Bartender (60 minutes/month; Trial: 10 minutes)
 
 **Description**: Real-time voice conversation with AI bartender using Azure OpenAI Realtime API.
 
@@ -373,7 +373,7 @@ All features below require an active subscription (3-day free trial available on
   - Instance: `mybartenderai-scus` (South Central US)
   - Cost: ~$0.15/1M input tokens, ~$0.60/1M output tokens
   - Purpose: Recommendations, chat, recipe generation
-- **Voice AI**: Azure OpenAI Realtime API (gpt-4o-realtime-preview)
+- **Voice AI**: Azure OpenAI Realtime API (gpt-realtime-mini)
   - Technology: WebRTC with ephemeral session tokens
   - Cost: ~$0.06/min input, ~$0.24/min output
   - Purpose: Real-time voice bartender conversation (subscribers)
@@ -610,7 +610,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 #### Subscription Model
 
 - **Free (No Subscription)**: Full offline database only
-- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($9.99/mo or $99.99/yr)
+- **3-Day Free Trial**: All AI features with reduced quotas — 20,000 chat tokens, 5 scanner scans, 10 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
+- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($9.99/mo or $99.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
 - **Voice Add-On**: +60 minutes for $5.99 (subscribers only)
 
 #### Revenue Streams
@@ -625,12 +626,12 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 #### Competitive Analysis
 
-| Competitor        | Price           | Features                          |
-| ----------------- | --------------- | --------------------------------- |
-| Cocktail Flow     | $4.99/mo        | AI recommendations, no voice      |
-| Mixel             | Free + $9.99/mo | Large database, basic AI          |
-| Highball          | $2.99/mo        | Simple recipes, no AI             |
-| **MyBartenderAI** | **$9.99/mo**    | **AI + Voice AI + Smart Scanner** |
+| Competitor          | Price           | Features                          |
+| ------------------- | --------------- | --------------------------------- |
+| Cocktail Flow       | $4.99/mo        | AI recommendations, no voice      |
+| Mixel               | Free + $9.99/mo | Large database, basic AI          |
+| Highball            | $2.99/mo        | Simple recipes, no AI             |
+| **My AI Bartender** | **$9.99/mo**    | **AI + Voice AI + Smart Scanner** |
 
 #### Value Proposition
 
@@ -1020,15 +1021,15 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 ### Phase 4: iOS Launch (Q1 2026) - UPCOMING
 
-- 🚧 iOS app development
+- ✅ iOS app development
 - 🚧 URL scheme configuration in Info.plist
 - ✅ Apple Sign-In integration
-- 🚧 iOS-specific UI polish
+- ✅ iOS-specific UI polish
 - 🚧 App Store optimization
 
 ### Phase 5: Social Features (Q3 2026)
 
-- Recipe sharing
+- ✅Recipe sharing
 - User profiles
 - Follow bartenders
 - Like and comment on recipes
@@ -1101,8 +1102,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 **Subscriber Features (paid entitlement required)**:
 
-- `POST /api/v1/vision/analyze` - Smart Scanner (100 scans/month)
-- `POST /api/v1/voice/session` - Voice AI session token (60 min/month included)
+- `POST /api/v1/vision/analyze` - Smart Scanner (Paid: 100 scans/month, Trial: 5)
+- `POST /api/v1/voice/session` - Voice AI session token (Paid: 60 min/month, Trial: 10 min)
 - `GET /api/v1/voice/quota` - Voice minutes remaining
 - `POST /api/v1/voice/purchase` - Purchase voice minutes ($5.99/60 min add-on)
 
@@ -1160,8 +1161,9 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | 3.0     | Feb 13, 2026 | Gene Whitley | Subscription model migration: replaced Free/Premium/Pro tiers with binary paid/none entitlement model, updated pricing ($9.99/mo, $99.99/yr), voice add-on ($5.99/60 min), updated quotas to match RevenueCat implementation |
 | 2.1     | Dec 23, 2025 | Gene Whitley | Added subscription system (RevenueCat integration): Key Vault secrets, subscription management endpoints, voice-purchase endpoint                                                                                            |
 | 2.2     | Jan 1, 2026  | Gene Whitley | Added Today's Special feature with push notifications, deep linking, and idempotent scheduling                                                                                                                               |
+| 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 3-day trial with 20K tokens, 5 scans, 10 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
 
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: January 1, 2026
+**Last Updated**: February 16, 2026

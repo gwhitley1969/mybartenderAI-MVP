@@ -47,7 +47,8 @@ const TIER_QUOTAS = {
  */
 const ENTITLEMENT_QUOTAS = {
     none: { tokensPerMonth: 0, scansPerMonth: 0, voiceEnabled: false, aiEnabled: false },
-    paid: { tokensPerMonth: 1000000, scansPerMonth: 100, voiceEnabled: true, aiEnabled: true }
+    paid: { tokensPerMonth: 1000000, scansPerMonth: 100, voiceEnabled: true, aiEnabled: true },
+    trialing: { tokensPerMonth: 20000, scansPerMonth: 5, voiceEnabled: true, aiEnabled: true }
 };
 
 /**
@@ -198,9 +199,13 @@ function getTierQuotas(tier) {
  * Get quota limits for a given entitlement level
  *
  * @param {string} entitlement - The user's entitlement ('paid', 'none')
+ * @param {string} [subscriptionStatus] - Optional subscription status ('trialing', 'active', etc.)
  * @returns {object} Quota limits for the entitlement
  */
-function getEntitlementQuotas(entitlement) {
+function getEntitlementQuotas(entitlement, subscriptionStatus) {
+    if (entitlement === 'paid' && subscriptionStatus === 'trialing') {
+        return ENTITLEMENT_QUOTAS.trialing;
+    }
     return ENTITLEMENT_QUOTAS[entitlement] || ENTITLEMENT_QUOTAS.none;
 }
 

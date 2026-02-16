@@ -69,6 +69,12 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
           }
         }
       });
+    } on VisionQuotaExceededException catch (e) {
+      if (e.isTrial) {
+        _showError('You\'ve used all ${e.limit} trial scans. Subscribe to get 100 scans per month.');
+      } else {
+        _showError('You\'ve used all ${e.limit} scans this month. Your scans reset next billing cycle.');
+      }
     } catch (e) {
       _showError('Failed to analyze image: $e');
     } finally {

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/auth_state.dart';
 import '../models/user.dart';
 import '../services/app_lifecycle_service.dart';
+import '../services/review_service.dart';
 import '../services/auth_service.dart';
 import '../services/backend_service.dart';
 import '../services/token_storage_service.dart';
@@ -53,6 +54,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
       AppLifecycleService.instance.onReloginRequired = _handleReloginRequired;
 
       developer.log('AppLifecycleService initialized', name: 'AuthNotifier');
+
+      // Initialize ReviewService (separate WidgetsBindingObserver for session tracking)
+      ReviewService.instance.initialize();
+      developer.log('ReviewService initialized', name: 'AuthNotifier');
     } catch (e) {
       developer.log('Failed to initialize AppLifecycleService: $e', name: 'AuthNotifier');
     }

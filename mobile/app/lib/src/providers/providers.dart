@@ -7,4 +7,5 @@ export 'inventory_provider.dart';
 export 'vision_provider.dart';
 export 'voice_ai_provider.dart';
 export 'purchase_provider.dart';
+export 'review_provider.dart';
 export 'subscription_provider.dart';

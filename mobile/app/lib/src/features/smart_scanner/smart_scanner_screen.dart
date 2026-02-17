@@ -5,7 +5,9 @@ import 'dart:typed_data';
 import '../../api/vision_api.dart';
 import '../../providers/cocktail_provider.dart';
 import '../../providers/inventory_provider.dart';
+import '../../providers/review_provider.dart';
 import '../../providers/vision_provider.dart';
+import '../../services/review_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
@@ -111,6 +113,10 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
             backgroundColor: AppColors.success,
           ),
         );
+
+        // Record win moment and maybe prompt for review
+        ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.scannerSuccess);
+        ref.read(reviewServiceProvider).maybePromptForReview(context);
 
         // Navigate back
         Navigator.of(context).pop();

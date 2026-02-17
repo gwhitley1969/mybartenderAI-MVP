@@ -10,6 +10,7 @@ import '../../api/create_studio_api.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/cocktail_photo_service.dart';
+import '../../services/review_service.dart';
 import '../../theme/theme.dart';
 import 'widgets/ingredient_list.dart';
 import 'widgets/refinement_dialog.dart';
@@ -844,6 +845,9 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
       } else {
         await db.insertCocktail(cocktail);
       }
+
+      // Record win moment (prompt deferred to next foreground resume)
+      ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.createStudioSave);
 
       if (mounted) {
         Navigator.pop(context, cocktailId); // Return cocktail ID for share prompt

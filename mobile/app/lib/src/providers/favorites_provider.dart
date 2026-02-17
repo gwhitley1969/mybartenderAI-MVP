@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/models.dart';
 import '../services/database_service.dart';
+import '../services/review_service.dart';
 import 'cocktail_provider.dart';
 
 // Provider for the list of favorite cocktails
@@ -77,6 +78,12 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
       ref.invalidate(favoritesCountProvider);
       ref.invalidate(isFavoriteProvider);
       ref.invalidate(favoriteCocktailIdsProvider);
+
+      // Check if favorites count hit the review threshold
+      final count = await db.getFavoritesCount();
+      if (count >= ReviewService.instance.favoritesThreshold) {
+        ReviewService.instance.recordWinMoment(WinMomentType.favoritesThreshold);
+      }
 
       state = state.copyWith(status: FavoritesStatus.success);
     } catch (e) {

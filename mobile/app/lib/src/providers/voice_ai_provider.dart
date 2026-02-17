@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/review_service.dart';
 import '../services/voice_ai_service.dart';
 import 'backend_provider.dart';
 import 'auth_provider.dart';
@@ -90,7 +91,14 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
 
   /// End the current session
   Future<void> endSession() async {
+    // Capture duration before ending (it resets after endSession)
+    final duration = _service.sessionDuration;
     await _service.endSession();
+
+    // Record voice win moment if session was long enough (>= 45s)
+    if (duration >= 45) {
+      ReviewService.instance.recordWinMoment(WinMomentType.voiceSessionComplete);
+    }
 
     // Refresh quota after session ends
     _ref.invalidate(voiceQuotaProvider);

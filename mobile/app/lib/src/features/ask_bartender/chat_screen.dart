@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/ask_bartender_api.dart';
 import '../../providers/inventory_provider.dart';
+import '../../services/review_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 
@@ -20,6 +21,7 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
   final _messages = <ChatMessage>[];
   String? _conversationId;
   bool _isLoading = false;
+  int _successfulResponses = 0;
 
   @override
   void initState() {
@@ -124,7 +126,13 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
           timestamp: DateTime.now(),
         ));
         _isLoading = false;
+        _successfulResponses++;
       });
+
+      // Record win moment after 3 meaningful chat exchanges
+      if (_successfulResponses >= 3) {
+        ReviewService.instance.recordWinMoment(WinMomentType.aiChatSave);
+      }
 
       _scrollToBottom();
     } catch (e) {

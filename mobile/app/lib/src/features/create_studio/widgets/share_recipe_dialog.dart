@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../models/models.dart';
+import '../../../services/review_service.dart';
 import '../../../services/user_settings_service.dart';
 import '../../../theme/theme.dart';
 
@@ -204,6 +205,8 @@ $description
           sharePositionOrigin: sharePositionOrigin,
         );
       }
+      // Record sharing win moment
+      ReviewService.instance.recordWinMoment(WinMomentType.sharingSuccess);
     } catch (e) {
       debugPrint('[SHARE] Share from dialog failed: $e');
     }

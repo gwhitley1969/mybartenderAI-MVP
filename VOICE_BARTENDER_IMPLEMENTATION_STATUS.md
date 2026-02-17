@@ -173,7 +173,7 @@ The voice feature will be redesigned as a **Pro tier exclusive** ($49.99/month) 
 
 ### Tier Structure (Planned)
 - **Free Tier**: Basic features, limited AI interactions
-- **Premium Tier** (~$9.99/month):
+- **Premium Tier** (~$7.99/month):
   - Full Chat (AI Bartender)
   - Scanner (camera inventory)
   - NO Voice feature

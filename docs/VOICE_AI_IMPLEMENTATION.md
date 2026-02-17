@@ -67,7 +67,7 @@ CREATE TABLE voice_addon_purchases (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id),
     seconds_purchased INTEGER NOT NULL, -- 3600 = 60 minutes
-    price_cents INTEGER NOT NULL, -- 599 = $5.99
+    price_cents INTEGER NOT NULL, -- 599 = $4.99
     transaction_id VARCHAR(255),
     platform VARCHAR(20), -- 'ios', 'android'
     purchased_at TIMESTAMPTZ DEFAULT NOW()

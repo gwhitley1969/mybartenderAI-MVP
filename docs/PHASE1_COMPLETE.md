@@ -283,7 +283,7 @@ Azure Functions (func-mba-fresh)
 
 ## Three-Tier System at a Glance
 
-| Feature | Free | Premium ($4.99) | Pro ($9.99) |
+| Feature | Free | Premium ($4.99) | Pro ($7.99) |
 |---------|------|-----------------|-------------|
 | **Rate Limit** | 100/day | 1,000/day | 10,000/day |
 | **AI Recommendations** | 10/month | 100/month | Unlimited |

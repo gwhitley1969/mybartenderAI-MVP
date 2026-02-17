@@ -13,8 +13,8 @@
 Real-time voice conversations with an AI bartender using Azure OpenAI GPT-realtime-mini API via WebRTC. Users can speak naturally and receive spoken responses with live transcription.
 
 ### Business Model
-- **Subscribers**: 60 minutes/month included ($9.99/month or $99.99/year)
-- **Add-on Packs**: 60 minutes for $5.99 (non-expiring)
+- **Subscribers**: 60 minutes/month included ($7.99/month or $79.99/year)
+- **Add-on Packs**: 60 minutes for $4.99 (non-expiring)
 - **Voice Metering**: Active speech time only (user + AI talking, not idle time)
 - **Estimated Cost**: ~$0.03/minute (~$1.80 for 60 min usage)
 - **Margin**: ~$5.00+ per subscriber after 30% app store cut
@@ -73,7 +73,7 @@ CREATE TABLE voice_addon_purchases (
     id SERIAL PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     seconds_purchased INTEGER NOT NULL,           -- 3600 = 60 minutes
-    price_cents INTEGER NOT NULL,                 -- 599 = $5.99
+    price_cents INTEGER NOT NULL,                 -- 599 = $4.99
     transaction_id VARCHAR(255),                  -- App Store/Play Store transaction ID
     platform VARCHAR(20) CHECK (platform IN ('ios', 'android', 'web')),
     purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -506,8 +506,8 @@ Never provide:
 ## Quota Constants
 
 ```javascript
-const MONTHLY_VOICE_SECONDS = 3600;  // 60 minutes for subscribers at $9.99/mo
-const ADDON_VOICE_SECONDS = 3600;    // 60 minutes per add-on pack ($5.99)
+const MONTHLY_VOICE_SECONDS = 3600;  // 60 minutes for subscribers at $7.99/mo
+const ADDON_VOICE_SECONDS = 3600;    // 60 minutes per add-on pack ($4.99)
 const WARNING_THRESHOLD = 720;       // Show warning at 12 minutes remaining (80% used)
 ```
 

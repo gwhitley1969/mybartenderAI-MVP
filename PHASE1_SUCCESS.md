@@ -38,7 +38,7 @@
 - **Rate Limit**: 20 calls/minute
 - **Daily Quota**: 1,000 calls/day
 
-### Pro Tier ($9.99/month)
+### Pro Tier ($7.99/month)
 - **Primary Key**: `f2561ed5366045148c866dc75b008855`
 - **Rate Limit**: 50 calls/minute
 - **Daily Quota**: 10,000 calls/day
@@ -163,7 +163,7 @@ Make 11 rapid requests - the 11th should return `429 Too Many Requests` (rate li
 
 ## 🎯 Three-Tier System Summary
 
-| Feature | Free | Premium ($4.99) | Pro ($9.99) |
+| Feature | Free | Premium ($4.99) | Pro ($7.99) |
 |---------|------|-----------------|-------------|
 | **Rate Limit** | 10/min | 20/min | 50/min |
 | **Daily Quota** | 100/day | 1,000/day | 10,000/day |

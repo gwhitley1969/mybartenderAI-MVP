@@ -136,7 +136,7 @@ Expected response:
 - **Custom Recipes**: 25 total
 - **Priority Routing**: Yes
 
-### Pro Tier ($9.99/month)
+### Pro Tier ($7.99/month)
 - **Rate Limit**: 10,000 API calls/day (abuse prevention)
 - **AI Recommendations**: Unlimited
 - **Voice**: 5 hours (300 minutes)/month

@@ -310,7 +310,7 @@ SELECT
     COUNT(*) AS user_count,
     CASE
         WHEN tier = 'premium' THEN COUNT(*) * 4.99
-        WHEN tier = 'pro' THEN COUNT(*) * 9.99
+        WHEN tier = 'pro' THEN COUNT(*) * 7.99
         ELSE 0
     END AS potential_revenue
 FROM users

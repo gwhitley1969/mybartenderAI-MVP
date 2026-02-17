@@ -368,7 +368,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           style: TextStyle(color: Colors.white),
         ),
         content: const Text(
-          '+60 minutes for \$5.99',
+          '+60 minutes for \$4.99',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -457,7 +457,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Buy 60 Minutes — \$5.99'),
+              child: const Text('Buy 60 Minutes — \$4.99'),
             ),
         ],
       ),
@@ -577,7 +577,7 @@ class _SubscriptionSheetState extends ConsumerState<_SubscriptionSheet> {
 
               // Compliance text
               Text(
-                'Trial auto-converts to \$9.99/month unless canceled before trial ends.',
+                'Trial auto-converts to \$7.99/month unless canceled before trial ends.',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
                 textAlign: TextAlign.center,
               ),

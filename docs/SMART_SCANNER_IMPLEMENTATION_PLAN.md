@@ -34,7 +34,7 @@ graph LR
 
 ### Entitlement Limits
 - **Free (none)**: No access to Smart Scanner
-- **Subscriber (paid, $9.99/month)**: 100 scans per month
+- **Subscriber (paid, $7.99/month)**: 100 scans per month
 
 ## Implementation Steps
 

@@ -173,7 +173,7 @@ Both buttons are visible to all users regardless of subscription tier:
 | Entitlement | Chat | Voice |
 |-------------|------|-------|
 | Free (none) | Shows upgrade prompt | Shows upgrade prompt |
-| Subscriber (paid) | Available (1M tokens) | Available (60 min included + $5.99/60 min add-on) |
+| Subscriber (paid) | Available (1M tokens) | Available (60 min included + $4.99/60 min add-on) |
 
 Entitlement restrictions are handled by the destination screens, not the Recipe Vault buttons.
 

@@ -4,7 +4,7 @@
 
 MyBartenderAI uses a **single binary entitlement model**: users are either `paid` (subscribers) or `none` (non-subscribers). Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
 
-Voice minute consumables ($5.99 for 60 minutes) are handled separately via **Google Play Billing** with server-side verification through the `voice-purchase` function.
+Voice minute consumables ($4.99 for 60 minutes) are handled separately via **Google Play Billing** with server-side verification through the `voice-purchase` function.
 
 ---
 
@@ -30,8 +30,8 @@ Voice minute consumables ($5.99 for 60 minutes) are handled separately via **Goo
 
 | Option | Price | Trial |
 |--------|-------|-------|
-| Monthly | $9.99/month | 3-day free trial (auto-converts unless canceled) |
-| Annual | $99.99/year | No trial |
+| Monthly | $7.99/month | 3-day free trial (auto-converts unless canceled) |
+| Annual | $79.99/year | No trial |
 
 ### Voice Minutes System
 
@@ -39,7 +39,7 @@ Voice minute consumables ($5.99 for 60 minutes) are handled separately via **Goo
 - Metered on **active talk time** (user + AI audio; idle time excluded)
 - **Deduction order**: included minutes consumed first, then purchased balance
 - Included minutes reset on subscription renewal; **purchased minutes carry over** indefinitely
-- **Add-on packs**: +60 minutes for $5.99, consumable, repeatable, requires `paid` entitlement
+- **Add-on packs**: +60 minutes for $4.99, consumable, repeatable, requires `paid` entitlement
 
 ### Backward Compatibility
 
@@ -315,7 +315,7 @@ class VoiceQuota {
 - Add Google Play app with package name: `ai.mybartender.mybartenderai`
 - Add iOS app (when ready)
 - Create entitlement: `paid`
-- Create products for monthly ($9.99) and annual ($99.99) subscriptions
+- Create products for monthly ($7.99) and annual ($79.99) subscriptions
 - Attach both subscription products to the `paid` entitlement
 - Create default offering with monthly + annual packages
 - Configure 3-day free trial on the monthly subscription
@@ -323,7 +323,7 @@ class VoiceQuota {
 ### 2. Google Play Console
 
 - Create subscription products matching RevenueCat configuration
-- Create consumable product `voice_minutes_60` at $5.99
+- Create consumable product `voice_minutes_60` at $4.99
 - Configure 3-day free trial on monthly subscription product
 
 ### 3. Configure Webhook

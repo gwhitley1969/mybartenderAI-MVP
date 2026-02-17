@@ -362,11 +362,11 @@ Once deployed, the backend will have BOTH paths:
 
 ### ~~Proposed: Single Pro Tier~~ — SUPERSEDED
 
-> **Note (February 2026):** This Phase 4 proposal was superseded by the binary `paid`/`none` entitlement model. The actual implementation uses $9.99/month (or $99.99/year) with 60 voice minutes/month and $5.99/60 min add-ons. See `SUBSCRIPTION_DEPLOYMENT.md` for details.
+> **Note (February 2026):** This Phase 4 proposal was superseded by the binary `paid`/`none` entitlement model. The actual implementation uses $7.99/month (or $79.99/year) with 60 voice minutes/month and $4.99/60 min add-ons. See `SUBSCRIPTION_DEPLOYMENT.md` for details.
 
-### Original Proposal (archived): Single Pro Tier ($9.99/month, 3-Day Free Trial, 20 Voice Minutes)
+### Original Proposal (archived): Single Pro Tier ($7.99/month, 3-Day Free Trial, 20 Voice Minutes)
 
-> **Decision (2026-01-30):** Price changed from $7.99 to $9.99/month. Voice minutes changed from 60 to 20/month.
+> **Decision (2026-01-30):** Price changed from $7.99 to $7.99/month. Voice minutes changed from 60 to 20/month.
 > **Decision (2026-01-30):** Wait for Apple approval before making ANY tier/quota changes — deploy backend + Flutter together to avoid UI mismatch.
 
 If you proceed with this simplification:
@@ -385,7 +385,7 @@ If you proceed with this simplification:
 9. `voice_ai_screen.dart:213-214` -- Change "60 minutes" → "20 minutes"
 
 **Store changes needed:**
-10. App Store Connect -- Configure subscription with free trial, set price $9.99
+10. App Store Connect -- Configure subscription with free trial, set price $7.99
 11. Google Play Console -- Same
 
 ### Recommendation
@@ -426,7 +426,7 @@ Phase 3 (FUTURE)    -> Standardize audience IDs across all APIM operations
 
 Phase 4 (FUTURE)    -> Tier simplification (next release cycle)
                        Risk: LOW (planned change with store updates)
-                       Price: $9.99/month, 20 voice min (decision 2026-01-30)
+                       Price: $7.99/month, 20 voice min (decision 2026-01-30)
                        NOTE: Backend + Flutter must ship together
 ```
 

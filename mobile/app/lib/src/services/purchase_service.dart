@@ -38,7 +38,7 @@ class PurchaseResult {
 /// 5. Delegate verification to backend
 /// 6. Complete purchase with Google Play
 class PurchaseService {
-  // Product ID for voice minutes pack: $5.99 for 60 minutes
+  // Product ID for voice minutes pack: $4.99 for 60 minutes
   static const String voiceMinutesProductId = 'voice_minutes_60';
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;

@@ -27,7 +27,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **3-Day Free Trial**: Limited AI interactions (100,000 tokens / 3 days) (10 scans / 3 days), (10 voice minutes / 3 days) unlimited access to local cocktail database
 
-- **Pro** $9.99 / month or $$99.99 / year$(1,000,000 tokens / 30 days) (30 scans / 30 days) (30 voice minutes / 30 days included + $4.99 for 20 minutes
+- **Pro** $7.99 / month or $79.99 / year (1,000,000 tokens / 30 days) (30 scans / 30 days) (30 voice minutes / 30 days included + $4.99 for 20 minutes
 
 ## Tech Stack
 

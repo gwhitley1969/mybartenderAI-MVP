@@ -11,7 +11,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **AI**: Azure OpenAI GPT-4.1-mini + Claude Haiku (Smart Scanner)
 - **Authentication**: Entra External ID (Google, Facebook, Email) - JWT-only
 - **Vision**: Claude Haiku for bottle/ingredient identification
-- **Voice AI**: Azure OpenAI Realtime API via WebRTC (subscribers, 60 min/month + $5.99/60 min add-ons)
+- **Voice AI**: Azure OpenAI Realtime API via WebRTC (subscribers, 60 min/month + $4.99/60 min add-ons)
 - **Mobile**: Flutter app - All core features complete
 - **Social Sharing**: Friends via Code fully deployed
 - **Subscriptions**: RevenueCat integration (single `paid` entitlement model)
@@ -32,7 +32,7 @@ AI-powered bartender app that helps users discover and create cocktails based on
 - **Voice AI Bartender** - Real-time voice conversations (subscribers only)
   - WebRTC-based audio streaming via Azure OpenAI Realtime API
   - Live transcription of user and AI speech
-  - 60 minutes/month included (+ $5.99 for 60 min add-on packs)
+  - 60 minutes/month included (+ $4.99 for 60 min add-on packs)
   - Active speech time metering (only user + AI talking time counts)
   - Visual status indicators (listening, thinking, speaking)
   - Bar inventory integration - AI knows your ingredients via session.update
@@ -354,7 +354,7 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - My Bar inventory management
 - Favorites/Bookmarks
 
-### Paid Subscription ($9.99/month or $99.99/year)
+### Paid Subscription ($7.99/month or $79.99/year)
 
 - Everything above, plus:
 - AI Bartender Chat: 1,000,000 tokens/month
@@ -365,7 +365,7 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - Unlimited custom recipes
 - 3-day free trial on monthly plan
 
-### Voice Add-On ($5.99)
+### Voice Add-On ($4.99)
 
 - +60 voice minutes (consumable, repeatable)
 - Requires active subscription
@@ -460,7 +460,7 @@ See [SUBSCRIPTION_DEPLOYMENT.md](docs/SUBSCRIPTION_DEPLOYMENT.md) for full detai
 
 ### Revenue Model
 
-- 1,000 subscribers @ $9.99 = $9,990/month
+- 1,000 subscribers @ $7.99 = $9,990/month
 - Voice add-on purchases: ~$500/month (estimated)
 - **Total Revenue**: ~$10,490/month
 - AI costs: ~$750/month

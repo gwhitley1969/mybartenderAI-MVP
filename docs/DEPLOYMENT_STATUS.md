@@ -2,11 +2,38 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 16, 2026
+**Last Updated**: February 17, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **In-App Review & Feedback Flow** (Feb 17): Implemented best-practice in-app review prompting with a two-step UX ("Are you enjoying My AI Bartender?" pre-prompt) that routes happy users to the OS review dialog and unhappy users to a feedback email. Uses `in_app_review` package for cross-platform App Store / Play Store review prompts. Features:
+  1. **Eligibility gate**: Requires >= 2 sessions across >= 2 distinct days, >= 1 win moment, 30-day cooldown between prompts, 60-day cooldown after unhappy signals, lifetime cap of 3 prompts
+  2. **6 win moment hooks**: Smart Scanner success, Create Studio save, sharing success, favorites >= 3, AI Chat (3+ exchanges), Voice session > 45s
+  3. **Session tracking**: `ReviewService` registers as a separate `WidgetsBindingObserver` (independent from `AppLifecycleService`) with 30-minute debounce
+  4. **Persistence**: SharedPreferences keys for session counts, win moments, cooldown timestamps
+  5. **Feedback flow**: Reuses existing `support@xtend-ai.com` email pattern from profile screen via `url_launcher`
+  6. **Logging**: `developer.log()` with `[REVIEW]` prefix for all events (no analytics infrastructure needed)
+  7. **Build number**: `1.0.0+11` → `1.0.0+12`
+
+  **New files:**
+  - `lib/src/services/review_service.dart`: Core singleton — eligibility gate, persistence, session tracking, OS review + email feedback
+  - `lib/src/providers/review_provider.dart`: Riverpod providers (`reviewServiceProvider`, `reviewEligibleProvider`)
+  - `lib/src/widgets/review_prompt_dialog.dart`: Pre-prompt dialog (static `show()`, follows `PurchaseSuccessDialog` pattern)
+
+  **Modified files:**
+  - `mobile/app/pubspec.yaml`: Added `in_app_review: ^2.0.10`, build number → +12
+  - `lib/src/providers/providers.dart`: Added `review_provider.dart` export
+  - `lib/src/providers/auth_provider.dart`: `ReviewService.instance.initialize()` alongside `AppLifecycleService`
+  - `lib/src/features/smart_scanner/smart_scanner_screen.dart`: `scannerSuccess` win moment + prompt
+  - `lib/src/features/create_studio/edit_cocktail_screen.dart`: `createStudioSave` win moment (prompt deferred)
+  - `lib/src/features/create_studio/widgets/share_recipe_dialog.dart`: `sharingSuccess` win moment
+  - `lib/src/providers/favorites_provider.dart`: `favoritesThreshold` win moment when count >= 3
+  - `lib/src/providers/voice_ai_provider.dart`: `voiceSessionComplete` win moment when duration >= 45s
+  - `lib/src/features/ask_bartender/chat_screen.dart`: `aiChatSave` win moment after 3 successful exchanges
+
+  **Spec:** See `docs/Review.md` for the full codebase-grounded implementation spec.
 
 - **Free Trial Guardrailed Limits** (Feb 16): Implemented server-side enforcement of reduced quotas for 3-day free trial users to prevent API abuse during trials. Trial users now get 10 voice minutes (vs 60), 20,000 chat tokens (vs 1,000,000), and 5 scanner scans (vs 100). Changes:
   1. **Subscription webhook** (`index.js`): `INITIAL_PURCHASE` handler now detects `period_type === 'TRIAL'` from RevenueCat payload and sets `subscription_status = 'trialing'` with `monthly_voice_minutes_included = 10`. `RENEWAL` handler explicitly sets full paid limits (60 min, 1M tokens, 100 scans)
@@ -246,7 +273,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   **Remaining phases** (see `APIM_SECURITY_USER_PROFILE_PLAN.md`):
   - Phase 2: Deploy `validate-jwt` APIM policies to 13 unprotected operations (requires audience ID investigation first)
   - Phase 3: Standardize dual-audience IDs (`f9f7f159` vs `04551003`)
-  - Phase 4: Tier simplification ($9.99/month, 20 voice min) — deferred until after Apple approval
+  - Phase 4: Tier simplification ($7.99/month, 20 voice min) — deferred until after Apple approval
 
   **Verification**: `SELECT id, email, display_name, tier, last_login_at FROM users ORDER BY last_login_at DESC NULLS LAST LIMIT 10;`
 
@@ -428,13 +455,13 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 | -------------- | ------- | ------ | --------- | ----- | ------------------------------------- |
 | Free (none)    | $0      | -      | 0         | 0     | -                                     |
 | Trial (3 days) | Free    | -      | 20,000    | 5     | 10 min                                |
-| Paid           | $9.99   | $99.99 | 1,000,000 | 100   | 60 min included + $5.99/60 min add-on |
+| Paid           | $7.99   | $79.99 | 1,000,000 | 100   | 60 min included + $4.99/60 min add-on |
 
 Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
 **Free Trial:** 3-day trial available on the monthly plan. Trial users get reduced quotas (20,000 tokens, 5 scans, 10 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
 
-**Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $5.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
+**Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $4.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 
 **Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.entitlement` updates via PostgreSQL trigger.
 
@@ -571,6 +598,7 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 | Today's Special       | Home card + notifications     | Complete       |
 | Notification Settings | Profile screen                | Complete       |
 | Social Sharing        | Share dialogs                 | Complete       |
+| In-App Review         | Review prompt dialog          | Complete       |
 
 ### Key Integrations
 
@@ -585,6 +613,11 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
   - Idempotent scheduling (30-minute cooldown prevents loops)
   - Battery optimization exemption for reliable delivery
   - Configurable notification time (default 5 PM)
+- **In-App Review**: `in_app_review` for OS-native review prompts
+  - Two-step UX with pre-prompt dialog
+  - 6 win moment triggers across Smart Scanner, Create Studio, sharing, favorites, chat, voice
+  - Eligibility gate with session, cooldown, and lifetime caps
+  - Unhappy users routed to feedback email instead of store review
 - **Background Token Refresh**: Invisible alarm-based token refresh every 6 hours
   - Notification is immediately canceled after scheduling (invisible to users)
   - AlarmManager callback still fires - only the visible notification is suppressed
@@ -827,9 +860,10 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `CREATE_STUDIO_PHOTO_CAPTURE.md`     | Custom cocktail photo capture implementation   |
 | `iOS_IMPLEMENTATION.md`              | iOS platform-specific configuration            |
 | `APIM_SECURITY_USER_PROFILE_PLAN.md` | APIM security audit + user profile population  |
+| `Review.md`                          | In-app review & feedback flow spec             |
 | `CLAUDE.md`                          | Project context and conventions                |
 
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 16, 2026
+**Last Updated**: February 17, 2026

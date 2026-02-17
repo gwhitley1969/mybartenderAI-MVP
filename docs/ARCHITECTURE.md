@@ -12,8 +12,8 @@
 - Key Vault for secrets (accessed via Managed Identity); App Insights for telemetry
 - **Managed Identity** for Key Vault and Storage access
 - All free features run locally on device (offline-first)
-- Mobile → APIM → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
-- Azure Front Door (`fd-mba-share`) for external sharing with custom domain `share.mybartenderai.com`
+- Mobile → Azure Front Door (`share.mybartenderai.com`) → APIM (`apim-mba-002`) → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
+- Azure Front Door (`fd-mba-share`) provides the custom domain entry point, DDoS protection, and also serves the public cocktail preview for social sharing
 
 ## Current Operational Status (February 2026)
 
@@ -24,8 +24,8 @@
 - ✅ User authentication (Entra External ID with JWT)
 - ✅ JWT-only authentication (APIM validates JWT on all 13 protected operations, no subscription keys on client)
 - ✅ AI Bartender Chat (all users, including free with limited quota)
-- ✅ Smart Scanner (Claude Haiku for bottle detection - Subscribers, 100/month)
-- ✅ Voice AI (Azure OpenAI Realtime API - Subscribers only, 60 min/month + $5.99/60 min add-ons)
+- ✅ Scan My Bar (Claude Haiku for bottle detection - Subscribers, 100/month)
+- ✅ Voice AI (Azure OpenAI Realtime API - Subscribers only, 60 min/month + $4.99/60 min add-ons)
 - ✅ User entitlement validation (backend checks entitlement in PostgreSQL)
 - ✅ Rate limiting per user
 - ✅ Monitoring and alerting (Application Insights)
@@ -35,6 +35,7 @@
 - ✅ **Subscription System** - RevenueCat webhook integration with idempotency
 - ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
+- ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
 
 ### Recent Backend Improvements
 
@@ -82,8 +83,7 @@
 
 ### Planned (Future)
 
-- **Custom Recipes**: User-created cocktails with AI enhancement (Create Studio)
-- **Social Features**: Share cocktails with friends
+- **Taste Profile**: Personalized recommendations based on user preferences (UI design phase)
 
 ## Data Flow (Mermaid)
 
@@ -242,7 +242,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
   - ~$0.007 per cocktail conversation
   - **SDK**: Official Azure package for better integration and support
 - **Voice**: Azure OpenAI Realtime API (direct voice-to-voice)
-  - Subscribers only: 60 minutes/month included (+ $5.99 for 60 min add-on)
+  - Subscribers only: 60 minutes/month included (+ $4.99 for 60 min add-on)
   - Active speech time metering (only user + AI talking time counts)
   - WebRTC-based low-latency streaming
 - **Vision/Smart Scanner**: Claude Haiku (Anthropic) via Azure - bottle detection for inventory
@@ -254,10 +254,10 @@ const result = await client.getChatCompletions(deployment, messages, options);
 | ------------------ | ----------- | ------------------ | ------------------------------------- |
 | AI Tokens          | 0           | 20,000             | 1,000,000                             |
 | Scanner (Vision)   | 0           | 5 scans            | 100 scans                             |
-| Voice Assistant    | 0           | 10 min             | 60 min included + $5.99/60 min add-on |
+| Voice Assistant    | 0           | 10 min             | 60 min included + $4.99/60 min add-on |
 | Custom Recipes     | Unlimited   | Unlimited          | Unlimited                             |
 | Snapshot Downloads | Unlimited   | Unlimited          | Unlimited                             |
-| Price              | Free        | Free (3 days)      | $9.99/mo or $99.99/yr                 |
+| Price              | Free        | Free (3 days)      | $7.99/mo or $79.99/yr                 |
 
 **Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 3-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
 
@@ -315,8 +315,8 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 **Subscriber (paid):**
 
 - Features: AI recommendations (1,000,000 tokens/30 days), Scanner (100 scans/30 days), Voice AI (60 minutes/30 days)
-- Voice add-on: $5.99 for 60 additional minutes (non-expiring)
-- Price: $9.99/month (3-day free trial) or $99.99/year
+- Voice add-on: $4.99 for 60 additional minutes (non-expiring)
+- Price: $7.99/month (3-day free trial) or $79.99/year
 - Managed via RevenueCat with single `paid` entitlement
 
 ### Backend Integration
@@ -449,7 +449,7 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 - **Low Latency**: Real-time streaming via WebRTC (UDP-based)
 - **Natural Conversation**: AI bartender with cocktail expertise
 - **Pacing Control**: System prompt instructions for relaxed, clear speech
-- **Subscribers Only**: 60 minutes/month included (+ $5.99/60 min add-on available)
+- **Subscribers Only**: 60 minutes/month included (+ $4.99/60 min add-on available)
 - **iOS Audio Muting**: Two-layer defense — `replaceTrack(null)` removes audio track from WebRTC sender on iOS (where `track.enabled = false` doesn't fully silence the stream), plus transcript guard filters any leaked audio. Note: Audio sender captured via `getSenders().firstWhere()` without `orElse` — the `orElse` callback caused a Dart type inference crash on iOS (`RTCRtpSender` vs `RTCRtpSenderNative`); see BUG-012
 
 ### Voice Assistant Functions (v4)
@@ -786,14 +786,14 @@ flutter build apk --release
 ### Revenue Model
 
 - **Free ($0/month)**: Local cocktail database only, drives conversion
-- **Subscriber ($9.99/month or $99.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
-- **Voice Add-on ($5.99)**: +60 minutes, non-expiring, repeatable
-- **Target**: 1,000 subscribers = $10,000 revenue, ~$500 AI costs = **95% margin**
+- **Subscriber ($7.99/month or $79.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
+- **Voice Add-on ($4.99)**: +60 minutes, non-expiring, repeatable
+- **Target**: 1,000 subscribers = $7,990 revenue, ~$500 AI costs = **94% margin**
 
 ---
 
-**Last Updated**: February 16, 2026
-**Architecture Version**: 4.0 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails)
+**Last Updated**: February 17, 2026
+**Architecture Version**: 4.1 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

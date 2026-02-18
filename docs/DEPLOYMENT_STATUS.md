@@ -2,11 +2,16 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 17, 2026
+**Last Updated**: February 18, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Smart Scanner 8-Bottle Limit Guidance** (Feb 18): Added instruction text advising users to scan 8 bottles or fewer at a time for best results. Testing showed Claude Haiku vision accuracy degrades with more than 8 bottles in frame. The existing instruction text now includes a second sentence: "For best results, scan 8 bottles or fewer at a time."
+
+  **File modified:**
+  - `mobile/app/lib/src/features/smart_scanner/smart_scanner_screen.dart`: Updated instruction text (line 171)
 
 - **In-App Review & Feedback Flow** (Feb 17): Implemented best-practice in-app review prompting with a two-step UX ("Are you enjoying My AI Bartender?" pre-prompt) that routes happy users to the OS review dialog and unhappy users to a feedback email. Uses `in_app_review` package for cross-platform App Store / Play Store review prompts. Features:
   1. **Eligibility gate**: Requires >= 2 sessions across >= 2 distinct days, >= 1 win moment, 30-day cooldown between prompts, 60-day cooldown after unhappy signals, lifetime cap of 3 prompts
@@ -866,4 +871,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 17, 2026
+**Last Updated**: February 18, 2026

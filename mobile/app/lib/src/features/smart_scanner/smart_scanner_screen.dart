@@ -168,7 +168,7 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
                   ),
                   SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Take a photo of the bottles (labels facing front) and we\'ll identify them for you',
+                    'Take a photo of the bottles (labels facing front) and we\'ll identify them for you. For best results, scan 8 bottles or fewer at a time.',
                     style: AppTypography.bodyMedium.copyWith(
                       color: AppColors.textSecondary,
                     ),

@@ -8,6 +8,20 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **RevenueCat Google Play Integration** (Feb 18): Completed first-time RevenueCat setup for Google Play subscriptions. This was a dashboard/CLI-only change — no source code was modified. Steps completed:
+  1. **RevenueCat account**: Created project, connected Google Play Store app (package `ai.mybartender.mybartenderai`)
+  2. **Google Cloud service account**: Created `revenuecat@myaibartender.iam.gserviceaccount.com` with Pub/Sub Editor + Monitoring Viewer roles. Generated JSON key and uploaded to RevenueCat for purchase verification
+  3. **Google Play Console**: Invited service account under Users and permissions with financial access
+  4. **Entitlement**: Created `paid` entitlement (matches `_paidEntitlement = 'paid'` in `subscription_service.dart`)
+  5. **Offerings**: Default offering configured with Monthly ($7.99) + Yearly ($79.99) packages (marked as current)
+  6. **API key stored**: RevenueCat public API key (`goog_...`) stored in Azure Key Vault as `REVENUECAT-PUBLIC-API-KEY`
+  7. **Function App linked**: Added `REVENUECAT_PUBLIC_API_KEY` app setting to `func-mba-fresh` with `@Microsoft.KeyVault(SecretUri=...)` reference
+  8. **Enabled Google APIs**: `androidpublisher`, `playdeveloperreporting`, `pubsub`, `iam`, `cloudresourcemanager`
+
+  **Apple App Store setup pending** — requires App Store Connect app creation, In-App Purchase key, and separate RevenueCat `appl_...` API key. Backend + Flutter code changes needed for platform-specific keys.
+
+  **No files modified.** All configuration was external (RevenueCat dashboard, Google Cloud Console, Google Play Console, Azure CLI).
+
 - **Smart Scanner 8-Bottle Limit Guidance** (Feb 18): Added instruction text advising users to scan 8 bottles or fewer at a time for best results. Testing showed Claude Haiku vision accuracy degrades with more than 8 bottles in frame. The existing instruction text now includes a second sentence: "For best results, scan 8 bottles or fewer at a time."
 
   **File modified:**
@@ -421,7 +435,7 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 - `POSTGRES-CONNECTION-STRING` - Database connection
 - `COCKTAILDB-API-KEY` - TheCocktailDB API key
 - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
-- `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization (placeholder)
+- `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization (Google Play `goog_...` key, active)
 - `REVENUECAT-WEBHOOK-SECRET` - RevenueCat webhook signature verification (placeholder)
 - Plus additional service keys
 
@@ -514,7 +528,7 @@ All functions deployed to `func-mba-fresh`:
 | `subscription-status`  | GET    | `/api/v1/subscription/status`  | JWT                  | Deployed* |
 | `subscription-webhook` | POST   | `/api/v1/subscription/webhook` | RevenueCat Signature | Deployed* |
 
-*Awaiting RevenueCat account setup. See `SUBSCRIPTION_DEPLOYMENT.md` for configuration steps.
+*Google Play integration live. Apple App Store pending. See `SUBSCRIPTION_DEPLOYMENT.md` for configuration details.
 
 ### Voice Purchase
 
@@ -697,7 +711,7 @@ Mobile App
     ↓ (fetch config)
 subscription-config function
     ↓ (RevenueCat API key)
-Mobile App → RevenueCat SDK → Google Play
+Mobile App → RevenueCat SDK → Google Play (Apple pending)
     ↓ (purchase complete)
 RevenueCat Server
     ↓ (webhook event)
@@ -728,9 +742,9 @@ PostgreSQL (users.entitlement updated)
 | Apple Sign-In    | Social sign-in                          | Configured      |
 | Facebook OAuth   | Social sign-in (removed Feb 2026)       | Removed         |
 | Instagram        | Social sharing                          | Configured      |
-| RevenueCat       | Subscription management                 | Awaiting setup* |
+| RevenueCat       | Subscription management                 | Google Play configured* |
 
-*Backend code deployed, Key Vault placeholders created. Requires RevenueCat account configuration.
+*Google Play integration complete. Apple App Store integration pending (requires App Store Connect setup + code changes for platform-specific API keys).
 
 ---
 

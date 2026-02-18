@@ -26,6 +26,10 @@ migration-scripts/
 *.key
 *.secret
 
+# Service account keys & Apple certificates (NEVER commit)
+*-key.json
+*.p8
+
 # OS/logs
 *.log
 

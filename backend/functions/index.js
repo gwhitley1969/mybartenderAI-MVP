@@ -3984,8 +3984,10 @@ app.http('subscription-config', {
 
             context.log(`User ID from header: ${userId.substring(0, 8)}...`);
 
-            // Get RevenueCat API key from environment (Key Vault reference)
+            // Get RevenueCat API keys from environment (Key Vault references)
             const revenueCatApiKey = process.env.REVENUECAT_PUBLIC_API_KEY;
+            const revenueCatAppleApiKey = process.env.REVENUECAT_PUBLIC_API_KEY_IOS;
+
             if (!revenueCatApiKey) {
                 context.error('REVENUECAT_PUBLIC_API_KEY not configured');
                 return {
@@ -3994,6 +3996,9 @@ app.http('subscription-config', {
                     jsonBody: { success: false, error: 'Configuration error' }
                 };
             }
+            if (!revenueCatAppleApiKey) {
+                context.warn('REVENUECAT_PUBLIC_API_KEY_IOS not configured — iOS users cannot subscribe');
+            }
 
             return {
                 status: 200,
@@ -4001,7 +4006,8 @@ app.http('subscription-config', {
                 jsonBody: {
                     success: true,
                     config: {
-                        revenueCatApiKey: revenueCatApiKey
+                        revenueCatApiKey: revenueCatApiKey,
+                        revenueCatAppleApiKey: revenueCatAppleApiKey || null
                     }
                 }
             };

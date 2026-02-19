@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 
 /// Purchase status states
 enum PurchaseState {
@@ -59,11 +62,11 @@ class PurchaseService {
 
   /// Initialize the purchase service
   ///
-  /// [onVerifyPurchase] - Callback to verify purchase with backend
-  /// Returns the backend verification result: {success, minutesAdded, totalPurchasedMinutes}
+  /// [onVerifyPurchase] - Callback to verify purchase with backend (Android only).
+  /// On iOS, RevenueCat handles receipt validation and fires a webhook instead.
   Future<void> initialize({
-    required Future<Map<String, dynamic>> Function(
-            String purchaseToken, String productId)
+    Future<Map<String, dynamic>> Function(
+            String purchaseToken, String productId)?
         onVerifyPurchase,
   }) async {
     if (_isInitialized) {
@@ -133,6 +136,11 @@ class PurchaseService {
 
   /// Initiate purchase of voice minutes
   Future<bool> purchaseVoiceMinutes() async {
+    // iOS uses RevenueCat SDK for StoreKit purchases
+    if (Platform.isIOS) {
+      return _purchaseVoiceMinutesIOS();
+    }
+
     if (!_isAvailable) {
       _purchaseController.add(PurchaseResult(
         state: PurchaseState.error,
@@ -167,6 +175,45 @@ class PurchaseService {
         state: PurchaseState.error,
         message: 'Failed to start purchase: $e',
       ));
+      return false;
+    }
+  }
+
+  /// iOS voice minutes purchase via RevenueCat SDK
+  ///
+  /// RevenueCat handles StoreKit receipt validation with Apple.
+  /// The RevenueCat webhook fires to our backend to credit 60 minutes.
+  Future<bool> _purchaseVoiceMinutesIOS() async {
+    _purchaseController.add(PurchaseResult(state: PurchaseState.loading));
+    try {
+      final products = await rc.Purchases.getProducts([voiceMinutesProductId]);
+      if (products.isEmpty) {
+        _purchaseController.add(PurchaseResult(
+          state: PurchaseState.error,
+          message: 'Voice minutes product not available',
+        ));
+        return false;
+      }
+      _purchaseController.add(PurchaseResult(state: PurchaseState.purchasing));
+      await rc.Purchases.purchaseStoreProduct(products.first);
+      // RevenueCat webhook handles crediting 60 minutes in backend
+      _purchaseController.add(PurchaseResult(
+        state: PurchaseState.success,
+        minutesAdded: 60,
+        totalMinutes: 60,
+        message: '60 voice minutes added!',
+      ));
+      return true;
+    } on PlatformException catch (e) {
+      if (e.code == '1') {
+        // User cancelled
+        _purchaseController.add(PurchaseResult(state: PurchaseState.cancelled));
+      } else {
+        _purchaseController.add(PurchaseResult(
+          state: PurchaseState.error,
+          message: 'Purchase failed: ${e.message}',
+        ));
+      }
       return false;
     }
   }

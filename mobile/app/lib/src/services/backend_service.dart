@@ -359,15 +359,18 @@ class Recommendation {
 
 class SubscriptionConfig {
   final String revenueCatApiKey;
+  final String? revenueCatAppleApiKey;
 
   SubscriptionConfig({
     required this.revenueCatApiKey,
+    this.revenueCatAppleApiKey,
   });
 
   factory SubscriptionConfig.fromJson(Map<String, dynamic> json) {
     final config = json['config'] as Map<String, dynamic>;
     return SubscriptionConfig(
       revenueCatApiKey: config['revenueCatApiKey'],
+      revenueCatAppleApiKey: config['revenueCatAppleApiKey'] as String?,
     );
   }
 }

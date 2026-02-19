@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
@@ -74,8 +75,16 @@ class SubscriptionService {
       // Fetch RevenueCat API key from backend (stored in Azure Key Vault)
       debugPrint('SubscriptionService: Fetching API key from backend...');
       final config = await backendService.getSubscriptionConfig();
-      _revenueCatApiKey = config.revenueCatApiKey;
-      debugPrint('SubscriptionService: API key retrieved successfully');
+      if (Platform.isIOS) {
+        if (config.revenueCatAppleApiKey == null) {
+          throw Exception('RevenueCat Apple API key not configured');
+        }
+        _revenueCatApiKey = config.revenueCatAppleApiKey;
+        debugPrint('SubscriptionService: iOS API key retrieved');
+      } else {
+        _revenueCatApiKey = config.revenueCatApiKey;
+        debugPrint('SubscriptionService: Android API key retrieved');
+      }
 
       // Configure RevenueCat
       await Purchases.configure(

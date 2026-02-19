@@ -4,7 +4,9 @@
 
 MyBartenderAI uses a **single binary entitlement model**: users are either `paid` (subscribers) or `none` (non-subscribers). Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
 
-Voice minute consumables ($4.99 for 60 minutes) are handled separately via **Google Play Billing** with server-side verification through the `voice-purchase` function.
+Voice minute consumables ($4.99 for 60 minutes) are handled per-platform:
+- **Android**: Google Play Billing with server-side verification through the `voice-purchase` function
+- **iOS**: RevenueCat SDK handles StoreKit purchase; the `subscription-webhook` function credits minutes via webhook event
 
 ---
 
@@ -68,11 +70,14 @@ Azure API Management (apim-mba-002)
 Azure Functions (func-mba-fresh)
     |
     | subscription-config:
-    |   - Reads REVENUECAT_PUBLIC_API_KEY from env
-    |   - Key Vault reference resolves to actual key
-    |   - Returns API key to mobile app
+    |   - Reads REVENUECAT_PUBLIC_API_KEY (Android) from env
+    |   - Reads REVENUECAT_PUBLIC_API_KEY_IOS (Apple) from env
+    |   - Key Vault references resolve to actual keys
+    |   - Returns both API keys to mobile app
     v
-Mobile App initializes RevenueCat SDK
+Mobile App selects key via Platform.isIOS
+    |
+    | Initializes RevenueCat SDK with platform-specific key
     |
     | 2. User makes purchase via Google Play / App Store
     v
@@ -148,17 +153,23 @@ PostgreSQL (pg-mybartenderdb)
 |-------|-------|
 | Route | `GET /api/v1/subscription/config` |
 | Auth | JWT required |
-| Purpose | Returns RevenueCat public API key for SDK initialization |
+| Purpose | Returns RevenueCat API keys for SDK initialization (both platforms) |
 
 **Response:**
 ```json
 {
   "success": true,
   "config": {
-    "revenueCatApiKey": "appl_xxxxx..."
+    "revenueCatApiKey": "goog_xxxxx...",
+    "revenueCatAppleApiKey": "appl_xxxxx..."
   }
 }
 ```
+
+**Notes:**
+- `revenueCatApiKey` is the Android (Google Play) key
+- `revenueCatAppleApiKey` is the iOS (App Store) key — may be `null` if not yet configured
+- Flutter app selects the correct key at runtime via `Platform.isIOS`
 
 ### 2. subscription-webhook
 
@@ -212,14 +223,18 @@ PostgreSQL (pg-mybartenderdb)
 
 ## RevenueCat Product Mapping
 
-| Item | Value |
-|------|-------|
-| Entitlement ID | `paid` |
-| Monthly subscription | (configured in RevenueCat dashboard) |
-| Annual subscription | (configured in RevenueCat dashboard) |
-| Voice add-on (consumable) | `voice_minutes_60` (mobile product ID) |
+| Item | Google Play Product ID | App Store Product ID |
+|------|----------------------|---------------------|
+| Entitlement ID | `paid` | `paid` |
+| Monthly subscription | `pro_monthly` (base plan: `monthly-autorenewing`) | `pro_monthly` |
+| Annual subscription | `pro_annual` (base plan: `annual-autorenewing`) | `pro_annual` |
+| Voice add-on (consumable) | `voice_minutes_60` | `voice_minutes_60` |
 
-The mobile app fetches available offerings dynamically from RevenueCat — subscription product IDs are not hardcoded.
+**RevenueCat Offerings:**
+- Default offering with `$rc_monthly` and `$rc_annual` packages
+- Each package attaches both the Google Play and App Store product
+
+The mobile app fetches available offerings dynamically from RevenueCat — subscription product IDs are not hardcoded. Voice consumable product ID (`voice_minutes_60`) is hardcoded in `PurchaseService`.
 
 ---
 
@@ -243,9 +258,11 @@ The mobile app fetches available offerings dynamically from RevenueCat — subsc
 
 ### Purchase Service (`purchase_service.dart`)
 
-- Handles Google Play consumable purchases for voice minutes
-- Product ID: `voice_minutes_60`
-- Backend verification via `POST /v1/voice/purchase`
+- Product ID: `voice_minutes_60` (hardcoded constant)
+- **Android**: Uses `in_app_purchase` plugin → Google Play Billing → backend verification via `POST /v1/voice/purchase`
+- **iOS**: Uses RevenueCat SDK (`Purchases.purchaseStoreProduct()`) → StoreKit → RevenueCat webhook → `subscription-webhook` credits 60 minutes
+- `onVerifyPurchase` callback is `null` on iOS (RevenueCat handles validation)
+- iOS quota refresh: listens to `purchaseStream` and invalidates `voiceQuotaProvider` 2 seconds after success
 
 ### Voice Quota Model (`voice_ai_service.dart`)
 
@@ -284,7 +301,8 @@ class VoiceQuota {
 
 | Secret Name | Purpose |
 |-------------|---------|
-| `REVENUECAT-PUBLIC-API-KEY` | RevenueCat SDK initialization (mobile) |
+| `REVENUECAT-PUBLIC-API-KEY` | RevenueCat Android API key (`goog_...`) |
+| `REVENUECAT-APPLE-API-KEY` | RevenueCat iOS API key (`appl_...`) |
 | `REVENUECAT-WEBHOOK-SECRET` | Webhook signature verification |
 
 ### Function App Settings
@@ -292,6 +310,7 @@ class VoiceQuota {
 | Setting | Value |
 |---------|-------|
 | `REVENUECAT_PUBLIC_API_KEY` | `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=REVENUECAT-PUBLIC-API-KEY)` |
+| `REVENUECAT_PUBLIC_API_KEY_IOS` | `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=REVENUECAT-APPLE-API-KEY)` |
 | `REVENUECAT_WEBHOOK_SECRET` | `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=REVENUECAT-WEBHOOK-SECRET)` |
 
 ---
@@ -311,35 +330,44 @@ class VoiceQuota {
 
 ### 1. RevenueCat Dashboard
 
-- Create project "MyBartenderAI"
-- Add Google Play app with package name: `ai.mybartender.mybartenderai`
-- Add iOS app (when ready)
-- Create entitlement: `paid`
-- Create products for monthly ($7.99) and annual ($79.99) subscriptions
-- Attach both subscription products to the `paid` entitlement
-- Create default offering with monthly + annual packages
-- Configure 3-day free trial on the monthly subscription
+- ✅ Create project "MyBartenderAI"
+- ✅ Add Google Play app with package name: `ai.mybartender.mybartenderai`
+- ✅ Add iOS app with bundle ID: `com.mybartenderai.mybartenderai`
+- ✅ Create entitlement: `paid`
+- Remaining: Map store products, configure offerings, verify webhook (see `REVENUECAT_PLAN.md` Phase 3)
 
 ### 2. Google Play Console
 
-- Create subscription products matching RevenueCat configuration
+- Create subscription `pro_monthly` ($7.99/mo, base plan `monthly-autorenewing`)
+- Create subscription `pro_annual` ($79.99/yr, base plan `annual-autorenewing`)
 - Create consumable product `voice_minutes_60` at $4.99
-- Configure 3-day free trial on monthly subscription product
+- See `REVENUECAT_PLAN.md` Phase 1 for step-by-step
 
-### 3. Configure Webhook
+### 3. App Store Connect
 
-- URL: `https://share.mybartenderai.com/api/v1/subscription/webhook`
+- ✅ Subscription `pro_monthly` created
+- ✅ Subscription `pro_annual` created
+- Create consumable `voice_minutes_60` at $4.99
+- See `REVENUECAT_PLAN.md` Phase 2 for step-by-step
+
+### 4. Configure Webhook
+
+- URL: `https://apim-mba-002.azure-api.net/v1/subscription/webhook`
 - Enable all subscription lifecycle events
 - Copy webhook secret to Key Vault
 
-### 4. Update Key Vault Secrets
+### 5. Update Key Vault Secrets
 
 ```powershell
-az keyvault secret set --vault-name kv-mybartenderai-prod --name REVENUECAT-PUBLIC-API-KEY --value "YOUR_REVENUECAT_PUBLIC_API_KEY"
+# Android key (already done)
+az keyvault secret set --vault-name kv-mybartenderai-prod --name REVENUECAT-PUBLIC-API-KEY --value "goog_xxxxx"
+# iOS key (already done)
+az keyvault secret set --vault-name kv-mybartenderai-prod --name REVENUECAT-APPLE-API-KEY --value "appl_xxxxx"
+# Webhook secret
 az keyvault secret set --vault-name kv-mybartenderai-prod --name REVENUECAT-WEBHOOK-SECRET --value "YOUR_WEBHOOK_SECRET"
 ```
 
-### 5. Restart Function App
+### 6. Restart Function App
 
 ```powershell
 az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
@@ -355,7 +383,7 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 2. Add tester emails in Google Play Console
 3. RevenueCat dashboard shows all test transactions
 
-### Test Scenarios
+### Test Scenarios — Android
 
 - [ ] New subscription purchase (monthly with trial)
 - [ ] Trial expiration → paid conversion
@@ -363,8 +391,17 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 - [ ] Cancellation (verify still active until expiry)
 - [ ] Expiration (verify entitlement reverts to `none`)
 - [ ] Restore purchases on new device
-- [ ] Voice add-on purchase (+60 minutes credited)
+- [ ] Voice add-on purchase via Google Play (+60 minutes credited via `voice-purchase` endpoint)
 - [ ] Duplicate purchase token (idempotent handling)
+
+### Test Scenarios — iOS
+
+- [ ] Subscription init logs "iOS API key retrieved"
+- [ ] New subscription purchase (monthly with trial)
+- [ ] Subscription renewal
+- [ ] Restore purchases on new device
+- [ ] Voice add-on purchase via RevenueCat SDK (+60 minutes credited via webhook)
+- [ ] Verify `voiceQuotaProvider` refreshes after purchase success
 
 ---
 
@@ -397,10 +434,11 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 - [Google Play Billing](https://developer.android.com/google/play/billing)
 - [Azure Key Vault References](https://docs.microsoft.com/en-us/azure/app-service/app-service-key-vault-references)
 - `ARCHITECTURE.md` — Overall system architecture
+- `REVENUECAT_PLAN.md` — Cross-platform RevenueCat setup checklist (store products, dashboard config, code changes)
 - `GOOGLE_PLAY_BILLING_SETUP.md` — Google Play service account setup for voice purchase verification
 - `CLAUDE.md` — Project context and conventions
 
 ---
 
-*Last Updated: February 2026*
-*Implementation Status: Backend + Mobile Complete, Awaiting RevenueCat Account Configuration*
+*Last Updated: February 19, 2026*
+*Implementation Status: Backend + Mobile code complete for both platforms. Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*

@@ -2,11 +2,47 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 18, 2026
+**Last Updated**: February 19, 2026
 
-The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system (awaiting account configuration) and Today's Special daily notifications.
+The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **RevenueCat Cross-Platform Setup — Backend + Flutter Code Changes** (Feb 19): Implemented platform-aware RevenueCat initialization for both Google Play and Apple App Store, fixed voice-purchase product ID mismatch, and stored iOS API key in Azure Key Vault. Store-side product creation (Google Play Console, App Store Connect) and RevenueCat dashboard configuration (entitlements, offerings, product mapping) remain manual steps — see `docs/REVENUECAT_PLAN.md` for the full checklist.
+
+  **Azure Infrastructure:**
+  1. Stored `REVENUECAT-APPLE-API-KEY` (`appl_...`) in `kv-mybartenderai-prod`
+  2. Linked `REVENUECAT_PUBLIC_API_KEY_IOS` app setting on `func-mba-fresh` via Key Vault reference
+  3. Restarted Function App to pick up new setting
+
+  **Backend code changes:**
+  1. **voice-purchase product ID fix** (`voice-purchase/index.js:31-33`): Changed `PRODUCT_ID` from `voice_minutes_20` to `voice_minutes_60`, replaced `SECONDS_PER_PURCHASE = 1200` with `MINUTES_PER_PURCHASE = 60`, updated INSERT query and success message. Flutter was already sending `voice_minutes_60` but the endpoint rejected it
+  2. **subscription-config dual keys** (`index.js:3987-4006`): Now reads `REVENUECAT_PUBLIC_API_KEY_IOS` from environment and returns both `revenueCatApiKey` (Android) and `revenueCatAppleApiKey` (iOS) in the response. Logs a warning if iOS key is missing — Android still works
+
+  **Flutter code changes:**
+  1. **SubscriptionConfig model** (`backend_service.dart:360-373`): Added nullable `revenueCatAppleApiKey` field, parsed from `config['revenueCatAppleApiKey']`
+  2. **Platform-aware key selection** (`subscription_service.dart:76-78`): Added `dart:io Platform` import. Uses `config.revenueCatAppleApiKey` on iOS, `config.revenueCatApiKey` on Android. Throws if iOS key is null
+  3. **iOS voice purchase path** (`purchase_service.dart`): Added `_purchaseVoiceMinutesIOS()` method using RevenueCat SDK (`purchases_flutter` imported as `rc` to avoid namespace collision with `in_app_purchase`). iOS StoreKit receipts can't be verified by Google Play API, so iOS uses RevenueCat — the webhook handles crediting 60 minutes. Android flow unchanged
+  4. **Optional onVerifyPurchase** (`purchase_service.dart:64`): Changed from `required` to optional — iOS doesn't need direct backend verification
+  5. **iOS quota refresh** (`purchase_provider.dart:36-63`): Added `dart:io Platform` import. Passes `null` for `onVerifyPurchase` on iOS. Listens to `purchaseStream` and refreshes `voiceQuotaProvider` 2 seconds after success (gives webhook time to process)
+
+  **Static analysis:** Zero new errors in modified files (409 total issues are all pre-existing).
+
+  **Files modified (backend):**
+  - `backend/functions/voice-purchase/index.js`: Product ID + minutes calculation fix
+  - `backend/functions/index.js`: Dual API key response in subscription-config
+
+  **Files modified (mobile):**
+  - `mobile/app/lib/src/services/backend_service.dart`: SubscriptionConfig model
+  - `mobile/app/lib/src/services/subscription_service.dart`: Platform-aware key selection
+  - `mobile/app/lib/src/services/purchase_service.dart`: iOS RevenueCat purchase path
+  - `mobile/app/lib/src/providers/purchase_provider.dart`: iOS verification skip + quota refresh
+
+  **Remaining manual steps** (see `docs/REVENUECAT_PLAN.md`):
+  - Google Play Console: Create `pro_monthly`, `pro_annual` subscriptions + `voice_minutes_60` consumable
+  - App Store Connect: Create `voice_minutes_60` consumable (subscriptions already exist)
+  - RevenueCat Dashboard: Map products, configure `paid` entitlement, configure Default offering with `$rc_monthly`/`$rc_annual` packages, verify webhook
+  - Deploy updated backend to `func-mba-fresh`
 
 - **RevenueCat Google Play Integration** (Feb 18): Completed first-time RevenueCat setup for Google Play subscriptions. This was a dashboard/CLI-only change — no source code was modified. Steps completed:
   1. **RevenueCat account**: Created project, connected Google Play Store app (package `ai.mybartender.mybartenderai`)
@@ -436,6 +472,7 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 - `COCKTAILDB-API-KEY` - TheCocktailDB API key
 - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
 - `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization (Google Play `goog_...` key, active)
+- `REVENUECAT-APPLE-API-KEY` - RevenueCat SDK initialization (Apple `appl_...` key, active)
 - `REVENUECAT-WEBHOOK-SECRET` - RevenueCat webhook signature verification (placeholder)
 - Plus additional service keys
 
@@ -528,7 +565,7 @@ All functions deployed to `func-mba-fresh`:
 | `subscription-status`  | GET    | `/api/v1/subscription/status`  | JWT                  | Deployed* |
 | `subscription-webhook` | POST   | `/api/v1/subscription/webhook` | RevenueCat Signature | Deployed* |
 
-*Google Play integration live. Apple App Store pending. See `SUBSCRIPTION_DEPLOYMENT.md` for configuration details.
+*Code supports both Google Play and Apple App Store. Store product creation and RevenueCat dashboard configuration pending — see `REVENUECAT_PLAN.md`.
 
 ### Voice Purchase
 
@@ -711,7 +748,7 @@ Mobile App
     ↓ (fetch config)
 subscription-config function
     ↓ (RevenueCat API key)
-Mobile App → RevenueCat SDK → Google Play (Apple pending)
+Mobile App → RevenueCat SDK → Google Play / App Store
     ↓ (purchase complete)
 RevenueCat Server
     ↓ (webhook event)
@@ -742,9 +779,9 @@ PostgreSQL (users.entitlement updated)
 | Apple Sign-In    | Social sign-in                          | Configured      |
 | Facebook OAuth   | Social sign-in (removed Feb 2026)       | Removed         |
 | Instagram        | Social sharing                          | Configured      |
-| RevenueCat       | Subscription management                 | Google Play configured* |
+| RevenueCat       | Subscription management                 | Both platforms configured* |
 
-*Google Play integration complete. Apple App Store integration pending (requires App Store Connect setup + code changes for platform-specific API keys).
+*Code supports both Google Play and Apple App Store with platform-aware API keys. Store product creation and RevenueCat dashboard mapping pending — see `docs/REVENUECAT_PLAN.md`.
 
 ---
 
@@ -872,6 +909,7 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 | `BUG_FIXES.md`                       | Chronological bug fix log                      |
 | `VOICE_AI_IMPLEMENTATION.md`         | Voice feature specification                    |
 | `SUBSCRIPTION_DEPLOYMENT.md`         | RevenueCat subscription system                 |
+| `REVENUECAT_PLAN.md`                 | RevenueCat cross-platform setup checklist       |
 | `TODAYS_SPECIAL_FEATURE.md`          | Today's Special notifications and deep linking |
 | `NOTIFICATION_SYSTEM.md`             | Notification architecture and token refresh    |
 | `RECIPE_VAULT_AI_CONCIERGE.md`       | AI Chat/Voice buttons in Recipe Vault          |
@@ -885,4 +923,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 18, 2026
+**Last Updated**: February 19, 2026

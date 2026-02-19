@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import '../services/purchase_service.dart';
@@ -32,34 +33,50 @@ final purchasesAvailableProvider = Provider<bool>((ref) {
 
 /// Initialize the purchase service with backend verification
 ///
-/// Call this during app initialization, after authentication is set up
+/// Call this during app initialization, after authentication is set up.
+/// - Android: Uses Google Play in_app_purchase with direct backend verification
+/// - iOS: Uses RevenueCat SDK; the webhook handles crediting minutes
 Future<void> initializePurchaseService(Ref ref) async {
   final purchaseService = ref.read(purchaseServiceProvider);
   final backendService = ref.read(backendServiceProvider);
 
   await purchaseService.initialize(
-    onVerifyPurchase: (purchaseToken, productId) async {
-      // Call backend to verify and credit minutes
-      try {
-        final response = await backendService.dio.post(
-          '/v1/voice/purchase',
-          data: {
-            'purchaseToken': purchaseToken,
-            'productId': productId,
+    onVerifyPurchase: Platform.isIOS
+        ? null
+        : (purchaseToken, productId) async {
+            // Call backend to verify and credit minutes (Android only)
+            try {
+              final response = await backendService.dio.post(
+                '/v1/voice/purchase',
+                data: {
+                  'purchaseToken': purchaseToken,
+                  'productId': productId,
+                },
+              );
+
+              // Refresh voice quota after successful purchase
+              if (response.data['success'] == true) {
+                ref.invalidate(voiceQuotaProvider);
+              }
+
+              return Map<String, dynamic>.from(response.data);
+            } catch (e) {
+              return {'success': false, 'error': e.toString()};
+            }
           },
-        );
-
-        // Refresh voice quota after successful purchase
-        if (response.data['success'] == true) {
-          ref.invalidate(voiceQuotaProvider);
-        }
-
-        return Map<String, dynamic>.from(response.data);
-      } catch (e) {
-        return {'success': false, 'error': e.toString()};
-      }
-    },
   );
+
+  // iOS: RevenueCat webhook credits minutes — refresh quota after purchase completes
+  if (Platform.isIOS) {
+    purchaseService.purchaseStream.listen((result) {
+      if (result.state == PurchaseState.success) {
+        // Small delay to allow webhook to process before we refresh
+        Future.delayed(const Duration(seconds: 2), () {
+          ref.invalidate(voiceQuotaProvider);
+        });
+      }
+    });
+  }
 }
 
 /// State notifier for managing purchase flow

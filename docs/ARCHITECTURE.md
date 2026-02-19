@@ -32,12 +32,19 @@
 - ✅ **Azure Functions v4 Migration Complete** - All functions migrated and deployed
 - ✅ **Official Azure OpenAI SDK** - All AI functions using @azure/openai package
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
-- ✅ **Subscription System** - RevenueCat webhook integration with idempotency
+- ✅ **Subscription System** - RevenueCat webhook integration with idempotency, cross-platform (Google Play + App Store)
+- ✅ **Platform-Aware IAP** - Separate RevenueCat API keys per store, iOS voice purchases via RevenueCat SDK (webhook-based), Android via Google Play Billing (direct verification)
 - ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
 
 ### Recent Backend Improvements
+
+**Cross-Platform Subscriptions (February 2026):**
+- ✅ **Platform-Aware API Keys**: `subscription-config` returns both Android and iOS RevenueCat keys; Flutter selects via `Platform.isIOS`
+- ✅ **iOS Voice Purchases**: RevenueCat SDK handles StoreKit receipt validation; webhook credits 60 minutes
+- ✅ **Voice Product ID Fix**: Backend `voice-purchase` corrected from `voice_minutes_20` to `voice_minutes_60`
+- ✅ **Apple API Key in Key Vault**: `REVENUECAT-APPLE-API-KEY` stored and linked to Function App
 
 **Subscription System (December 2025):**
 - ✅ **RevenueCat Integration**: Webhook endpoint for subscription lifecycle events
@@ -117,8 +124,12 @@ sequenceDiagram
   Note over M: All images stored locally on device
   Note over M: All free features run offline
 
-  Note over M,AI: Subscription Flow (RevenueCat)
-  M->>RC: Purchase via Google Play
+  Note over M,AI: Subscription Flow (RevenueCat — Both Platforms)
+  M->>APIM: GET /v1/subscription/config (JWT)
+  APIM->>F: Forward to subscription-config
+  F-->>M: { revenueCatApiKey (Android), revenueCatAppleApiKey (iOS) }
+  M->>M: Platform.isIOS ? appleKey : androidKey
+  M->>RC: Purchase via Google Play / App Store
   RC->>APIM: POST /v1/subscription/webhook (signature auth)
   APIM->>F: Forward webhook event
   F->>F: Verify signature, check idempotency
@@ -176,14 +187,14 @@ All 35 functions use the Azure Functions v4 programming model with code-centric 
 - `social-share-internal` - Internal sharing (POST /api/v1/social/share-internal)
 
 **Subscription Functions (3)**
-- `subscription-config` - RevenueCat API key for SDK initialization (GET /api/v1/subscription/config)
+- `subscription-config` - RevenueCat API keys for SDK initialization (GET /api/v1/subscription/config) — returns both Android (`revenueCatApiKey`) and iOS (`revenueCatAppleApiKey`) keys
 - `subscription-status` - User subscription status and entitlement (GET /api/v1/subscription/status)
 - `subscription-webhook` - RevenueCat server-to-server webhook (POST /api/v1/subscription/webhook)
   - Handles: INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE, PRODUCT_CHANGE, UNCANCELLATION, SUBSCRIPTION_PAUSED
   - Features: Idempotency via event ID, sandbox filtering, grace period handling
 
 **Voice Purchase (1)**
-- `voice-purchase` - Purchase voice minutes (POST /api/v1/voice/purchase)
+- `voice-purchase` - Purchase voice minutes — Android only, validates `voice_minutes_60` product via Google Play API (POST /api/v1/voice/purchase). iOS voice purchases route through RevenueCat SDK → webhook instead
 
 **Testing & Utilities (5)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
@@ -481,6 +492,19 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 
 Subscription management is handled via **RevenueCat** for unified subscription lifecycle across platforms (Android and iOS). The backend receives server-to-server webhooks to maintain authoritative subscription state in PostgreSQL.
 
+### Cross-Platform Architecture
+
+RevenueCat requires a separate API key per store. The `subscription-config` endpoint returns both keys, and the Flutter app selects the correct one at runtime via `Platform.isIOS`:
+
+- **Android**: `REVENUECAT_PUBLIC_API_KEY` (`goog_...`) — stored in Key Vault as `REVENUECAT-PUBLIC-API-KEY`
+- **iOS**: `REVENUECAT_PUBLIC_API_KEY_IOS` (`appl_...`) — stored in Key Vault as `REVENUECAT-APPLE-API-KEY`
+
+**Voice minute purchases differ by platform:**
+- **Android**: `in_app_purchase` plugin → Google Play Billing → `voice-purchase` function verifies with Google Play Developer API → credits 60 minutes directly
+- **iOS**: RevenueCat SDK (`Purchases.purchaseStoreProduct()`) → Apple StoreKit → RevenueCat server validates receipt → `subscription-webhook` fires with purchase event → credits 60 minutes via webhook handler
+
+This difference exists because Apple's StoreKit receipts cannot be verified by the Google Play Developer API — they're completely different validation systems.
+
 ### Components
 
 **Database Tables:**
@@ -488,9 +512,9 @@ Subscription management is handled via **RevenueCat** for unified subscription l
 - `subscription_events` - Audit log of all webhook events (includes raw payload)
 
 **Functions:**
-- `subscription-config` - Returns RevenueCat public API key for SDK initialization
+- `subscription-config` - Returns RevenueCat API keys for SDK initialization (Android + iOS)
 - `subscription-status` - Returns user's current subscription entitlement and status
-- `subscription-webhook` - Receives RevenueCat server-to-server notifications
+- `subscription-webhook` - Receives RevenueCat server-to-server notifications (both platforms)
 
 ### Webhook Event Handling
 
@@ -527,11 +551,12 @@ Subscription management is handled via **RevenueCat** for unified subscription l
 
 ### Authentication
 
-- **subscription-config**: JWT required (user must be authenticated)
+- **subscription-config**: JWT required (user must be authenticated). Returns platform-specific API keys
 - **subscription-status**: JWT required (returns current user's status)
 - **subscription-webhook**: RevenueCat signature verification (HMAC-SHA256)
   - No JWT - uses `X-RevenueCat-Webhook-Signature` header
   - Secret stored in Key Vault: `REVENUECAT-WEBHOOK-SECRET`
+  - Receives events from both Google Play and App Store purchases
 
 ## Today's Special Architecture (January 2026)
 
@@ -643,6 +668,8 @@ sequenceDiagram
   - Secret `AZURE-OPENAI-ENDPOINT`: Azure OpenAI endpoint
   - Secret `POSTGRES-CONNECTION-STRING`: PostgreSQL URI format
     - **CRITICAL**: Must use URI format `postgresql://user:pass@host/db?sslmode=require`
+  - Secret `REVENUECAT-PUBLIC-API-KEY`: RevenueCat Android API key (`goog_...`)
+  - Secret `REVENUECAT-APPLE-API-KEY`: RevenueCat iOS API key (`appl_...`)
 - **Function App**:
   - Environment variables for runtime configuration
   - API keys via Key Vault references: `@Microsoft.KeyVault(VaultName=kv-mybartenderai-prod;SecretName=...)`
@@ -792,8 +819,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 17, 2026
-**Architecture Version**: 4.1 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review)
+**Last Updated**: February 19, 2026
+**Architecture Version**: 4.2 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

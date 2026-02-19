@@ -28,8 +28,8 @@ const AUDIENCE = '04551003-a57c-4dc2-97a1-37e0b3d1a2f6';
 
 // Google Play configuration
 const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
-const PRODUCT_ID = 'voice_minutes_20';
-const SECONDS_PER_PURCHASE = 1200; // 20 minutes = 1200 seconds ($4.99 for double the value!)
+const PRODUCT_ID = 'voice_minutes_60';
+const MINUTES_PER_PURCHASE = 60;
 const PRICE_CENTS = 499; // $4.99
 
 // JWKS client for token validation
@@ -307,14 +307,15 @@ module.exports = async function (context, req) {
 
         console.log('Purchase verified successfully, order:', verification.orderId);
 
-        const minutesCredited = SECONDS_PER_PURCHASE / 60;
+        const minutesCredited = MINUTES_PER_PURCHASE;
+        const secondsPurchased = MINUTES_PER_PURCHASE * 60;
 
         // Insert into EXISTING voice_addon_purchases table (backward compat)
         await db.query(
             `INSERT INTO voice_addon_purchases
                 (user_id, seconds_purchased, price_cents, transaction_id, platform, purchased_at)
              VALUES ($1, $2, $3, $4, $5, NOW())`,
-            [internalUserId, SECONDS_PER_PURCHASE, PRICE_CENTS, purchaseToken, 'android']
+            [internalUserId, secondsPurchased, PRICE_CENTS, purchaseToken, 'android']
         );
 
         // Also update purchased balance on users table and record in new transactions table

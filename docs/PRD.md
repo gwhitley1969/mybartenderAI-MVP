@@ -2,7 +2,7 @@
 
 ## My AI Bartender
 
-**Document Version**: 3.1
+**Document Version**: 3.2
 **Last Updated**: February 16, 2026
 **Product Owner**: Gene Whitley
 **Status**: Release Candidate
@@ -301,7 +301,7 @@ All features below require an active subscription (3-day free trial available on
 
 - FR6.1: Purchase 60 minutes of voice AI for $4.99
 - FR6.2: Minutes never expire (carry over indefinitely)
-- FR6.3: Google Play Billing consumable purchase
+- FR6.3: Platform-native consumable purchase (Google Play Billing on Android, RevenueCat/StoreKit on iOS)
 - FR6.4: Included minutes consumed first, then purchased balance
 
 **User Stories**:
@@ -364,7 +364,8 @@ All features below require an active subscription (3-day free trial available on
   - `CLAUDE-API-KEY` - Anthropic Claude API key (Smart Scanner)
   - `POSTGRES-CONNECTION-STRING` - Database connection
   - `SOCIAL-ENCRYPTION-KEY` - Social sharing encryption
-  - `REVENUECAT-PUBLIC-API-KEY` - RevenueCat SDK initialization
+  - `REVENUECAT-PUBLIC-API-KEY` - RevenueCat Android SDK initialization (`goog_...`)
+  - `REVENUECAT-APPLE-API-KEY` - RevenueCat iOS SDK initialization (`appl_...`)
   - `REVENUECAT-WEBHOOK-SECRET` - Webhook signature verification
 
 #### AI Services
@@ -861,7 +862,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 #### Payment Security
 
-- Google Play Billing (PCI-compliant)
+- Google Play Billing (Android) and App Store (iOS) — both PCI-compliant
+- RevenueCat handles cross-platform receipt validation
 - No credit card data stored
 - Subscription receipts validated server-side
 
@@ -1019,13 +1021,15 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - ✅ Auto inventory updates
 - ✅ My Bar inventory management
 
-### Phase 4: iOS Launch (Q1 2026) - UPCOMING
+### Phase 4: iOS Launch (Q1 2026) - IN PROGRESS
 
 - ✅ iOS app development
-- 🚧 URL scheme configuration in Info.plist
 - ✅ Apple Sign-In integration
 - ✅ iOS-specific UI polish
-- 🚧 App Store optimization
+- ✅ RevenueCat cross-platform subscriptions (platform-aware API keys)
+- ✅ iOS voice minute purchases via RevenueCat SDK
+- 🚧 App Store product creation (subscriptions created, consumable pending)
+- 🚧 App Store optimization and TestFlight
 
 ### Phase 5: Social Features (Q3 2026)
 
@@ -1162,8 +1166,9 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | 2.1     | Dec 23, 2025 | Gene Whitley | Added subscription system (RevenueCat integration): Key Vault secrets, subscription management endpoints, voice-purchase endpoint                                                                                            |
 | 2.2     | Jan 1, 2026  | Gene Whitley | Added Today's Special feature with push notifications, deep linking, and idempotent scheduling                                                                                                                               |
 | 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 3-day trial with 20K tokens, 5 scans, 10 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
+| 3.2     | Feb 19, 2026 | Gene Whitley | Cross-platform subscription support: platform-aware RevenueCat API keys, iOS voice purchases via RevenueCat SDK, Apple API key in Key Vault, updated Phase 4 iOS status |
 
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: February 16, 2026
+**Last Updated**: February 19, 2026

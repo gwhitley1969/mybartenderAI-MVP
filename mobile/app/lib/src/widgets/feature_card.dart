@@ -5,7 +5,7 @@ import '../theme/app_spacing.dart';
 
 /// Feature Card Widget
 /// Large card with icon, title, and subtitle used on home screen
-/// Matches the design from mockups (Smart Scanner, Recipe Vault, etc.)
+/// Matches the design from mockups (Scan My Bar, Recipe Vault, etc.)
 class FeatureCard extends StatelessWidget {
   final IconData icon;
   final String title;

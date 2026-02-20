@@ -529,7 +529,7 @@ class _SubscriptionSheetState extends ConsumerState<_SubscriptionSheet> {
               // Feature list
               _buildFeatureRow(Icons.mic, 'Voice AI conversations'),
               _buildFeatureRow(Icons.auto_awesome, 'AI cocktail concierge'),
-              _buildFeatureRow(Icons.camera_alt, 'Smart Scanner'),
+              _buildFeatureRow(Icons.camera_alt, 'Scan My Bar'),
               _buildFeatureRow(Icons.local_bar, 'Unlimited cocktail access'),
               const SizedBox(height: 20),
 

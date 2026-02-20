@@ -98,7 +98,7 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
       for (final ingredient in _selectedIngredients) {
         await db.addToInventory(
           ingredient,
-          notes: 'Added via Smart Scanner',
+          notes: 'Added via Scan My Bar',
         );
       }
 
@@ -142,7 +142,7 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundPrimary,
       appBar: AppBar(
-        title: Text('Smart Scanner', style: AppTypography.heading2),
+        title: Text('Scan My Bar', style: AppTypography.heading2),
         backgroundColor: AppColors.backgroundSecondary,
       ),
       body: SingleChildScrollView(

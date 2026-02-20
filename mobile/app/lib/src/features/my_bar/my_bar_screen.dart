@@ -217,7 +217,7 @@ class MyBarScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             SizedBox(height: AppSpacing.xl),
-            // Two buttons side by side: Add manually or use Smart Scanner
+            // Two buttons side by side: Add manually or use Scan My Bar
             Padding(
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
               child: Row(
@@ -248,7 +248,7 @@ class MyBarScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  // Smart Scanner button
+                  // Scan My Bar button
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.only(left: AppSpacing.sm),

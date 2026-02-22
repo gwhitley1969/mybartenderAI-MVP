@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../exceptions/entitlement_exception.dart';
 import '../providers/backend_provider.dart';
 
 // Request models
@@ -161,22 +162,29 @@ class CreateStudioApi {
 
   /// Get AI refinement suggestions for a cocktail draft
   Future<RefinementResponse> refineCocktail(CocktailDraft cocktail) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/v1/create-studio/refine',
-      data: cocktail.toJson(),
-      options: Options(
-        headers: {
-          // Function key is added via FunctionKeyInterceptor in bootstrap.dart
-        },
-      ),
-    );
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/v1/create-studio/refine',
+        data: cocktail.toJson(),
+        options: Options(
+          headers: {
+            // Function key is added via FunctionKeyInterceptor in bootstrap.dart
+          },
+        ),
+      );
 
-    final data = response.data;
-    if (data == null) {
-      throw StateError('Expected response data but received null');
+      final data = response.data;
+      if (data == null) {
+        throw StateError('Expected response data but received null');
+      }
+
+      return RefinementResponse.fromJson(data);
+    } on DioException catch (e) {
+      if (e.error is EntitlementRequiredException) {
+        throw e.error as EntitlementRequiredException;
+      }
+      rethrow;
     }
-
-    return RefinementResponse.fromJson(data);
   }
 }
 

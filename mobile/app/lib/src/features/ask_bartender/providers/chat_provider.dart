@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/chat_message.dart';
+import '../../../exceptions/entitlement_exception.dart';
 import '../../../services/backend_service.dart';
 import '../../../providers/backend_provider.dart';
 import '../../../providers/inventory_provider.dart';
@@ -70,6 +71,18 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
           content: result.response,
           isUser: false,
           timestamp: DateTime.now(),
+        ),
+      ];
+    } on EntitlementRequiredException catch (_) {
+      state = [
+        ...state,
+        ChatMessage(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          content: 'A subscription is required to chat with the AI Bartender. Tap below to view plans.',
+          isUser: false,
+          timestamp: DateTime.now(),
+          isError: true,
+          isEntitlementRequired: true,
         ),
       ];
     } catch (e) {

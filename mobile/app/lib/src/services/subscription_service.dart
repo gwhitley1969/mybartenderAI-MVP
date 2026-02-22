@@ -236,8 +236,17 @@ class SubscriptionService {
     return _parseCustomerInfo(customerInfo);
   }
 
-  /// Refresh and emit current status
+  /// Refresh and emit current status.
+  ///
+  /// Invalidates RevenueCat's local customer-info cache first so the SDK
+  /// fetches fresh data from RevenueCat's server. This is called when the
+  /// backend disagrees with the local SDK state (e.g., 403 entitlement_required).
   Future<void> refreshStatus() async {
+    try {
+      await Purchases.invalidateCustomerInfoCache();
+    } catch (e) {
+      debugPrint('[SubscriptionService] invalidateCustomerInfoCache failed: $e');
+    }
     final status = await getStatus();
     _statusController.add(status);
   }

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'models/chat_message.dart';
 import 'providers/chat_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
+import '../subscription/subscription_sheet.dart';
 
 class AskBartenderScreen extends ConsumerStatefulWidget {
   const AskBartenderScreen({super.key});
@@ -100,7 +102,15 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
               itemCount: messages.length,
               itemBuilder: (context, index) {
                 final message = messages[index];
-                return _ChatMessageBubble(message: message);
+                return _ChatMessageBubble(
+                  message: message,
+                  onSubscribeTap: message.isEntitlementRequired
+                      ? () => showSubscriptionSheet(context,
+                              onPurchaseComplete: () {
+                            ref.invalidate(subscriptionStatusProvider);
+                          })
+                      : null,
+                );
               },
             ),
           ),
@@ -180,8 +190,9 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
 
 class _ChatMessageBubble extends StatelessWidget {
   final ChatMessage message;
+  final VoidCallback? onSubscribeTap;
 
-  const _ChatMessageBubble({required this.message});
+  const _ChatMessageBubble({required this.message, this.onSubscribeTap});
 
   @override
   Widget build(BuildContext context) {
@@ -271,6 +282,27 @@ class _ChatMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  if (onSubscribeTap != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: onSubscribeTap,
+                          icon: const Icon(Icons.star, size: 16),
+                          label: const Text('View Plans'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                 ],

@@ -5,11 +5,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../services/notification_service.dart';
+import '../../services/subscription_service.dart';
 import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../age_verification/age_verification_screen.dart';
 import '../home/providers/todays_special_provider.dart';
+import '../subscription/subscription_sheet.dart';
 import 'legal_webview_screen.dart';
 
 /// User profile screen
@@ -81,6 +84,12 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Help & Support'),
                   SizedBox(height: AppSpacing.md),
                   _buildHelpSupportCard(context),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Manage Subscription Section
+                  _buildSectionTitle('Manage Subscription'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildSubscriptionCard(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // Legal Section
@@ -665,6 +674,265 @@ class ProfileScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Widget _buildSubscriptionCard(BuildContext context, WidgetRef ref) {
+    final statusAsync = ref.watch(subscriptionStatusProvider);
+
+    return Container(
+      padding: EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: AppColors.cardBackground,
+        borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+        border: Border.all(
+          color: AppColors.cardBorder,
+          width: AppSpacing.borderWidthThin,
+        ),
+      ),
+      child: statusAsync.when(
+        loading: () => Padding(
+          padding: EdgeInsets.all(AppSpacing.lg),
+          child: Center(
+            child: CircularProgressIndicator(
+              color: AppColors.primaryPurple,
+            ),
+          ),
+        ),
+        error: (_, __) => Padding(
+          padding: EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: AppColors.error, size: 24),
+              SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  'Unable to load subscription info',
+                  style: AppTypography.bodyMedium.copyWith(
+                    color: AppColors.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        data: (status) {
+          if (status.isPaid) {
+            return _buildActiveSubscription(context, ref, status);
+          } else {
+            return _buildNoSubscription(context, ref);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildActiveSubscription(BuildContext context, WidgetRef ref, SubscriptionStatus status) {
+    final isTrialing = status.subscriptionStatus == 'trialing';
+    final badgeText = isTrialing ? 'TRIAL' : 'ACTIVE';
+    final badgeColor = isTrialing ? AppColors.warning : AppColors.success;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.card_membership, color: AppColors.iconCirclePurple, size: 24),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Text(
+                'Subscription',
+                style: AppTypography.bodyMedium.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                badgeText,
+                style: AppTypography.caption.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (status.expirationDate != null) ...[
+          SizedBox(height: AppSpacing.sm),
+          Padding(
+            padding: EdgeInsets.only(left: 40),
+            child: Text(
+              isTrialing
+                  ? 'Trial ends ${_formatDate(status.expirationDate!)}'
+                  : 'Renews ${_formatDate(status.expirationDate!)}',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+        SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => _launchManageSubscription(context, status.managementUrl),
+            icon: Icon(Icons.open_in_new, size: 16),
+            label: Text('Manage Subscription'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primaryPurple,
+              side: BorderSide(color: AppColors.primaryPurple),
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNoSubscription(BuildContext context, WidgetRef ref) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.card_membership, color: AppColors.textSecondary, size: 24),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'No Active Subscription',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Subscribe for Voice AI, Scan My Bar, and more',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: AppSpacing.md),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () {
+              showSubscriptionSheet(
+                context,
+                onPurchaseComplete: () {
+                  ref.invalidate(subscriptionStatusProvider);
+                },
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryPurple,
+              foregroundColor: AppColors.textPrimary,
+              padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Subscribe',
+              style: AppTypography.bodyMedium.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: AppSpacing.sm),
+        Center(
+          child: TextButton(
+            onPressed: () => _restorePurchases(context, ref),
+            child: Text(
+              'Restore Purchases',
+              style: AppTypography.caption.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _launchManageSubscription(BuildContext context, String? managementUrl) async {
+    if (managementUrl != null) {
+      final uri = Uri.parse(managementUrl);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        return;
+      }
+    }
+    // Fallback: open Play Store / App Store subscription management
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Open your device\'s app store to manage your subscription.'),
+          backgroundColor: AppColors.cardBackground,
+        ),
+      );
+    }
+  }
+
+  Future<void> _restorePurchases(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(subscriptionServiceProvider);
+    try {
+      final result = await service.restorePurchases();
+      if (context.mounted) {
+        if (result != null) {
+          ref.invalidate(subscriptionStatusProvider);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Purchases restored successfully!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('No purchases found to restore.'),
+              backgroundColor: AppColors.cardBackground,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Restore failed: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   Widget _buildSignOutButton(BuildContext context, WidgetRef ref) {

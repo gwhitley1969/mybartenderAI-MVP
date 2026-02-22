@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../services/backend_service.dart';
 import 'auth_provider.dart';
+import 'subscription_provider.dart';
 
 /// Provider for the BackendService singleton with JWT authentication
 ///
@@ -17,6 +18,15 @@ final backendServiceProvider = Provider<BackendService>((ref) {
       // ID token has correct audience for APIM JWT validation
       final authService = ref.read(authServiceProvider);
       return await authService.getValidIdToken();
+    },
+    onEntitlementRequired: () {
+      // Backend says "not entitled" — force RevenueCat to re-sync so
+      // isPaidProvider flips to false and the home-screen gate works.
+      ref.invalidate(subscriptionStatusProvider);
+      final service = ref.read(subscriptionServiceProvider);
+      if (service.isInitialized) {
+        service.refreshStatus();
+      }
     },
   );
 });

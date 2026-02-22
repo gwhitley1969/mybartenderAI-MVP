@@ -11,9 +11,24 @@ final subscriptionServiceProvider = Provider<SubscriptionService>((ref) {
 });
 
 /// Provider for the current subscription status (from stream)
-final subscriptionStatusProvider = StreamProvider<SubscriptionStatus>((ref) {
+///
+/// Uses an async* generator to always yield an initial value immediately,
+/// preventing the "forever spinner" when RevenueCat init fails.
+/// If the service is initialized, fetches real status first; otherwise yields none.
+final subscriptionStatusProvider = StreamProvider<SubscriptionStatus>((ref) async* {
   final service = ref.watch(subscriptionServiceProvider);
-  return service.statusStream;
+
+  // Always yield an initial value so the provider never stays in loading state
+  if (service.isInitialized) {
+    yield await service.getStatus();
+  } else {
+    yield SubscriptionStatus.none;
+  }
+
+  // Forward all future updates from RevenueCat
+  await for (final status in service.statusStream) {
+    yield status;
+  }
 });
 
 /// Provider for the current subscription status (one-time fetch)

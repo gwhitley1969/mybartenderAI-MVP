@@ -7,11 +7,13 @@ import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../api/create_studio_api.dart';
+import '../../exceptions/entitlement_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
 import '../../services/cocktail_photo_service.dart';
 import '../../services/review_service.dart';
 import '../../theme/theme.dart';
+import '../subscription/subscription_sheet.dart';
 import 'widgets/ingredient_list.dart';
 import 'widgets/refinement_dialog.dart';
 
@@ -668,6 +670,12 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
                 }
               : null,
         );
+      }
+    } on EntitlementRequiredException catch (_) {
+      if (mounted) {
+        showSubscriptionSheet(context, onPurchaseComplete: () {
+          ref.invalidate(subscriptionStatusProvider);
+        });
       }
     } catch (e) {
       if (mounted) {

@@ -2,11 +2,43 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 19, 2026
+**Last Updated**: February 22, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Multi-Layer 403 Entitlement Defense** (Feb 22): Implemented a 3-layer server-side entitlement enforcement system to replace the broken client-side subscription gate. Previously, unpaid users hitting a backend AI endpoint saw raw `DioException` errors. Now, 403 `entitlement_required` responses are caught, typed, and surfaced as clean paywall UI on each screen. Three layers:
+  1. **Layer 1 — Dio Interceptor** (`backend_service.dart`): `onError` handler inspects 403 responses for `{ error: 'entitlement_required' }`. Wraps in typed `EntitlementRequiredException` via `handler.reject()` so downstream code can catch by type instead of parsing HTTP status codes. Also invokes `onEntitlementRequired` callback (wired in `backend_provider.dart`) to trigger Layer 3.
+  2. **Layer 2 — Per-Screen Handlers**: Each AI feature screen catches `EntitlementRequiredException` and shows a contextual paywall:
+     - **Smart Scanner** (`smart_scanner_screen.dart`): Shows `showSubscriptionSheet()` modal
+     - **Create Studio** (`edit_cocktail_screen.dart`): Shows `showSubscriptionSheet()` modal during AI refinement
+     - **Ask Bartender** (`chat_provider.dart` + `ask_bartender_screen.dart`): Adds a `ChatMessage` with `isEntitlementRequired: true`, which renders a "View Plans" button inline in the chat bubble
+  3. **Layer 3 — RevenueCat State Sync** (`subscription_service.dart`): When a 403 fires, `Purchases.invalidateCustomerInfoCache()` marks the local RevenueCat cache as stale, then `refreshStatus()` fetches fresh entitlement data from RevenueCat servers. This corrects any client/server state divergence (sandbox expiry, manual DB override, init failure).
+
+  **Exception Unwrapping Pattern**: Dio wraps custom exceptions inside `DioException.error`. Each API class (`vision_api.dart`, `create_studio_api.dart`, `backend_service.dart:askBartender`) includes `if (e.error is EntitlementRequiredException) throw e.error as EntitlementRequiredException;` to unwrap before the per-screen handlers see it.
+
+  **New file:**
+  - `mobile/app/lib/src/exceptions/entitlement_exception.dart`: Typed exception class for 403 entitlement responses
+
+  **Files modified (mobile):**
+  - `mobile/app/lib/src/services/backend_service.dart`: Dio `onError` interceptor + `onEntitlementRequired` callback + `askBartender()` exception unwrap
+  - `mobile/app/lib/src/providers/backend_provider.dart`: Wired `onEntitlementRequired` to invalidate `subscriptionStatusProvider` and refresh RevenueCat
+  - `mobile/app/lib/src/services/subscription_service.dart`: Added `Purchases.invalidateCustomerInfoCache()` to `refreshStatus()`
+  - `mobile/app/lib/src/api/vision_api.dart`: Exception unwrap before 429 check
+  - `mobile/app/lib/src/api/create_studio_api.dart`: Exception unwrap in `refineCocktail()`
+  - `mobile/app/lib/src/features/smart_scanner/smart_scanner_screen.dart`: `on EntitlementRequiredException` catch → subscription sheet
+  - `mobile/app/lib/src/features/create_studio/edit_cocktail_screen.dart`: `on EntitlementRequiredException` catch → subscription sheet
+  - `mobile/app/lib/src/features/ask_bartender/models/chat_message.dart`: Added `isEntitlementRequired` boolean field
+  - `mobile/app/lib/src/features/ask_bartender/providers/chat_provider.dart`: `on EntitlementRequiredException` catch → CTA message
+  - `mobile/app/lib/src/features/ask_bartender/ask_bartender_screen.dart`: "View Plans" button on entitlement-required chat bubbles
+
+- **Build 12 Paywall Regression Fix** (Feb 22): Fixed critical bug where Build 12 showed the paywall on every feature tap, even for active subscribers. Build 11 worked correctly. Root cause: an uncommitted `_gatedNavigate()` function in `home_screen.dart` wrapped ALL feature navigation behind `isPaidProvider`, which reads from the RevenueCat SDK's local cache — NOT the backend PostgreSQL database. If RevenueCat didn't recognize the user as paid (init failure, stale cache, sandbox expiry, or manual DB override), every feature was blocked. Additionally, local-only features (Recipe Vault, My Bar, Favorites) that use the SQLite database and never call the backend were also incorrectly gated. Fix: Reverted `home_screen.dart` to the last committed version, removing `_gatedNavigate` entirely. The 3-layer 403 defense (see above) is the correct gating mechanism — it lets users navigate freely and only shows the paywall when the backend actually returns a 403.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Removed `_gatedNavigate()`, restored direct `onTap: () => context.go(...)` navigation on all feature tiles
+
+- **Beta Tester Database Update** (Feb 22): Updated 3 beta tester accounts in PostgreSQL (`pg-mybartenderdb`) to active subscriber status so they can test all features. Set `entitlement = 'paid'`, `subscription_status = 'active'`, `tier = 'pro'` for genewhitley2017@gmail.com, genewhitley@me.com, and pwhitley@me.com. Left pwhitley@xtend-ai.com (Paula A Whitley) as `entitlement = 'none'`, `subscription_status = 'none'`, `tier = 'free'` to serve as a test account for verifying the unpaid user paywall experience. No code changes — database-only update.
 
 - **RevenueCat Cross-Platform Setup — Backend + Flutter Code Changes** (Feb 19): Implemented platform-aware RevenueCat initialization for both Google Play and Apple App Store, fixed voice-purchase product ID mismatch, and stored iOS API key in Azure Key Vault. Store-side product creation (Google Play Console, App Store Connect) and RevenueCat dashboard configuration (entitlements, offerings, product mapping) remain manual steps — see `docs/REVENUECAT_PLAN.md` for the full checklist.
 
@@ -923,4 +955,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 19, 2026
+**Last Updated**: February 22, 2026

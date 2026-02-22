@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dio/dio.dart';
+import '../exceptions/entitlement_exception.dart';
 
 class VisionApi {
   final Dio _dio;
@@ -26,6 +27,9 @@ class VisionApi {
 
       return VisionAnalysisResponse.fromJson(response.data!);
     } on DioException catch (e) {
+      if (e.error is EntitlementRequiredException) {
+        throw e.error as EntitlementRequiredException;
+      }
       if (e.response?.statusCode == 429) {
         final data = e.response?.data;
         final quota = data is Map<String, dynamic> ? data['quota'] : null;

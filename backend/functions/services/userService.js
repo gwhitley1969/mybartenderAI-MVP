@@ -119,19 +119,19 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
             };
         }
 
-        // User doesn't exist - create with default 'pro' tier + 'paid' entitlement (beta testing)
+        // User doesn't exist - create with 'free' tier (RevenueCat webhook upgrades on purchase)
         log(`[UserService] Creating new user for sub: ${azureAdSub.substring(0, 8)}...`);
 
         const insertResult = await pool.query(
             `INSERT INTO users (azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, updated_at, last_login_at)
-             VALUES ($1, 'pro', 'paid', 'active', $2, $3, NOW(), NOW(), NOW())
+             VALUES ($1, 'free', 'none', 'none', $2, $3, NOW(), NOW(), NOW())
              RETURNING id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at`,
             [azureAdSub, email, displayName]
         );
 
         const newUser = insertResult.rows[0];
 
-        log(`[UserService] Created new user: ${newUser.id}, tier: pro, entitlement: paid`);
+        log(`[UserService] Created new user: ${newUser.id}, tier: free, entitlement: none`);
 
         return {
             id: newUser.id,

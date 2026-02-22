@@ -247,8 +247,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _subscriptionService.initialize(userId, _backendService);
       developer.log('RevenueCat initialized for user', name: 'AuthNotifier');
     } catch (e) {
-      // Log but don't fail auth - subscription is non-critical for app usage
-      developer.log('RevenueCat initialization error (non-fatal): $e', name: 'AuthNotifier');
+      // Log the FULL error for debugging - don't silently swallow
+      developer.log(
+        'RevenueCat initialization failed: $e',
+        name: 'AuthNotifier',
+        level: 900, // Warning level
+      );
+      // Don't fail auth — subscription is non-critical for app startup.
+      // The subscription provider will yield SubscriptionStatus.none
+      // and the UI will show "Subscribe" state. If the user taps Subscribe,
+      // the subscription sheet will attempt lazy re-initialization.
     }
   }
 }

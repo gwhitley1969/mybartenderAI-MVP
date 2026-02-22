@@ -3,14 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
 import '../../api/vision_api.dart';
+import '../../exceptions/entitlement_exception.dart';
 import '../../providers/cocktail_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/review_provider.dart';
+import '../../providers/subscription_provider.dart';
 import '../../providers/vision_provider.dart';
 import '../../services/review_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
 import '../../theme/app_typography.dart';
+import '../subscription/subscription_sheet.dart';
 
 class SmartScannerScreen extends ConsumerStatefulWidget {
   const SmartScannerScreen({super.key});
@@ -71,6 +74,12 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
           }
         }
       });
+    } on EntitlementRequiredException catch (_) {
+      if (mounted) {
+        showSubscriptionSheet(context, onPurchaseComplete: () {
+          ref.invalidate(subscriptionStatusProvider);
+        });
+      }
     } on VisionQuotaExceededException catch (e) {
       if (e.isTrial) {
         _showError('You\'ve used all ${e.limit} trial scans. Subscribe to get 100 scans per month.');

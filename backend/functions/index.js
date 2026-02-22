@@ -52,16 +52,25 @@ app.http('ask-bartender-simple', {
         }
 
         try {
-            // Fire-and-forget: sync user profile from JWT
+            // Entitlement gate: require active subscription
             const userId = request.headers.get('x-user-id');
             const authHeader = request.headers.get('authorization');
             const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
             const effectiveUserId = userId || jwtClaims?.sub;
-            if (effectiveUserId) {
-                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
-                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
-                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
+
+            if (!effectiveUserId) {
+                return { status: 401, headers, jsonBody: { success: false, error: 'unauthorized' } };
+            }
+
+            const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+            const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+            const user = await getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName });
+
+            if (user.entitlement !== 'paid') {
+                return { status: 403, headers, jsonBody: {
+                    success: false, error: 'entitlement_required',
+                    message: 'Active subscription required.'
+                }};
             }
 
             // Check for API key
@@ -730,6 +739,29 @@ app.http('ask-bartender', {
             };
         }
 
+        // Entitlement gate: require active subscription
+        {
+            const userId = request.headers.get('x-user-id');
+            const authHeader = request.headers.get('authorization');
+            const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
+            const effectiveUserId = userId || jwtClaims?.sub;
+
+            if (!effectiveUserId) {
+                return { status: 401, headers: { 'Content-Type': 'application/json' }, jsonBody: { success: false, error: 'unauthorized' } };
+            }
+
+            const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+            const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+            const user = await getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName });
+
+            if (user.entitlement !== 'paid') {
+                return { status: 403, headers: { 'Content-Type': 'application/json' }, jsonBody: {
+                    success: false, error: 'entitlement_required',
+                    message: 'Active subscription required.'
+                }};
+            }
+        }
+
         const traceId = getOrCreateTraceId(request);
 
         trackEvent(context, traceId, 'ask-bartender.request.received', {
@@ -1075,16 +1107,25 @@ app.http('voice-bartender', {
         }
 
         try {
-            // Fire-and-forget: sync user profile from JWT
+            // Entitlement gate: require active subscription
             const userId = request.headers.get('x-user-id');
             const authHeader = request.headers.get('authorization');
             const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
             const effectiveUserId = userId || jwtClaims?.sub;
-            if (effectiveUserId) {
-                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
-                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
-                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
+
+            if (!effectiveUserId) {
+                return { status: 401, headers, jsonBody: { success: false, error: 'unauthorized' } };
+            }
+
+            const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+            const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+            const user = await getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName });
+
+            if (user.entitlement !== 'paid') {
+                return { status: 403, headers, jsonBody: {
+                    success: false, error: 'entitlement_required',
+                    message: 'Active subscription required.'
+                }};
             }
 
             // Check for required Azure Speech Services configuration
@@ -1584,16 +1625,25 @@ app.http('refine-cocktail', {
         }
 
         try {
-            // Fire-and-forget: sync user profile from JWT
+            // Entitlement gate: require active subscription
             const userId = request.headers.get('x-user-id');
             const authHeader = request.headers.get('authorization');
             const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
             const effectiveUserId = userId || jwtClaims?.sub;
-            if (effectiveUserId) {
-                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
-                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
-                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
+
+            if (!effectiveUserId) {
+                return { status: 401, headers, jsonBody: { success: false, error: 'unauthorized' } };
+            }
+
+            const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+            const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+            const user = await getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName });
+
+            if (user.entitlement !== 'paid') {
+                return { status: 403, headers, jsonBody: {
+                    success: false, error: 'entitlement_required',
+                    message: 'Active subscription required.'
+                }};
             }
 
             // Check for API key
@@ -1786,16 +1836,25 @@ app.http('vision-analyze', {
         }
 
         try {
-            // Fire-and-forget: sync user profile from JWT
+            // Entitlement gate: require active subscription
             const userId = request.headers.get('x-user-id');
             const authHeader = request.headers.get('authorization');
             const jwtClaims = !userId && authHeader ? decodeJwtClaims(authHeader) : null;
             const effectiveUserId = userId || jwtClaims?.sub;
-            if (effectiveUserId) {
-                const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
-                const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
-                getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName })
-                    .catch(err => context.warn(`[Profile] Non-blocking sync failed: ${err.message}`));
+
+            if (!effectiveUserId) {
+                return { status: 401, headers, jsonBody: { success: false, error: 'unauthorized' } };
+            }
+
+            const userEmail = request.headers.get('x-user-email') || jwtClaims?.email || null;
+            const userName = request.headers.get('x-user-name') || jwtClaims?.name || null;
+            const user = await getOrCreateUser(effectiveUserId, context, { email: userEmail, displayName: userName });
+
+            if (user.entitlement !== 'paid') {
+                return { status: 403, headers, jsonBody: {
+                    success: false, error: 'entitlement_required',
+                    message: 'Active subscription required.'
+                }};
             }
 
             // Validate request

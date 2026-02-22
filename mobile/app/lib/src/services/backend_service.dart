@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import '../exceptions/entitlement_exception.dart';
 
 /// Backend service for API communication
 ///
@@ -14,6 +15,7 @@ class BackendService {
   late final Dio _dio;
   final String baseUrl;
   final Future<String?> Function()? getIdToken;
+  final void Function()? onEntitlementRequired;
 
   /// Expose Dio instance for services that need direct access
   Dio get dio => _dio;
@@ -21,6 +23,7 @@ class BackendService {
   BackendService({
     required this.baseUrl,
     this.getIdToken,
+    this.onEntitlementRequired,
   }) {
     _dio = Dio(BaseOptions(
       baseUrl: baseUrl,
@@ -87,6 +90,26 @@ class BackendService {
             print('BackendService: Response status: ${error.response?.statusCode}');
             print('BackendService: Response data: ${error.response?.data}');
             print('BackendService: Path: ${error.requestOptions.path}');
+
+            // Catch 403 entitlement_required → typed exception + RevenueCat sync
+            if (error.response?.statusCode == 403) {
+              final data = error.response?.data;
+              if (data is Map<String, dynamic> &&
+                  data['error'] == 'entitlement_required') {
+                onEntitlementRequired?.call();
+                handler.reject(DioException(
+                  requestOptions: error.requestOptions,
+                  response: error.response,
+                  type: error.type,
+                  error: EntitlementRequiredException(
+                    data['message'] as String? ??
+                        'Active subscription required.',
+                  ),
+                ));
+                return;
+              }
+            }
+
             handler.next(error);
           },
         ),
@@ -191,6 +214,11 @@ class BackendService {
         },
       );
       return AskBartenderResponse.fromJson(response.data);
+    } on DioException catch (e) {
+      if (e.error is EntitlementRequiredException) {
+        throw e.error as EntitlementRequiredException;
+      }
+      throw Exception('Failed to ask bartender: $e');
     } catch (e) {
       throw Exception('Failed to ask bartender: $e');
     }

@@ -6,6 +6,7 @@ class ChatMessage {
   final DateTime timestamp;
   final bool isLoading;
   final bool isError;
+  final bool isEntitlementRequired;
 
   ChatMessage({
     required this.id,
@@ -14,6 +15,7 @@ class ChatMessage {
     required this.timestamp,
     this.isLoading = false,
     this.isError = false,
+    this.isEntitlementRequired = false,
   });
 
   ChatMessage copyWith({
@@ -23,6 +25,7 @@ class ChatMessage {
     DateTime? timestamp,
     bool? isLoading,
     bool? isError,
+    bool? isEntitlementRequired,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -31,6 +34,7 @@ class ChatMessage {
       timestamp: timestamp ?? this.timestamp,
       isLoading: isLoading ?? this.isLoading,
       isError: isError ?? this.isError,
+      isEntitlementRequired: isEntitlementRequired ?? this.isEntitlementRequired,
     );
   }
 }

@@ -6,7 +6,7 @@ This document details the iOS-specific configuration and implementation for My A
 
 **Status**: Ready (January 2026)
 **Tested**: Physical iPhone device with successful authentication flow
-**Last Updated**: January 26, 2026
+**Last Updated**: February 23, 2026
 
 ---
 
@@ -909,5 +909,58 @@ See `ENTRA_REFRESH_TOKEN_WORKAROUND.md` for complete documentation.
 
 ---
 
-**Last Updated**: January 26, 2026
+## Branded Splash Screen
+
+### Overview
+
+Added a branded native splash screen using the `flutter_native_splash` package (February 2026). Replaces the default white placeholder launch image with the app icon centered on the primary purple brand background (`#7C3AED`). This cleared the Xcode build warning: "Launch image is set to the default placeholder icon."
+
+### Configuration
+
+The splash screen is configured entirely in `pubspec.yaml` — no manual Xcode/storyboard editing required:
+
+```yaml
+# In mobile/app/pubspec.yaml
+flutter_native_splash:
+  color: "#7C3AED"
+  image: assets/icon/icon.png
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    color: "#7C3AED"
+    image: assets/icon/icon.png
+```
+
+### How It Works (iOS)
+
+The generator (`dart run flutter_native_splash:create`) produces three properly sized PNG files in `ios/Runner/Assets.xcassets/LaunchImage.imageset/`:
+
+| File | Scale | Purpose |
+|------|-------|---------|
+| `LaunchImage.png` | 1x | Older/lower-resolution devices |
+| `LaunchImage@2x.png` | 2x | Standard Retina displays |
+| `LaunchImage@3x.png` | 3x | iPhone Plus/Max/Pro displays |
+
+Each image composites the app icon onto the purple background as a single raster PNG. iOS renders this **natively** before any Dart code executes — it's baked into the launch asset, not drawn by Flutter at runtime.
+
+The existing `LaunchScreen.storyboard` references the `LaunchImage` asset set, so no storyboard changes are needed.
+
+### Regenerating
+
+If the icon or brand color changes, regenerate the splash assets:
+
+```bash
+cd mobile/app
+dart run flutter_native_splash:create
+```
+
+### Dependencies
+
+- `flutter_native_splash: ^2.4.4` (dev dependency — adds zero bytes to final app bundle)
+
+---
+
+**Last Updated**: February 23, 2026
 **Implementation Status**: Complete and Tested

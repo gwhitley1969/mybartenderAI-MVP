@@ -106,6 +106,7 @@ dev_dependencies:
   freezed: ^2.5.7
   json_serializable: ^6.9.1
   flutter_launcher_icons: ^0.13.1
+  flutter_native_splash: ^2.4.4
   riverpod_generator: ^2.4.0  # For subscription provider code generation
 
 # For information on the generic Dart part of this file, see the
@@ -160,3 +161,15 @@ flutter_launcher_icons:
   image_path: "assets/icon/icon.png"
   adaptive_icon_background: "#7C3AED"
   adaptive_icon_foreground: "assets/icon/icon_foreground.png"
+
+# Configuration for flutter_native_splash
+flutter_native_splash:
+  color: "#7C3AED"
+  image: assets/icon/icon.png
+  android: true
+  ios: true
+  web: false
+
+  android_12:
+    color: "#7C3AED"
+    image: assets/icon/icon.png

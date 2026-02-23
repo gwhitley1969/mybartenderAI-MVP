@@ -8,6 +8,22 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Branded Splash Screen** (Feb 23): Added a branded native splash screen for both iOS and Android using the `flutter_native_splash` package. Replaces the default white placeholder launch image with the app icon centered on the primary purple brand background (`#7C3AED`). This clears the Xcode build warning about the default placeholder launch image. Configuration is YAML-driven in `pubspec.yaml` — the generator produces all native assets automatically (iOS `LaunchImage.imageset` PNGs, Android drawable XMLs, Android 12+ splash styles).
+
+  **New dependency (dev):**
+  - `flutter_native_splash: ^2.4.4`
+
+  **Files modified:**
+  - `mobile/app/pubspec.yaml`: Added `flutter_native_splash` dev dependency and `flutter_native_splash:` configuration section
+
+  **Auto-generated files:**
+  - `mobile/app/ios/Runner/Assets.xcassets/LaunchImage.imageset/`: Replaced placeholder PNGs with branded icon-on-purple images (1x, 2x, 3x)
+  - `mobile/app/android/app/src/main/res/drawable/launch_background.xml`: Updated with splash image reference
+  - `mobile/app/android/app/src/main/res/drawable-v21/launch_background.xml`: Updated for Android 5+
+  - `mobile/app/android/app/src/main/res/values-v31/styles.xml`: New — Android 12+ splash screen styles
+  - `mobile/app/android/app/src/main/res/values-night-v31/styles.xml`: New — Android 12+ dark mode splash styles
+  - `mobile/app/android/app/src/main/res/drawable-*/`: Splash image density variants
+
 - **Deep Link Domain Verification Fix** (Feb 23): Fixed Google Play Console reporting 2 unverified domains and 2 broken deep links. Three root causes addressed:
   1. **Split AndroidManifest intent-filters**: Custom scheme (`mybartender://`) and HTTPS App Link were combined in a single `<intent-filter>`, causing Android's Cartesian product behavior to generate a phantom `cocktail` domain entry. Split into two separate intent-filters — one for custom scheme (no verification), one for HTTPS with `autoVerify="true"`.
   2. **Created `assetlinks.json` endpoint**: Added new `well-known-assetlinks` Azure Function serving Digital Asset Links JSON at `/.well-known/assetlinks.json` with correct package name (`ai.mybartender.mybartenderai`) and SHA-256 signing certificate fingerprint. Configured via:

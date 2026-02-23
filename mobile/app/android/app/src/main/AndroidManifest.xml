@@ -47,19 +47,22 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
 
-            <!-- Deep linking for shared cocktails -->
+            <!-- Custom scheme deep links (no verification needed) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mybartender"
+                      android:host="cocktail" />
+            </intent-filter>
+
+            <!-- HTTPS App Links (autoVerify requires assetlinks.json) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-
-                <!-- Deep link scheme for app-to-app navigation -->
-                <data android:scheme="mybartender"
-                      android:host="cocktail" />
-
-                <!-- App Links for web URLs (social sharing) -->
                 <data android:scheme="https"
-                      android:host="fd-mba-share.azurefd.net"
+                      android:host="share.mybartenderai.com"
                       android:pathPrefix="/cocktail" />
             </intent-filter>
         </activity>

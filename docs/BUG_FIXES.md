@@ -784,6 +784,48 @@ See `VOICE_AI_DEPLOYED.md` "Client-Side State Guard Fix" section for full detail
 
 ---
 
+## BUG-013: Deep Link Domain Verification Failures
+
+**Date Fixed**: February 23, 2026
+**Severity**: Medium
+**Component**: Android Manifest + Backend (Azure Functions / Front Door / APIM)
+
+### Problem
+
+Google Play Console reported 2 domains not verified and 2 links not working for the `/cocktail` deep link path. Users clicking shared cocktail links on Android would not be routed to the app.
+
+### Root Causes
+
+1. **Intent-filter Cartesian product**: The AndroidManifest combined a custom scheme (`mybartender://cocktail`) and an HTTPS App Link (`https://share.mybartenderai.com/cocktail/...`) in a single `<intent-filter>`. Android generates all possible combinations of `<data>` elements within one filter, creating phantom domain entries (e.g., `mybartender://share.mybartenderai.com` and `https://cocktail`). The phantom `cocktail` "domain" failed verification.
+
+2. **Missing `assetlinks.json`**: Android App Links verification requires a Digital Asset Links JSON file at `https://<domain>/.well-known/assetlinks.json`. No such file was hosted on `share.mybartenderai.com`.
+
+3. **Wrong package name**: The `cocktail-preview` function used `com.mybartenderai.app` instead of `ai.mybartender.mybartenderai` in the `al:android:package` meta tag and Google Play Store links.
+
+### Fix
+
+1. **Split intent-filters** in `AndroidManifest.xml`: Custom scheme filter (no `autoVerify`) and HTTPS App Link filter (with `autoVerify="true"`) are now separate, eliminating the Cartesian product.
+
+2. **Created `well-known-assetlinks` Azure Function**: Returns the Digital Asset Links JSON with correct package name and SHA-256 signing certificate fingerprint. Routed via:
+   - New APIM operation for the path
+   - New Front Door dedicated route `route-well-known` (`/.well-known/*` → APIM with `/api` origin path)
+   - Fallback `WellKnownRewrite` rule set on `route-default`
+
+3. **Fixed package name** in `cocktail-preview/index.js`: All 3 occurrences corrected to `ai.mybartender.mybartenderai`.
+
+### Files Modified
+
+- `mobile/app/android/app/src/main/AndroidManifest.xml`
+- `backend/functions/index.js`
+- `backend/functions/cocktail-preview/index.js`
+
+### Verification
+
+- `https://share.mybartenderai.com/.well-known/assetlinks.json` returns valid JSON with HTTP 200
+- Phantom `cocktail` domain no longer generated in Play Console after AAB upload
+
+---
+
 ## BUG-002: Voice AI Background Noise Sensitivity
 
 **Date Fixed**: December 2025 - January 2026 (iterative)
@@ -808,4 +850,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 16, 2026
+**Last Updated**: February 23, 2026

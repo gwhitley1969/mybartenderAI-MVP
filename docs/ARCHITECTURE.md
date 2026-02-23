@@ -4,7 +4,7 @@
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter) - Android and iOS
 - Azure API Management (`apim-mba-002`) as API gateway for entitlement management and security
-- **Azure Functions v4 Programming Model** - 35 functions with code-centric registration
+- **Azure Functions v4 Programming Model** - 36 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features (except for "**Scan My Bar**", uses **Anthropic's Haiku**)
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
@@ -13,7 +13,8 @@
 - **Managed Identity** for Key Vault and Storage access
 - All free features run locally on device (offline-first)
 - Mobile → Azure Front Door (`share.mybartenderai.com`) → APIM (`apim-mba-002`) → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
-- Azure Front Door (`fd-mba-share`) provides the custom domain entry point, DDoS protection, and also serves the public cocktail preview for social sharing
+- Azure Front Door (`fd-mba-share`) provides the custom domain entry point, DDoS protection, serves the public cocktail preview for social sharing, and hosts `assetlinks.json` for Android App Links domain verification
+  - Routes: `route-default` (`/*` → static website), `route-api` (`/api/*` → APIM), `route-well-known` (`/.well-known/*` → APIM with `/api` origin path)
 
 ## Current Operational Status (February 2026)
 
@@ -148,9 +149,9 @@ sequenceDiagram
 
 ### Overview
 
-All 35 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
+All 36 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
 
-### Function Catalog (35 Total)
+### Function Catalog (36 Total)
 
 **Core & Health (1)**
 - `health` - Health check endpoint (GET /api/health)
@@ -195,6 +196,11 @@ All 35 functions use the Azure Functions v4 programming model with code-centric 
 
 **Voice Purchase (1)**
 - `voice-purchase` - Purchase voice minutes — Android only, validates `voice_minutes_60` product via Google Play API (POST /api/v1/voice/purchase). iOS voice purchases route through RevenueCat SDK → webhook instead
+
+**Deep Link Verification (1)**
+- `well-known-assetlinks` - Android App Links Digital Asset Links (GET /api/.well-known/assetlinks.json)
+  - Anonymous access, returns JSON with package name and SHA-256 signing certificate
+  - Served at `https://share.mybartenderai.com/.well-known/assetlinks.json` via Front Door `route-well-known`
 
 **Testing & Utilities (5)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
@@ -242,7 +248,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 ```
 
 **Migration Status:**
-- ✅ 35 functions deployed and operational
+- ✅ 36 functions deployed and operational
 - ⚠️ 1 function (speech-token) has configuration issue unrelated to migration
 
 ## AI Model & Cost Strategy
@@ -336,7 +342,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Authentication**: JWT validation via APIM policy (subscriptionRequired: false)
 - Rate limiting based on user entitlement (checked in backend)
 - Caching for read-heavy endpoints (`/v1/snapshots/latest`)
-- **Public Endpoints** (5): health, snapshots-latest, cocktail-preview, subscription-webhook, social-connect-callback (no JWT required)
+- **Public Endpoints** (6): health, snapshots-latest, cocktail-preview, well-known-assetlinks, subscription-webhook, social-connect-callback (no JWT required)
 - **Protected Endpoints** (13): All AI, subscription, scanner, voice, social, and auth endpoints (JWT required via `validate-jwt` policy)
 - **Previously Protected** (17): Voice session/quota/purchase/usage, users-me, social internal/inbox/outbox/invite, validate-age (JWT via earlier Portal deployment)
 
@@ -638,7 +644,7 @@ sequenceDiagram
   - JWT-only authentication (APIM validates JWT via policy)
   - Server-side entitlement validation in PostgreSQL
   - Rate limiting based on user entitlement
-  - **Azure Functions v4 Programming Model**: All 35 functions deployed
+  - **Azure Functions v4 Programming Model**: All 36 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
   - **RevenueCat Subscriptions**: Webhook-based subscription management
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role
@@ -819,8 +825,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 19, 2026
-**Architecture Version**: 4.2 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP)
+**Last Updated**: February 23, 2026
+**Architecture Version**: 4.3 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation

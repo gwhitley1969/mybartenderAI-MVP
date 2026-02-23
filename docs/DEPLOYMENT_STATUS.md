@@ -2,11 +2,32 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 22, 2026
+**Last Updated**: February 23, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Deep Link Domain Verification Fix** (Feb 23): Fixed Google Play Console reporting 2 unverified domains and 2 broken deep links. Three root causes addressed:
+  1. **Split AndroidManifest intent-filters**: Custom scheme (`mybartender://`) and HTTPS App Link were combined in a single `<intent-filter>`, causing Android's Cartesian product behavior to generate a phantom `cocktail` domain entry. Split into two separate intent-filters — one for custom scheme (no verification), one for HTTPS with `autoVerify="true"`.
+  2. **Created `assetlinks.json` endpoint**: Added new `well-known-assetlinks` Azure Function serving Digital Asset Links JSON at `/.well-known/assetlinks.json` with correct package name (`ai.mybartender.mybartenderai`) and SHA-256 signing certificate fingerprint. Configured via:
+     - New APIM operation (`well-known-assetlinks`) for the path
+     - New Front Door dedicated route (`route-well-known`) matching `/.well-known/*` → `og-apim` origin group with `/api` origin path
+     - Also added `WellKnownRewrite` rule set on `route-default` as fallback
+  3. **Fixed Android package name**: Corrected all 3 occurrences of `com.mybartenderai.app` → `ai.mybartender.mybartenderai` in `cocktail-preview/index.js` (meta tag, Google Play links).
+
+  **Files modified:**
+  - `mobile/app/android/app/src/main/AndroidManifest.xml`: Split combined intent-filter into two
+  - `backend/functions/index.js`: Added `well-known-assetlinks` function registration
+  - `backend/functions/cocktail-preview/index.js`: Fixed package name (3 occurrences)
+  - `mobile/app/pubspec.yaml`: Build number 12 → 13
+
+  **Azure infrastructure changes:**
+  - Deployed updated functions to `func-mba-fresh`
+  - Created APIM operation for `/.well-known/assetlinks.json`
+  - Created Front Door route `route-well-known` (`/.well-known/*` → `og-apim`)
+  - Created Front Door rule set `WellKnownRewrite` with URL rewrite rule on `route-default`
+  - Verified: `https://share.mybartenderai.com/.well-known/assetlinks.json` returns valid JSON
 
 - **Multi-Layer 403 Entitlement Defense** (Feb 22): Implemented a 3-layer server-side entitlement enforcement system to replace the broken client-side subscription gate. Previously, unpaid users hitting a backend AI endpoint saw raw `DioException` errors. Now, 403 `entitlement_required` responses are caught, typed, and surfaced as clean paywall UI on each screen. Three layers:
   1. **Layer 1 — Dio Interceptor** (`backend_service.dart`): `onError` handler inspects 403 responses for `{ error: 'entitlement_required' }`. Wraps in typed `EntitlementRequiredException` via `handler.reject()` so downstream code can catch by type instead of parsing HTTP status codes. Also invokes `onEntitlementRequired` callback (wired in `backend_provider.dart`) to trigger Layer 3.
@@ -955,4 +976,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 22, 2026
+**Last Updated**: February 23, 2026

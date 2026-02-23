@@ -2561,6 +2561,37 @@ app.timer('voice-session-cleanup', {
 // });
 
 // =============================================================================
+// 28a. Well-Known Asset Links - GET /.well-known/assetlinks.json
+// Android App Links domain verification (served via Front Door rewrite)
+// Front Door rule: /.well-known/assetlinks.json → /api/.well-known/assetlinks.json
+// =============================================================================
+app.http('well-known-assetlinks', {
+    methods: ['GET'],
+    authLevel: 'anonymous',
+    route: '.well-known/assetlinks.json',
+    handler: async (request, context) => {
+        context.log('Asset Links - serving assetlinks.json');
+        return {
+            status: 200,
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'public, max-age=86400'
+            },
+            jsonBody: [{
+                relation: ['delegate_permission/common.handle_all_urls'],
+                target: {
+                    namespace: 'android_app',
+                    package_name: 'ai.mybartender.mybartenderai',
+                    sha256_cert_fingerprints: [
+                        '86:30:63:45:8F:D2:A3:7E:4A:0C:0F:52:7A:67:36:0C:85:0C:5C:CF:E5:57:B6:7B:EA:EC:79:EC:06:00:6F:AD'
+                    ]
+                }
+            }]
+        };
+    }
+});
+
+// =============================================================================
 // 28. Cocktail Preview - GET /cocktail/{id}
 // For social sharing with Open Graph tags
 // URL: https://share.mybartenderai.com/cocktail/{id}

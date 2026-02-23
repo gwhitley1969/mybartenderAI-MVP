@@ -1094,6 +1094,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 **Public (No Auth)**:
 
 - `GET /api/v1/cocktails/preview/{id}` - Public cocktail preview (for sharing)
+- `GET /api/.well-known/assetlinks.json` - Android App Links domain verification (served at `/.well-known/assetlinks.json` via Front Door route rewrite)
 - `GET /api/health` - Health check
 
 **Authenticated (JWT Required)**:
@@ -1167,8 +1168,9 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | 2.2     | Jan 1, 2026  | Gene Whitley | Added Today's Special feature with push notifications, deep linking, and idempotent scheduling                                                                                                                               |
 | 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 3-day trial with 20K tokens, 5 scans, 10 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
 | 3.2     | Feb 19, 2026 | Gene Whitley | Cross-platform subscription support: platform-aware RevenueCat API keys, iOS voice purchases via RevenueCat SDK, Apple API key in Key Vault, updated Phase 4 iOS status |
+| 3.3     | Feb 23, 2026 | Gene Whitley | Added `assetlinks.json` public endpoint for Android App Links domain verification |
 
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: February 19, 2026
+**Last Updated**: February 23, 2026

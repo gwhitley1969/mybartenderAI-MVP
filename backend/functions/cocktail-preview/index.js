@@ -124,7 +124,7 @@ function generatePreviewPage(cocktail) {
 
     <!-- Deep Linking for Mobile Apps -->
     <meta property="al:android:url" content="mybartender://cocktail/${cocktail.id}">
-    <meta property="al:android:package" content="com.mybartenderai.app">
+    <meta property="al:android:package" content="ai.mybartender.mybartenderai">
     <meta property="al:android:app_name" content="My AI Bartender">
     <meta property="al:ios:url" content="mybartender://cocktail/${cocktail.id}">
     <meta property="al:ios:app_store_id" content="YOUR_APP_STORE_ID">
@@ -338,7 +338,7 @@ function generatePreviewPage(cocktail) {
         <div class="app-promo">
             <p class="app-promo-text">Get My AI Bartender for more recipes, AI recommendations, and bar inventory tracking!</p>
             <div class="store-buttons">
-                <a href="https://play.google.com/store/apps/details?id=com.mybartenderai.app" class="store-button">
+                <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="store-button">
                     Google Play
                 </a>
                 <a href="https://apps.apple.com/app/idYOUR_APP_STORE_ID" class="store-button">
@@ -409,7 +409,7 @@ function generateErrorPage(message, errorCode = null) {
         <h1>🍹 My AI Bartender</h1>
         <p>${escapeHtml(message)}</p>
         ${errorCode ? `<p class="error-code">Error Code: ${escapeHtml(errorCode)}</p>` : ''}
-        <a href="https://play.google.com/store/apps/details?id=com.mybartenderai.app" class="home-button">
+        <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="home-button">
             Get the App
         </a>
     </div>

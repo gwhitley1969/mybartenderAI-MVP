@@ -8,6 +8,43 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Email Population Fix — Entra Token + Flutter Headers** (Feb 24): Fixed the `email` column in the `users` table being NULL for all users despite extraction code existing in APIM and backend. Root cause: the Entra External ID app registration (`f9f7f159`) was not configured to include the `email` optional claim in ID tokens. The `name` claim was present (display_name populated), but no email-related claim existed in the token. Three-layer fix applied:
+
+  **1. Entra Token Configuration (Azure Portal):**
+  - Added `email` optional claim to ID tokens for app registration `f9f7f159-b847-4211-98c9-18e5b8193045`
+  - Path: Entra admin center → App registrations → Token configuration → Add optional claim → ID token → `email`
+  - Accepted Microsoft Graph `email` permission when prompted
+  - Effect: Emails now flow via APIM's existing JWT extraction on every API call (no app rebuild needed)
+
+  **2. Flutter Belt-and-Suspenders Headers (`backend_service.dart`):**
+  - Dio interceptor now decodes JWT payload client-side after setting Authorization header
+  - Extracts email using CIAM fallback chain: `emails[]` (array) → `email` → `preferred_username`
+  - Sends `x-user-email` and `x-user-name` headers alongside the JWT
+  - Wrapped in try/catch — cannot break any API calls. Ensures email reaches backend even if APIM extraction fails
+
+  **3. Auth Service Email Extraction (`auth_service.dart`):**
+  - Updated `_handleAuthResult()` email extraction to try `emails` array first (Entra CIAM pattern)
+  - Fallback chain: `emails[0]` → `email` → `preferred_username` → `unique_name`
+
+  **4. Admin Documentation (`docs/USER_SUBSCRIPTION_MANAGEMENT.md`):**
+  - Added `display_name`-based lookups (`ILIKE` partial matching) as working admin workaround
+  - Added Git Bash one-liner for display_name lookup
+  - Updated all Common Operations (Set Pro, Revert Free, Reset Voice) with display_name WHERE clauses
+  - Added "Entra Token Configuration (Critical)" section documenting the root cause and fix
+  - Updated identity column descriptions to reflect current state
+
+  **Already in place (from earlier today):**
+  - APIM policies: 12 operations extract `emails` → `email` → `preferred_username` into `X-User-Email` header
+  - Backend `jwtDecode.js`: `emails[]` → `email` → `preferred_username` fallback chain
+  - Backend `userService.js`: Writes email via `COALESCE($2, email)` — preserves existing data
+
+  **Files modified:**
+  - `mobile/app/lib/src/services/backend_service.dart`: JWT payload decode + email/name header extraction in Dio interceptor
+  - `mobile/app/lib/src/services/auth_service.dart`: `emails` array handling in `_handleAuthResult()`
+  - `docs/USER_SUBSCRIPTION_MANAGEMENT.md`: display_name lookups + Entra config documentation
+
+  **Verification:** Open app, make any API call, then: `SELECT id, email, display_name, last_login_at FROM users ORDER BY last_login_at DESC LIMIT 5;`
+
 - **Backend Security Hardening** (Feb 24): Applied 9 targeted security fixes to `backend/functions/index.js` based on the independent code review (`docs/independent_code_review.md`). Three categories of fixes:
 
   **1. Webhook Authentication (fail-closed + mandatory signature verification):**
@@ -811,14 +848,15 @@ TheCocktailDB API (disabled sync)
 
 ```
 Mobile App
-    ↓
+    ↓ (JWT token + x-user-email/x-user-name headers)
 Entra External ID (mybartenderai.ciamlogin.com)
-    ↓ (JWT token)
+    ↓ (JWT token with email optional claim)
 APIM (apim-mba-002.azure-api.net)
     ↓ (validate-jwt policy on all 30 protected operations, extract claims)
 Azure Function (func-mba-fresh)
-    ↓ Primary: X-User-Id header (from APIM validate-jwt + set-header)
+    ↓ Primary: X-User-Id + X-User-Email headers (from APIM validate-jwt + set-header)
     ↓ Fallback: JWT decode from Authorization header (jwtDecode.js)
+    ↓ Belt-and-suspenders: x-user-email header from Flutter client
 PostgreSQL (entitlement lookup + email/display_name storage)
 ```
 

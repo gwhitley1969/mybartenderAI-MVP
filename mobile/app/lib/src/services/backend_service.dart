@@ -70,6 +70,35 @@ class BackendService {
 
               if (token != null && token.isNotEmpty) {
                 options.headers['Authorization'] = 'Bearer $token';
+
+                // Belt-and-suspenders: extract email/name from JWT and send as headers
+                // Backend can use these even if APIM extraction fails
+                try {
+                  final parts = token.split('.');
+                  if (parts.length == 3) {
+                    final payload = json.decode(
+                      utf8.decode(base64Url.decode(base64Url.normalize(parts[1]))),
+                    ) as Map<String, dynamic>;
+
+                    // Entra CIAM uses 'emails' (array); standard OIDC uses 'email'
+                    final email = (payload['emails'] is List && (payload['emails'] as List).isNotEmpty
+                            ? (payload['emails'] as List)[0]
+                            : null) ??
+                        payload['email'] ??
+                        payload['preferred_username'];
+                    final name = payload['name'];
+
+                    if (email != null && email.toString().isNotEmpty) {
+                      options.headers['x-user-email'] = email.toString();
+                    }
+                    if (name != null && name.toString().isNotEmpty) {
+                      options.headers['x-user-name'] = name.toString();
+                    }
+                  }
+                } catch (e) {
+                  // Non-critical — don't break requests if header extraction fails
+                  print('BackendService: Email/name header extraction failed (non-critical): $e');
+                }
               }
             } catch (e) {
               print('BackendService: Error getting ID token: $e');

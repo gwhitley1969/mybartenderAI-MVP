@@ -384,10 +384,14 @@ class AuthService {
 
       // Extract user information from the ID token
       final userId = decodedToken['sub'] ?? decodedToken['oid'] ?? '';
-      final email = decodedToken['email'] ??
-                   decodedToken['preferred_username'] ??
-                   decodedToken['unique_name'] ??
-                   '';
+      // Entra External ID (CIAM) uses 'emails' (array); standard OIDC uses 'email'
+      final email = (decodedToken['emails'] is List && (decodedToken['emails'] as List).isNotEmpty
+              ? (decodedToken['emails'] as List)[0]
+              : null) ??
+          decodedToken['email'] ??
+          decodedToken['preferred_username'] ??
+          decodedToken['unique_name'] ??
+          '';
       final displayName = decodedToken['name'];
       final givenName = decodedToken['given_name'];
       final familyName = decodedToken['family_name'];

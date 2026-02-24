@@ -74,6 +74,9 @@
 - ✅ **Rate Limiting**: Azure Table Storage based per-user limits
 - ✅ **Attack Detection**: High failure rate monitoring (>50 failures/5 min)
 - ✅ **Managed Identity**: RBAC-based access to Key Vault and Storage
+- ✅ **Webhook Fail-Closed Auth**: Subscription webhook requires both configured secret AND valid HMAC-SHA256 signature on every request (Feb 24, 2026)
+- ✅ **No Stack Trace Leakage**: All 7 error responses stripped of stack traces, raw API payloads, and internal URLs (Feb 24, 2026)
+- ✅ **Input Size Validation**: Message (2K chars), image (10MB), cocktail field limits enforced before AI API calls (Feb 24, 2026)
 
 ## Core Features
 
@@ -562,6 +565,7 @@ This difference exists because Apple's StoreKit receipts cannot be verified by t
 - **subscription-webhook**: RevenueCat signature verification (HMAC-SHA256)
   - No JWT - uses `X-RevenueCat-Webhook-Signature` header
   - Secret stored in Key Vault: `REVENUECAT-WEBHOOK-SECRET`
+  - **Fail-closed**: Rejects with 500 if secret not configured, 401 if signature header missing or invalid
   - Receives events from both Google Play and App Store purchases
 
 ## Today's Special Architecture (January 2026)
@@ -825,8 +829,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 23, 2026
-**Architecture Version**: 4.3 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification)
+**Last Updated**: February 24, 2026
+**Architecture Version**: 4.4 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
-**Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation
+**Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage

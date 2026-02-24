@@ -2,11 +2,37 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 23, 2026
+**Last Updated**: February 24, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Backend Security Hardening** (Feb 24): Applied 9 targeted security fixes to `backend/functions/index.js` based on the independent code review (`docs/independent_code_review.md`). Three categories of fixes:
+
+  **1. Webhook Authentication (fail-closed + mandatory signature verification):**
+  - `subscription-webhook`: Missing `REVENUECAT_WEBHOOK_SECRET` now returns 500 (was: warn and continue processing unsigned events)
+  - `subscription-webhook`: Missing `X-RevenueCat-Webhook-Signature` header now returns 401 (was: skip verification entirely, allowing any unsigned request through)
+  - `subscription-webhook`: Signature verification is now unconditional — every webhook must have a valid HMAC-SHA256 signature (was: conditional on both secret AND header being present)
+
+  **2. Information Disclosure Removal (7 locations):**
+  - `vision-analyze`: Removed unconditional `stack: error.stack` from error response (critical — exposed full stack traces to any caller)
+  - `ask-bartender-simple`, `voice-bartender`, `refine-cocktail`, `speech-token`: Removed `details: process.env.NODE_ENV === 'development' ? error.stack : undefined` from error responses (defense-in-depth)
+  - `test-mi-access`: Removed conditional `stack` field from error response
+  - `voice-realtime-test`: Removed conditional `stack` field from error response; also removed `details: responseText` (raw Azure OpenAI API error body) and `sessionsUrl` (internal Azure endpoint URL)
+  - `vision-analyze` (inner catch): Replaced `message: axiosError.message, details: axiosError.response?.data` (raw Claude API payload) with generic `message: 'Image analysis service unavailable'`
+
+  **3. Input Size Validation (3 endpoints):**
+  - `ask-bartender-simple`: Message must be under 2,000 characters; inventory JSON must be under 10KB
+  - `refine-cocktail`: Cocktail name under 200 chars, max 50 ingredients, instructions under 5,000 chars
+  - `vision-analyze`: Base64 image must be under 10MB; URL-fetched image must be under 10MB (checked after download, before base64 encoding)
+
+  All changes are purely additive guards — legitimate requests under the limits pass through unchanged. Server-side logging (`context.error()`) still captures full error details for debugging.
+
+  **File modified:**
+  - `backend/functions/index.js`: 80 insertions, 38 deletions
+
+  **Commit:** `f937881` — `fix(backend): Harden API security — webhook auth, stack trace removal, input validation`
 
 - **Branded Splash Screen** (Feb 23): Added a branded native splash screen for both iOS and Android using the `flutter_native_splash` package. Replaces the default white placeholder launch image with the app icon centered on the primary purple brand background (`#7C3AED`). This clears the Xcode build warning about the default placeholder launch image. Configuration is YAML-driven in `pubspec.yaml` — the generator produces all native assets automatically (iOS `LaunchImage.imageset` PNGs, Android drawable XMLs, Android 12+ splash styles).
 
@@ -992,4 +1018,4 @@ az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --s
 ---
 
 **Status**: Release Candidate
-**Last Updated**: February 23, 2026
+**Last Updated**: February 24, 2026

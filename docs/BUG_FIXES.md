@@ -4,6 +4,92 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## SEC-001: Backend Security Hardening — Webhook Auth Bypass, Stack Trace Leakage, Missing Input Validation
+
+**Date Fixed**: February 24, 2026
+**Severity**: High (Webhook bypass), Medium (Information disclosure), Low (Input validation)
+**Component**: Backend (Azure Functions)
+**Files Modified**: `backend/functions/index.js`
+**Backend Changes**: Yes (80 insertions, 38 deletions)
+**Source**: Independent code review (`docs/independent_code_review.md`)
+
+### Finding 1: Webhook Authentication Bypass (Fail-Open)
+
+**Problem**: The `subscription-webhook` handler had two security gaps:
+
+1. When `REVENUECAT_WEBHOOK_SECRET` was not configured, the handler logged a warning but **continued processing unsigned events** — a classic fail-open pattern.
+2. The signature verification was conditional: `if (webhookSecret && signature)`. Since `signature` came from the request header, an attacker who omitted the `X-RevenueCat-Webhook-Signature` header entirely would **bypass verification completely**, allowing forged subscription events (fake purchases, cancellations, etc.) to be committed to the database.
+
+**Fix**: Three-gate mandatory authentication chain:
+
+| Gate | Condition | Response |
+|------|-----------|----------|
+| 1. Secret configured? | `!webhookSecret` | 500 — Server misconfiguration |
+| 2. Signature present? | `!signature` | 401 — Missing signature |
+| 3. HMAC matches? | `signature !== expectedSignature` | 401 — Invalid signature |
+
+All three gates must pass before any event processing occurs. This is a fail-closed design — any missing component rejects the request.
+
+### Finding 2: Stack Trace and Internal Detail Leakage (7 Locations)
+
+**Problem**: Error responses exposed internal details to clients:
+
+| Location | What Was Leaked |
+|----------|----------------|
+| `vision-analyze` (outer catch) | `stack: error.stack` — unconditional, no environment check |
+| `ask-bartender-simple` | `details: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `test-mi-access` | `stack: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `voice-bartender` | `details: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `refine-cocktail` | `details: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `speech-token` | `details: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `voice-realtime-test` | `stack: process.env.NODE_ENV === 'development' ? error.stack : undefined` |
+| `vision-analyze` (inner catch) | `details: axiosError.response?.data` — raw Claude API error payload |
+| `voice-realtime-test` (token failure) | `details: responseText` + `sessionsUrl: sessionsUrl` — raw Azure API error + internal endpoint URL |
+
+**Fix**: Removed all `stack`, `details`, and `sessionsUrl` fields from client-facing error responses. Replaced raw error messages in inner catches with generic messages. Server-side logging (`context.error()`) still captures full details for debugging.
+
+**Why the `NODE_ENV` conditional wasn't enough**: `NODE_ENV` might not be set in all environments, or someone could accidentally set it to `development` in production. Defense-in-depth says: never include internal details in client responses regardless of environment.
+
+### Finding 3: Missing Input Size Validation (3 Endpoints)
+
+**Problem**: Three endpoints accepted arbitrarily large input, allowing potential resource exhaustion attacks by sending oversized payloads that consume AI API tokens and backend memory.
+
+**Fix**: Added early-rejection guards before any expensive operations:
+
+| Endpoint | Field | Limit | Rationale |
+|----------|-------|-------|-----------|
+| `ask-bartender-simple` | `message` | 2,000 chars | Generous for chat; prevents token abuse |
+| `ask-bartender-simple` | `inventory` (JSON) | 10,000 bytes | Even 200+ bottles fits under 10KB |
+| `refine-cocktail` | `cocktail.name` | 200 chars | No cocktail name exceeds this |
+| `refine-cocktail` | `cocktail.ingredients` | 50 items | Most cocktails have 3-12 |
+| `refine-cocktail` | `cocktail.instructions` | 5,000 chars | Generous for detailed recipes |
+| `vision-analyze` | `image` (base64) | 10MB | ~7.5MB decoded; any phone camera photo fits |
+| `vision-analyze` | URL-fetched image | 10MB | Checked after download, before base64 encoding |
+
+All validation returns `400 Bad Request` with a human-readable message. Legitimate requests under the limits are completely unaffected.
+
+### Verification
+
+| Test | Expected Result |
+|------|----------------|
+| Normal chat message | 200 OK, AI responds normally |
+| Message > 2,000 chars | 400 `Message must be under 2,000 characters.` |
+| Normal cocktail refine | 200 OK, AI refines recipe |
+| Cocktail name > 200 chars | 400 `Cocktail name must be under 200 characters.` |
+| Normal bottle scan | 200 OK, bottles detected |
+| Base64 image > 10MB | 400 `Base64 image must be under 10MB.` |
+| Vision-analyze 500 error | No `stack` field in response body |
+| Webhook with valid signature | 200 OK, event processed |
+| Webhook without signature header | 401 `Missing signature` |
+| Webhook with invalid signature | 401 `Invalid signature` |
+| Zero remaining matches for `stack: error.stack` or `details: process.env.NODE_ENV` | Confirmed via codebase search |
+
+### Commit
+
+`f937881` — `fix(backend): Harden API security — webhook auth, stack trace removal, input validation`
+
+---
+
 ## BUG-012: WebRTC Connection Failed — Dart Type Error on iOS (`RTCRtpSender` vs `RTCRtpSenderNative`)
 
 **Date Fixed**: February 15, 2026
@@ -850,4 +936,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 23, 2026
+**Last Updated**: February 24, 2026

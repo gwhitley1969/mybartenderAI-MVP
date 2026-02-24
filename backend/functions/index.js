@@ -93,6 +93,22 @@ app.http('ask-bartender-simple', {
             const existingConversationId = body.context?.conversationId;
             const inventory = body.context?.inventory;
 
+            // Input size validation
+            if (message.length > 2000) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: { error: 'Message too long', message: 'Message must be under 2,000 characters.' }
+                };
+            }
+            if (inventory && JSON.stringify(inventory).length > 10000) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: { error: 'Inventory too large', message: 'Inventory data exceeds maximum size.' }
+                };
+            }
+
             context.log('Message received:', message);
             context.log('Conversation ID:', existingConversationId || 'new conversation');
             context.log('Inventory received:', inventory ? 'Yes' : 'No');
@@ -249,8 +265,7 @@ Never provide:
                 headers: headers,
                 jsonBody: {
                     error: 'Internal server error',
-                    message: error.message,
-                    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                    message: error.message
                 }
             };
         }
@@ -434,7 +449,7 @@ app.http('test-mi-access', {
 
             // Test 2: Can we create BlobServiceClient?
             context.log('[test-mi-access] Creating BlobServiceClient...');
-            const accountName = process.env.STORAGE_ACCOUNT_NAME || 'cocktaildbfun';
+            const accountName = process.env.STORAGE_ACCOUNT_NAME || 'mbacocktaildb3';
             const blobServiceClient = new BlobServiceClient(
                 `https://${accountName}.blob.core.windows.net`,
                 credential
@@ -533,8 +548,7 @@ app.http('test-mi-access', {
 
             results.error = {
                 message: error.message,
-                code: error.code,
-                stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                code: error.code
             };
 
             return {
@@ -1394,8 +1408,7 @@ app.http('voice-bartender', {
                 headers: headers,
                 jsonBody: {
                     error: 'Internal server error',
-                    message: error.message,
-                    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                    message: error.message
                 }
             };
         }
@@ -1675,6 +1688,17 @@ app.http('refine-cocktail', {
                 };
             }
 
+            // Input size validation
+            if (cocktail.name.length > 200) {
+                return { status: 400, headers, jsonBody: { error: 'Invalid request', message: 'Cocktail name must be under 200 characters.' } };
+            }
+            if (cocktail.ingredients.length > 50) {
+                return { status: 400, headers, jsonBody: { error: 'Invalid request', message: 'Maximum 50 ingredients allowed.' } };
+            }
+            if (cocktail.instructions && cocktail.instructions.length > 5000) {
+                return { status: 400, headers, jsonBody: { error: 'Invalid request', message: 'Instructions must be under 5,000 characters.' } };
+            }
+
             context.log('Refining cocktail:', cocktail.name);
             context.log('Ingredients count:', cocktail.ingredients.length);
 
@@ -1802,8 +1826,7 @@ ${cocktailDescription}`;
                 headers: headers,
                 jsonBody: {
                     error: 'Internal server error',
-                    message: error.message,
-                    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                    message: error.message
                 }
             };
         }
@@ -1869,6 +1892,15 @@ app.http('vision-analyze', {
                 };
             }
 
+            // Image size validation
+            if (image && image.length > 10 * 1024 * 1024) {
+                return {
+                    status: 400,
+                    headers,
+                    jsonBody: { error: 'Image too large', message: 'Base64 image must be under 10MB.' }
+                };
+            }
+
             // Get Claude credentials from environment (from Key Vault)
             const claudeApiKey = process.env.CLAUDE_API_KEY;
             const claudeEndpoint = process.env.CLAUDE_ENDPOINT;
@@ -1890,6 +1922,13 @@ app.http('vision-analyze', {
                 // For URL-based images, fetch and convert to base64
                 try {
                     const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+                    if (imageResponse.data.length > 10 * 1024 * 1024) {
+                        return {
+                            status: 400,
+                            headers,
+                            jsonBody: { error: 'Image too large', message: 'Image from URL must be under 10MB.' }
+                        };
+                    }
                     const base64Image = Buffer.from(imageResponse.data, 'binary').toString('base64');
                     imageContent = {
                         type: "image",
@@ -1993,8 +2032,7 @@ If no bottles are visible, return: {"bottles": []}`;
                     headers,
                     jsonBody: {
                         error: 'Vision API call failed',
-                        message: axiosError.message,
-                        details: axiosError.response?.data
+                        message: 'Image analysis service unavailable'
                     }
                 };
             }
@@ -2116,8 +2154,7 @@ If no bottles are visible, return: {"bottles": []}`;
                 headers,
                 jsonBody: {
                     error: 'Failed to analyze image',
-                    message: error.message,
-                    stack: error.stack
+                    message: error.message
                 }
             };
         }
@@ -2339,8 +2376,7 @@ app.http('speech-token', {
                 headers: headers,
                 jsonBody: {
                     error: 'Internal server error',
-                    message: error.message,
-                    details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                    message: error.message
                 }
             };
         }
@@ -2707,9 +2743,7 @@ app.http('voice-realtime-test', {
                     jsonBody: {
                         success: false,
                         error: 'Ephemeral token request failed',
-                        httpStatus: response.status,
-                        details: responseText,
-                        sessionsUrl: sessionsUrl
+                        httpStatus: response.status
                     }
                 };
             }
@@ -2748,8 +2782,7 @@ app.http('voice-realtime-test', {
                 jsonBody: {
                     success: false,
                     error: 'Exception occurred',
-                    message: error.message,
-                    stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+                    message: error.message
                 }
             };
         }
@@ -3645,35 +3678,44 @@ app.http('subscription-webhook', {
             // Get webhook secret from environment
             const webhookSecret = process.env.REVENUECAT_WEBHOOK_SECRET;
             if (!webhookSecret) {
-                context.warn('REVENUECAT_WEBHOOK_SECRET not configured - skipping signature verification');
-                // In production, you should reject requests without proper configuration
-                // For now, we'll log a warning and continue (for testing)
+                context.error('REVENUECAT_WEBHOOK_SECRET not configured - rejecting webhook');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: { error: 'Webhook not configured' }
+                };
             }
 
             // Get signature from header
             const signature = request.headers.get('X-RevenueCat-Webhook-Signature');
+            if (!signature) {
+                context.warn('Webhook request missing signature header');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { error: 'Missing signature' }
+                };
+            }
 
             // Parse the webhook body
             const rawBody = await request.text();
             const event = JSON.parse(rawBody);
 
-            // Verify signature if secret is configured
-            if (webhookSecret && signature) {
-                const expectedSignature = crypto
-                    .createHmac('sha256', webhookSecret)
-                    .update(rawBody)
-                    .digest('hex');
+            // Verify signature
+            const expectedSignature = crypto
+                .createHmac('sha256', webhookSecret)
+                .update(rawBody)
+                .digest('hex');
 
-                if (signature !== expectedSignature) {
-                    context.warn('Webhook signature mismatch');
-                    return {
-                        status: 401,
-                        headers,
-                        jsonBody: { error: 'Invalid signature' }
-                    };
-                }
-                context.log('Webhook signature verified');
+            if (signature !== expectedSignature) {
+                context.warn('Webhook signature mismatch');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { error: 'Invalid signature' }
+                };
             }
+            context.log('Webhook signature verified');
 
             // Extract event data
             const eventType = event.event?.type;

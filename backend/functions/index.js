@@ -3686,36 +3686,31 @@ app.http('subscription-webhook', {
                 };
             }
 
-            // Get signature from header
-            const signature = request.headers.get('X-RevenueCat-Webhook-Signature');
-            if (!signature) {
-                context.warn('Webhook request missing signature header');
+            // Verify Authorization header (RevenueCat sends this with each webhook POST)
+            const authHeader = request.headers.get('Authorization');
+            if (!authHeader) {
+                context.warn('Webhook request missing Authorization header');
                 return {
                     status: 401,
                     headers,
-                    jsonBody: { error: 'Missing signature' }
+                    jsonBody: { error: 'Missing authorization' }
                 };
             }
+
+            const expectedAuth = `Bearer ${webhookSecret}`;
+            if (authHeader !== expectedAuth) {
+                context.warn('Webhook Authorization header mismatch');
+                return {
+                    status: 401,
+                    headers,
+                    jsonBody: { error: 'Invalid authorization' }
+                };
+            }
+            context.log('Webhook authorization verified');
 
             // Parse the webhook body
             const rawBody = await request.text();
             const event = JSON.parse(rawBody);
-
-            // Verify signature
-            const expectedSignature = crypto
-                .createHmac('sha256', webhookSecret)
-                .update(rawBody)
-                .digest('hex');
-
-            if (signature !== expectedSignature) {
-                context.warn('Webhook signature mismatch');
-                return {
-                    status: 401,
-                    headers,
-                    jsonBody: { error: 'Invalid signature' }
-                };
-            }
-            context.log('Webhook signature verified');
 
             // Extract event data
             const eventType = event.event?.type;
@@ -3729,10 +3724,13 @@ app.http('subscription-webhook', {
 
             context.log(`Event type: ${eventType}, ID: ${eventId}, Env: ${environment}, User: ${appUserId?.substring(0, 8)}..., Product: ${productId}`);
 
-            // Filter out sandbox events in production
+            // TEMPORARY: Sandbox filtering disabled for end-to-end testing
+            // Re-enable before production launch by uncommenting the block below
+            // if (environment === 'SANDBOX') {
+            //     context.log(`Sandbox event (${eventType}) received - logging only, not processing`);
+            // }
             if (environment === 'SANDBOX') {
-                context.log(`Sandbox event (${eventType}) received - logging only, not processing`);
-                // We'll still record in audit log below but won't update subscription
+                context.log(`Sandbox event (${eventType}) received - PROCESSING (sandbox filter disabled for testing)`);
             }
 
             if (!appUserId) {
@@ -3791,14 +3789,15 @@ app.http('subscription-webhook', {
             );
             context.log('Event recorded in subscription_events');
 
-            // For sandbox events, we logged it but don't update production subscriptions
-            if (environment === 'SANDBOX') {
-                return {
-                    status: 200,
-                    headers,
-                    jsonBody: { received: true, processed: false, reason: 'sandbox_event', event_type: eventType }
-                };
-            }
+            // TEMPORARY: Sandbox early-return disabled for end-to-end testing
+            // Re-enable before production launch by uncommenting the block below
+            // if (environment === 'SANDBOX') {
+            //     return {
+            //         status: 200,
+            //         headers,
+            //         jsonBody: { received: true, processed: false, reason: 'sandbox_event', event_type: eventType }
+            //     };
+            // }
 
             // If user not found, we can't update their subscription
             if (!internalUserId) {

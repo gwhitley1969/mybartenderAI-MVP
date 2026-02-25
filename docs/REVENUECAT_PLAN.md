@@ -2,17 +2,28 @@
 
 ## Context
 
-RevenueCat integration code is **fully implemented** in both Flutter and backend. However, the **store-side configuration is incomplete/broken**:
+RevenueCat integration is **fully operational on Android**. Two real production subscriptions have been processed end-to-end:
 
-- Google Play Console: Subscription products (`pro_monthly`, `pro_annual`) have NOT been created
-- Google Play Console: Voice minutes consumable status unknown (may be `voice_minutes_20` from old spec)
-- RevenueCat Dashboard: "My AI Bartender (Play Store)" has **zero products** mapped
-- RevenueCat Dashboard: "Test Store" has products with wrong IDs (`monthly`/`yearly`)
-- App Store Connect: Subscriptions created (`pro_monthly`, `pro_annual`) — voice consumable NOT created yet
-- RevenueCat Dashboard: Apple products show "Could not check" — need entitlement/offering config
-- Backend bug: `voice-purchase/index.js` hardcodes `voice_minutes_20` but app sends `voice_minutes_60`
+- **Wild Heels** — Pro Annual ($79.99), expires 2027-02-25, Google Play Store
+- **Xtend-AI** — Pro Monthly ($7.99), expires 2026-03-25, Google Play Store
 
-**Goal**: Get both stores fully configured so subscriptions and voice minute purchases work on Android and iOS.
+RevenueCat Overview dashboard confirms: **2 Active Subscriptions, $88 Revenue, $15 MRR, 27 Active Customers**.
+
+### What's Working (Android — Verified Feb 25, 2026)
+- Google Play Console: `pro_monthly` and `pro_annual` subscriptions active
+- RevenueCat Dashboard: Products mapped, `paid` entitlement configured, Default offering with `$rc_monthly`/`$rc_annual` packages
+- Webhook: `subscription-webhook` receives events, verifies `Bearer` auth, processes INITIAL_PURCHASE/RENEWAL/etc.
+- Database: `user_subscriptions` and `subscription_events` tables populated correctly via webhook
+- PostgreSQL trigger: `sync_user_tier_from_subscription` automatically syncs `users.entitlement` to `paid`
+- App: Users can subscribe, AI features unlock immediately
+
+### What's Remaining (iOS)
+- App Store Connect: `voice_minutes_60` consumable NOT created yet (subscriptions exist)
+- RevenueCat Dashboard: Apple products need verification
+- TestFlight testing not yet started
+
+### Known Dashboard Quirk
+RevenueCat's **Customers list views** (Active subscription, Sandbox, etc.) show 0 even though the Overview page and API both correctly report 2 active subscribers. This is a RevenueCat dashboard propagation delay for new projects — not a data issue. Use the **Overview** page or **Ctrl+K customer search** for real-time data.
 
 ### Credentials Already Obtained
 - Apple Team ID: `4ML27KY869`
@@ -26,39 +37,25 @@ RevenueCat integration code is **fully implemented** in both Flutter and backend
 
 ## Phase 1: Google Play Console — Create Store Products
 
+### Status: COMPLETED (Feb 25, 2026)
+
 **Where**: Google Play Console > select your app > left sidebar:
 > **Monetize with Play** > **Products** > **Subscriptions**
 
-### 1A. Create `pro_monthly` Subscription
+### 1A. Create `pro_monthly` Subscription ✅
 
-1. On the **Subscriptions** page, click **"Create subscription"**
-2. **Product ID**: `pro_monthly` (exact — must match RevenueCat and code)
-3. **Name**: `Pro Monthly`
-4. Click **Create**
-5. On the subscription detail page, click **"Add base plan"**
-6. **Base plan ID**: `monthly-autorenewing` (you choose this — it's permanent once activated)
-7. **Auto-renewing**: Yes
-8. **Billing period**: 1 Month
-9. Set **price**: $7.99 USD (click "Set price" > select countries > set base price)
-10. Click **Activate** on the base plan
-11. *(Optional for later)* Add a **free trial offer**: Click "Add offer" > Free trial > 3 days
+- **Product ID**: `pro_monthly`
+- **Base plan ID**: `monthly-id`
+- **Billing period**: 1 Month
+- **Price**: $7.99 USD
+- **Free trial offer**: 3-day free trial (added Feb 25, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
 
-**Write down**: Base plan ID = `monthly-autorenewing` (needed for RevenueCat in Phase 2)
+### 1B. Create `pro_annual` Subscription ✅
 
-### 1B. Create `pro_annual` Subscription
-
-1. Back on **Subscriptions** page, click **"Create subscription"** again
-2. **Product ID**: `pro_annual`
-3. **Name**: `Pro Annual`
-4. Click **Create**
-5. Click **"Add base plan"**
-6. **Base plan ID**: `annual-autorenewing`
-7. **Auto-renewing**: Yes
-8. **Billing period**: 1 Year
-9. Set **price**: $79.99 USD
-10. Click **Activate** on the base plan
-
-**Write down**: Base plan ID = `annual-autorenewing` (needed for RevenueCat in Phase 2)
+- **Product ID**: `pro_annual`
+- **Base plan ID**: `annual-id`
+- **Billing period**: 1 Year
+- **Price**: $79.99 USD
 
 ### 1C. Create `voice_minutes_60` Consumable
 
@@ -72,11 +69,41 @@ RevenueCat integration code is **fully implemented** in both Flutter and backend
 5. Set **price**: $4.99 USD
 6. **Status**: Active
 
-### 1D. Verify All Three Products Exist
+### 1D. Verify All Three Products Exist ✅
 
-Before moving on, confirm you see these on their respective pages:
 - **Subscriptions**: `pro_monthly` (Active), `pro_annual` (Active)
-- **One-time products**: `voice_minutes_60` (Active)
+- **One-time products**: `voice_minutes_60` (status TBD)
+
+### 1E. Add Free Trial Offer to `pro_monthly`
+
+### Status: COMPLETED (Feb 25, 2026)
+
+**Important**: In Google Play's subscription model, a free trial is an **Offer** attached to a base plan — not a setting on the base plan itself. The hierarchy is:
+
+```
+Subscription (pro_monthly)
+  └── Base Plan (monthly-id)
+        └── Offer (free-trial)
+              └── Phase 1: Free trial (3 days, $0)
+              └── Auto-renews at base plan price ($7.99/mo)
+```
+
+**Steps to create the offer:**
+1. Go to **Monetize with Play** > **Products** > **Subscriptions** > click **`pro_monthly`**
+2. Click **"Add offer"** (near the base plan, not inside it)
+3. Select the base plan this offer applies to
+4. Configure:
+   - **Offer ID**: Choose a permanent ID (e.g., `free-trial-3day`)
+   - **Eligibility**: **"New customer acquisition"** > **"Never had this subscription"**
+   - **Tags**: Leave empty (RevenueCat auto-detects trials)
+5. Under **"Phases"**, click **"Add phase"**:
+   - **Type**: Free trial
+   - **Duration**: 3 days
+6. **Activate** the offer
+
+**RevenueCat handles this automatically** — no additional RevenueCat dashboard configuration needed. The SDK detects the free trial offer and presents it to eligible users.
+
+**Backend handling**: Already implemented. When `period_type === 'TRIAL'`, the webhook sets `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans). On `RENEWAL` (trial→paid conversion), it upgrades to full paid limits.
 
 ---
 
@@ -172,13 +199,14 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 2. Find products under **"Test Store"** (`monthly`, `yearly` from Feb 17)
 3. Delete them — they use wrong product IDs and aren't connected to any real store
 
-### 3F. Verify Webhook
+### 3F. Verify Webhook ✅
 
-1. Go to **Apps & providers** (left sidebar)
-2. Click on each app and verify the **webhook URL** points to your backend:
-   `https://apim-mba-002.azure-api.net/v1/subscription/webhook`
-   (or whatever your current webhook endpoint is)
-3. Webhook should already be configured — just confirm it's there
+**Status**: COMPLETED and VERIFIED (Feb 25, 2026)
+
+- Webhook URL: `https://func-mba-fresh.azurewebsites.net/api/v1/subscription/webhook`
+- Authentication: `Bearer` token using `REVENUECAT_WEBHOOK_SECRET` (Key Vault reference)
+- Verified working: Two production INITIAL_PURCHASE events processed successfully
+- RevenueCat dashboard shows "Sent" status for webhook events
 
 ---
 
@@ -347,6 +375,9 @@ Verify app launches and subscription init logs "Android API key retrieved".
 - ~~"Restore Purchases" button only exists on `voice_ai_screen.dart`~~ — **RESOLVED**: Restore Purchases now available on the subscription paywall sheet (`subscription_sheet.dart`, accessible from any gated feature) and on the Profile screen (`profile_screen.dart`). Apple requirement satisfied.
 - Reviewer screenshots needed for App Store IAP review — can be added later before submission
 - ~~CLAUDE.md references old pricing "$4.99 for 20 minutes"~~ — **RESOLVED**: Updated to "$4.99 for 60 minutes"
+- ~~Webhook returning 401~~ — **RESOLVED** (Feb 25, 2026): Key Vault reference for `REVENUECAT_WEBHOOK_SECRET` was not resolving. Fixed by restarting Function App; secret now uses `@Microsoft.KeyVault(SecretUri=...)` reference pattern.
+- ~~No free trial on `pro_monthly`~~ — **RESOLVED** (Feb 25, 2026): Free trial is a Google Play **Offer** (not a base plan setting). Created 3-day free trial offer on `pro_monthly` base plan. Backend already handles `period_type === 'TRIAL'`.
+- **RevenueCat Customers list shows 0**: Known dashboard propagation delay for new projects. Overview page and API correctly report 2 active subscribers. Not a data issue.
 
 ---
 

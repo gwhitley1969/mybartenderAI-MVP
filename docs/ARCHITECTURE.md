@@ -77,7 +77,7 @@
 - ✅ **Rate Limiting**: Azure Table Storage based per-user limits
 - ✅ **Attack Detection**: High failure rate monitoring (>50 failures/5 min)
 - ✅ **Managed Identity**: RBAC-based access to Key Vault and Storage
-- ✅ **Webhook Fail-Closed Auth**: Subscription webhook requires both configured secret AND valid HMAC-SHA256 signature on every request (Feb 24, 2026)
+- ✅ **Webhook Fail-Closed Auth**: Subscription webhook requires configured secret AND valid `Bearer` token match on every request. Secret stored as Key Vault reference (Feb 25, 2026)
 - ✅ **No Stack Trace Leakage**: All 7 error responses stripped of stack traces, raw API payloads, and internal URLs (Feb 24, 2026)
 - ✅ **Input Size Validation**: Message (2K chars), image (10MB), cocktail field limits enforced before AI API calls (Feb 24, 2026)
 
@@ -555,8 +555,9 @@ This difference exists because Apple's StoreKit receipts cannot be verified by t
 - Subscription deactivates only after grace expires
 
 **Sandbox Filtering:**
-- Production webhook ignores `environment: 'SANDBOX'` events
-- Sandbox events logged for debugging but don't update subscriptions
+- Sandbox filtering currently DISABLED for end-to-end testing
+- Both PRODUCTION and SANDBOX events are processed
+- Re-enable before production launch by uncommenting the sandbox check in `index.js`
 
 **Entitlement Sync Trigger:**
 - PostgreSQL trigger `sync_user_tier_from_subscription` automatically updates `users.entitlement` and `users.tier` (backward compat)
@@ -566,11 +567,12 @@ This difference exists because Apple's StoreKit receipts cannot be verified by t
 
 - **subscription-config**: JWT required (user must be authenticated). Returns platform-specific API keys
 - **subscription-status**: JWT required (returns current user's status)
-- **subscription-webhook**: RevenueCat signature verification (HMAC-SHA256)
-  - No JWT - uses `X-RevenueCat-Webhook-Signature` header
-  - Secret stored in Key Vault: `REVENUECAT-WEBHOOK-SECRET`
-  - **Fail-closed**: Rejects with 500 if secret not configured, 401 if signature header missing or invalid
+- **subscription-webhook**: RevenueCat Bearer token verification
+  - No JWT — uses `Authorization: Bearer <secret>` header sent by RevenueCat
+  - Secret stored in Key Vault: `REVENUECAT-WEBHOOK-SECRET` (accessed via `@Microsoft.KeyVault` reference)
+  - **Fail-closed**: Rejects with 500 if secret not configured, 401 if Authorization header missing or mismatched
   - Receives events from both Google Play and App Store purchases
+  - **Verified working** (Feb 25, 2026): Two production INITIAL_PURCHASE events processed successfully
 
 ## Today's Special Architecture (January 2026)
 
@@ -834,7 +836,7 @@ flutter build apk --release
 ---
 
 **Last Updated**: February 25, 2026
-**Architecture Version**: 4.6 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging)
+**Architecture Version**: 4.7 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage + 4-Layer Paywall Defense

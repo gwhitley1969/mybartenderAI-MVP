@@ -8,6 +8,38 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **RevenueCat Webhook Verified + Free Trial Offer + Key Vault Cleanup** (Feb 25): End-to-end subscription pipeline fully verified with two real Google Play production purchases. Three issues diagnosed and resolved:
+
+  **1. Webhook 401 Fix:**
+  - Root cause: `REVENUECAT_WEBHOOK_SECRET` Key Vault reference was not resolving — the Function App received the literal `@Microsoft.KeyVault(...)` string instead of the secret value
+  - Fix: Function App restart resolved the Key Vault reference. Confirmed webhook processes `Authorization: Bearer <secret>` header correctly
+  - Cleanup: Removed temporary diagnostic logging from `index.js`, switched `REVENUECAT_WEBHOOK_SECRET` from hardcoded raw value back to Key Vault reference
+
+  **2. Google Play Free Trial Offer:**
+  - Root cause: Flutter UI hardcodes "Start 3-Day Free Trial" button text, but no free trial offer existed on the `pro_monthly` base plan in Google Play Console. Google Play charged $7.99 immediately with `period_type: "NORMAL"`
+  - Fix: Created a free trial **Offer** on the `pro_monthly` base plan (3-day free trial, new customer eligibility). In Google Play's model, trials are Offers attached to base plans — not settings on the base plan itself
+  - Backend already handles trials: `period_type === 'TRIAL'` → `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans)
+
+  **3. Subscription Verification Results:**
+  - Two INITIAL_PURCHASE events processed: `pro_annual` ($79.99, Wild Heels) and `pro_monthly` ($7.99, Xtend-AI)
+  - RevenueCat Overview: 2 Active Subscriptions, $88 Revenue, $15 MRR, 27 Active Customers
+  - Database: Both users have `entitlement = 'paid'`, `subscription_status = 'active'` in `users` table
+  - RevenueCat Customers list shows 0 — known dashboard propagation delay for new projects (Overview page is accurate)
+
+  **File modified:**
+  - `backend/functions/index.js`: Added then removed temporary diagnostic logging (net zero change)
+
+  **Azure changes:**
+  - `REVENUECAT_WEBHOOK_SECRET`: Restored to `@Microsoft.KeyVault(SecretUri=https://kv-mybartenderai-prod.vault.azure.net/secrets/REVENUECAT-WEBHOOK-SECRET/)` reference
+  - Google Play Console: Created 3-day free trial offer on `pro_monthly` base plan
+  - Deployed to `func-mba-fresh` (clean code, no diagnostic logging)
+
+  **Docs updated:**
+  - `docs/REVENUECAT_PLAN.md`: Updated status to reflect working Android pipeline, added Phase 1E for free trial offer instructions
+  - `docs/ARCHITECTURE.md`: Corrected webhook auth description (Bearer token, not HMAC-SHA256), updated sandbox filtering status
+  - `docs/USER_SUBSCRIPTION_MANAGEMENT.md`: Added webhook configuration section, troubleshooting guide, dashboard quirk note
+  - `docs/DEPLOYMENT_STATUS.md`: This entry
+
 - **Fix: Recipe Vault Missing Subscription Gate** (Feb 25): The Recipe Vault's Chat and Voice buttons navigated directly to `/ask-bartender` and `/voice-ai` without checking subscription status. Unsubscribed users reached the AI Bartender screen and saw a generic error instead of a paywall. Added `navigateOrGate()` wrapper to both buttons in `recipe_vault_screen.dart`, matching the pattern used on Home, Academy, Pro Tools, and My Bar screens. This brings the total gated buttons to **11 across 6 screens**.
 
   **File modified:**

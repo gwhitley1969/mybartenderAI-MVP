@@ -374,6 +374,32 @@ Email should now be populated for the user who just made the call.
 
 ---
 
+## RevenueCat Webhook Configuration
+
+The `subscription-webhook` function receives RevenueCat server-to-server notifications:
+
+- **Webhook URL**: `https://func-mba-fresh.azurewebsites.net/api/v1/subscription/webhook`
+- **Authentication**: RevenueCat sends `Authorization: Bearer <secret>` header
+- **Secret**: `REVENUECAT_WEBHOOK_SECRET` app setting → Key Vault reference → `REVENUECAT-WEBHOOK-SECRET` in `kv-mybartenderai-prod`
+- **Verified working**: Feb 25, 2026 — two production INITIAL_PURCHASE events processed
+
+### Troubleshooting Webhook 401 Errors
+
+If the webhook starts returning 401:
+1. Check that `REVENUECAT_WEBHOOK_SECRET` app setting is a Key Vault reference (not a raw value)
+2. Verify the Key Vault reference resolves: `az functionapp config appsettings list --name func-mba-fresh --resource-group rg-mba-prod --query "[?name=='REVENUECAT_WEBHOOK_SECRET']"`
+3. If it shows `@Microsoft.KeyVault(...)` but the function gets the literal string, **restart the Function App**: `az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod`
+4. Key Vault references sometimes don't resolve until the first restart after being set
+
+### RevenueCat Dashboard Known Quirk
+
+The **Customers list views** (Active subscription, Sandbox, etc.) may show 0 even when subscribers exist. This is a dashboard propagation delay for new projects. To verify subscribers:
+- Use the **Overview** page (shows real-time metrics: Active Subscriptions, Revenue, MRR)
+- Use **Ctrl+K** to search for a specific customer by app_user_id
+- Use the RevenueCat REST API or MCP tools to query `get_overview_metrics`
+
+---
+
 ## After Making Changes
 
 - Users need to **close and reopen the app** (or pull-to-refresh on the profile screen) to fetch their updated status from the server

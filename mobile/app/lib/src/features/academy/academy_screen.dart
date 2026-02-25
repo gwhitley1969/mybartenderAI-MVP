@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
+import '../subscription/subscription_sheet.dart';
 import 'academy_category_screen.dart';
 import 'data/academy_repository.dart';
 import 'models/academy_models.dart';
@@ -9,14 +11,14 @@ import 'models/academy_models.dart';
 /// Main Academy screen showing a grid of lesson categories.
 ///
 /// Users can tap a category to see its lessons.
-class AcademyScreen extends StatefulWidget {
+class AcademyScreen extends ConsumerStatefulWidget {
   const AcademyScreen({super.key});
 
   @override
-  State<AcademyScreen> createState() => _AcademyScreenState();
+  ConsumerState<AcademyScreen> createState() => _AcademyScreenState();
 }
 
-class _AcademyScreenState extends State<AcademyScreen> {
+class _AcademyScreenState extends ConsumerState<AcademyScreen> {
   late Future<List<AcademyCategory>> _categoriesFuture;
 
   @override
@@ -309,7 +311,7 @@ class _AcademyScreenState extends State<AcademyScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => context.go('/ask-bartender'),
+                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/ask-bartender')),
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
@@ -326,7 +328,7 @@ class _AcademyScreenState extends State<AcademyScreen> {
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => context.go('/voice-ai'),
+                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/voice-ai')),
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(

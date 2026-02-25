@@ -1,6 +1,6 @@
 # User Subscription Management — PostgreSQL
 
-**Last Updated**: February 24, 2026
+**Last Updated**: February 25, 2026
 
 This guide explains how to view and modify user subscription status directly in the PostgreSQL database (`pg-mybartenderdb`).
 
@@ -113,7 +113,12 @@ The `users` table contains these identity and subscription columns:
 
 ### How Entitlement Checks Work
 
-Every protected Azure Function checks:
+**4-layer paywall defense (Feb 2026):**
+
+1. **Dual-source `isPaidProvider` (Flutter — Riverpod):** Checks RevenueCat SDK cache first (fast, local, no network). If RevenueCat says not-paid, falls back to `backendEntitlementProvider` which fetches `entitlement` from the backend `subscription-status` endpoint (PostgreSQL authoritative source). This handles manual DB overrides (beta testers) and RevenueCat init failures. Result is cached per session. Includes `developer.log` diagnostic logging (filterable via `adb logcat | grep -i Subscription`).
+2. **Pre-navigation gate (Flutter):** `navigateOrGate()` reads `isPaidProvider` at tap time. If the backend entitlement is still loading, it awaits the result before deciding. Free users see the subscription sheet *before* navigating to the AI screen. **11 buttons gated across 6 screens**: Home (Scan My Bar, Chat, Voice), Recipe Vault (Chat, Voice), Academy (Chat CTA, Voice CTA), Pro Tools (Chat CTA, Voice CTA), My Bar (AppBar scanner, empty-state Scanner).
+3. **Per-screen handlers (Flutter):** Each AI screen catches `EntitlementRequiredException` from backend 403 responses and shows a contextual paywall. Profile screen also uses `isPaidProvider` (dual-source) for subscription card display.
+4. **Backend enforcement (Azure Functions):** Every protected function checks entitlement in PostgreSQL:
 
 ```javascript
 if (user.entitlement !== 'paid') {
@@ -121,7 +126,9 @@ if (user.entitlement !== 'paid') {
 }
 ```
 
-This gates access to: Voice AI, Smart Scanner, AI Bartender (beyond free limits), Create Studio, and other Pro features.
+This gates access to: Voice AI, Smart Scanner, AI Bartender, and AI Refine. Free features (Recipe Vault browse/search, My Bar manual add/remove, Favorites, Today's Special, Academy content, Pro Tools content, Create Studio manual editing, Social sharing) are never gated.
+
+**Why two sources of truth?** RevenueCat tracks real store purchases (Google Play / App Store). PostgreSQL `users.entitlement` is the authoritative column that backend functions check. They normally stay in sync via the RevenueCat webhook → `subscription_events` → `user_subscriptions` → trigger → `users.entitlement`. But for manual DB overrides (e.g., `UPDATE users SET entitlement = 'paid'` for beta testers), RevenueCat has no purchase record. The `backendEntitlementProvider` bridges this gap on the mobile side.
 
 ---
 

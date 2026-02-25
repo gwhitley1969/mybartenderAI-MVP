@@ -6,6 +6,7 @@ import '../../models/models.dart';
 import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
+import '../subscription/subscription_sheet.dart';
 import 'add_ingredient_screen.dart';
 
 class MyBarScreen extends ConsumerWidget {
@@ -30,11 +31,17 @@ class MyBarScreen extends ConsumerWidget {
           // Scanner button (pink, matching home screen)
           IconButton(
             icon: Icon(Icons.camera_alt, color: AppColors.iconCirclePink),
-            onPressed: () {
-              context.push('/smart-scanner').then((_) {
-                // Refresh inventory after scanning
-                ref.invalidate(inventoryProvider);
-              });
+            onPressed: () async {
+              await navigateOrGate(
+                context: context,
+                ref: ref,
+                navigate: () {
+                  context.push('/smart-scanner').then((_) {
+                    // Refresh inventory after scanning
+                    ref.invalidate(inventoryProvider);
+                  });
+                },
+              );
             },
           ),
           // Add button (purple, existing)
@@ -123,7 +130,7 @@ class MyBarScreen extends ConsumerWidget {
               child: inventoryAsync.when(
                 data: (inventory) {
                   if (inventory.isEmpty) {
-                    return _buildEmptyState(context);
+                    return _buildEmptyState(context, ref);
                   }
 
                   return ListView.builder(
@@ -178,7 +185,7 @@ class MyBarScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildEmptyState(BuildContext context) {
+  Widget _buildEmptyState(BuildContext context, WidgetRef ref) {
     return Center(
       child: Padding(
         padding: EdgeInsets.all(AppSpacing.xl),
@@ -253,7 +260,7 @@ class MyBarScreen extends ConsumerWidget {
                     child: Padding(
                       padding: EdgeInsets.only(left: AppSpacing.sm),
                       child: ElevatedButton.icon(
-                        onPressed: () => context.push('/smart-scanner'),
+                        onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.push('/smart-scanner')),
                         icon: Icon(Icons.camera_alt, size: 18),
                         label: Text('Scanner'),
                         style: ElevatedButton.styleFrom(

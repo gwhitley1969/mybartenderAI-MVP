@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 import '../services/subscription_service.dart';
@@ -47,14 +49,57 @@ final subscriptionOfferingsProvider = FutureProvider<Offerings?>((ref) async {
   return service.getOfferings();
 });
 
-/// Provider for checking if user has active subscription
+/// Backend entitlement check (PostgreSQL authoritative source).
+/// Fetched once per session and cached. Handles manual DB overrides
+/// that RevenueCat doesn't know about (e.g., beta testers).
+final backendEntitlementProvider = FutureProvider<String?>((ref) async {
+  final backendService = ref.watch(backendServiceProvider);
+  try {
+    final entitlement = await backendService.getBackendEntitlement();
+    developer.log('backendEntitlementProvider: got entitlement=$entitlement',
+        name: 'Subscription');
+    return entitlement;
+  } catch (e) {
+    developer.log('backendEntitlementProvider: error=$e',
+        name: 'Subscription');
+    return null;
+  }
+});
+
+/// Provider for checking if user has active subscription.
+/// Checks RevenueCat first (fast, local). Falls back to backend
+/// entitlement from PostgreSQL (handles manual DB overrides).
 final isPaidProvider = Provider<bool>((ref) {
+  // Fast path: RevenueCat says paid
   final statusAsync = ref.watch(subscriptionStatusProvider);
-  return statusAsync.when(
+  final revenueCatPaid = statusAsync.when(
     data: (status) => status.isPaid,
     loading: () => false,
     error: (_, __) => false,
   );
+  if (revenueCatPaid) {
+    developer.log('isPaidProvider: TRUE (RevenueCat)', name: 'Subscription');
+    return true;
+  }
+
+  // Slow path: check backend entitlement (PostgreSQL is authoritative)
+  final backendEntitlement = ref.watch(backendEntitlementProvider);
+  final result = backendEntitlement.when(
+    data: (entitlement) {
+      developer.log('isPaidProvider: backend entitlement=$entitlement',
+          name: 'Subscription');
+      return entitlement == 'paid';
+    },
+    loading: () {
+      developer.log('isPaidProvider: backend LOADING', name: 'Subscription');
+      return false;
+    },
+    error: (e, _) {
+      developer.log('isPaidProvider: backend ERROR=$e', name: 'Subscription');
+      return false;
+    },
+  );
+  return result;
 });
 
 /// Provider for subscription status string (trialing/active/expired/none)

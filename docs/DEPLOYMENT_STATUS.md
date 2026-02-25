@@ -2,11 +2,83 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 24, 2026
+**Last Updated**: February 25, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Fix: Recipe Vault Missing Subscription Gate** (Feb 25): The Recipe Vault's Chat and Voice buttons navigated directly to `/ask-bartender` and `/voice-ai` without checking subscription status. Unsubscribed users reached the AI Bartender screen and saw a generic error instead of a paywall. Added `navigateOrGate()` wrapper to both buttons in `recipe_vault_screen.dart`, matching the pattern used on Home, Academy, Pro Tools, and My Bar screens. This brings the total gated buttons to **11 across 6 screens**.
+
+  **File modified:**
+  - `mobile/app/lib/src/features/recipe_vault/recipe_vault_screen.dart`: Added `navigateOrGate` to Chat and Voice buttons, added subscription_sheet.dart import
+
+- **Fix: Profile Screen Subscription Display + Diagnostic Logging** (Feb 25): The Profile screen's subscription card checked `status.isPaid` from `subscriptionStatusProvider` (RevenueCat only), ignoring the dual-source `isPaidProvider`. Beta testers with manual DB overrides saw "No Active Subscription" even though all other screens correctly recognized them as paid. Fixed by adding `|| ref.watch(isPaidProvider)` to the subscription card's data handler. Also added `developer.log` diagnostic logging to `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device troubleshooting via `adb logcat | grep -i Subscription`.
+
+  **Files modified:**
+  - `mobile/app/lib/src/features/profile/profile_screen.dart`: Added `isPaidProvider` check in `_buildSubscriptionCard()`
+  - `mobile/app/lib/src/providers/subscription_provider.dart`: Added diagnostic logging to `isPaidProvider`
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Added diagnostic logging to `navigateOrGate`
+
+- **Fix: Dual-Source Subscription Check — isPaidProvider + Backend Entitlement** (Feb 25): Fixed paywall appearing for paid beta testers. Root cause: `isPaidProvider` only checked RevenueCat's local SDK cache, which has no record of manual PostgreSQL `entitlement='paid'` overrides. Two sources of truth disagreed — RevenueCat (mobile) said "not paid", PostgreSQL (backend) said "paid". The fix adds a `backendEntitlementProvider` that fetches the authoritative `entitlement` from the backend's `subscription-status` endpoint and wires it into `isPaidProvider` as a fallback.
+
+  **Root cause:** `isPaidProvider` → `subscriptionStatusProvider` → `SubscriptionService` → RevenueCat SDK `CustomerInfo.entitlements.active['paid']`. For beta testers with manual DB overrides, RevenueCat has no purchase record, so this always returned `false`. The Profile screen, `navigateOrGate`, and all other consumers all read `isPaidProvider` — so every part of the app thought the user was free.
+
+  **Backend change** (`index.js`):
+  - `subscription-status` endpoint now queries `SELECT id, tier, entitlement FROM users` (added `entitlement` column to query)
+  - Response includes `entitlement: user.entitlement || 'none'` alongside existing `currentTier` and `subscription` fields
+  - Deployed to `func-mba-fresh`
+
+  **Flutter changes:**
+  - `backend_service.dart`: Added `getBackendEntitlement()` method — calls `GET /v1/subscription/status`, returns the `entitlement` string (`'paid'` or `'none'`)
+  - `subscription_provider.dart`: Added `backendEntitlementProvider` (FutureProvider, fetched once per session, cached by Riverpod). Modified `isPaidProvider` to check RevenueCat first (fast, local), then fall back to `backendEntitlementProvider` (PostgreSQL authoritative)
+  - `subscription_sheet.dart`: `navigateOrGate()` is now async — awaits `backendEntitlementProvider.future` if still loading before deciding to show paywall. Also invalidates `backendEntitlementProvider` on purchase completion
+
+  **All scenarios handled:**
+  1. **Real RevenueCat subscriber**: RevenueCat returns paid → instant (no backend call)
+  2. **Manual DB override (beta testers)**: RevenueCat returns not-paid → backend returns `entitlement: 'paid'` → navigation allowed
+  3. **Free user**: Both sources return not-paid → paywall shown
+  4. **Offline/backend error**: RevenueCat not-paid + backend fails → paywall shown (fail-closed)
+
+  **Screens affected:** All consumers of `isPaidProvider` automatically get correct state — Profile screen, Home, Academy, Pro Tools, My Bar, and any future screens.
+
+  **Files modified:**
+  - `backend/functions/index.js`: Added `entitlement` to subscription-status query and response
+  - `mobile/app/lib/src/services/backend_service.dart`: Added `getBackendEntitlement()` method
+  - `mobile/app/lib/src/providers/subscription_provider.dart`: Added `backendEntitlementProvider`, modified `isPaidProvider` for dual-source check
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Made `navigateOrGate()` async with loading-state handling
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Async callbacks on 3 gated buttons
+  - `mobile/app/lib/src/features/academy/academy_screen.dart`: Async callbacks on 2 gated buttons
+  - `mobile/app/lib/src/features/pro_tools/pro_tools_screen.dart`: Async callbacks on 2 gated buttons
+  - `mobile/app/lib/src/features/my_bar/my_bar_screen.dart`: Async callbacks on 2 gated buttons
+
+- **Pre-Navigation Subscription Paywalls** (Feb 25): Added UI-layer paywall gates on 9 AI feature buttons across 5 screens. Free users now see the subscription sheet *before* navigating to the feature screen, instead of reaching the screen and hitting a backend 403. This is a UX improvement — defense in depth on top of the existing backend entitlement enforcement and per-screen `EntitlementRequiredException` handlers.
+
+  **New helper function** (`subscription_sheet.dart`):
+  - `navigateOrGate()` — checks `isPaidProvider` at tap time via `ref.read()` (not `ref.watch()` — avoids unnecessary rebuilds since button appearance doesn't change). If paid, navigates immediately. If free, shows `showSubscriptionSheet()` with auto-invalidation of `subscriptionStatusProvider` on purchase completion.
+
+  **Screens modified (9 buttons gated):**
+  - **Home screen** (`home_screen.dart`): Scan My Bar, Chat, Voice buttons gated. Create button remains FREE.
+  - **Academy screen** (`academy_screen.dart`): Chat and Voice CTA buttons gated. Converted `StatefulWidget` → `ConsumerStatefulWidget` for `ref` access.
+  - **Pro Tools screen** (`pro_tools_screen.dart`): Chat and Voice CTA buttons gated. Converted `StatefulWidget` → `ConsumerStatefulWidget` for `ref` access.
+  - **My Bar screen** (`my_bar_screen.dart`): AppBar scanner icon and empty-state Scanner button gated. Already a `ConsumerWidget`.
+
+  **Features that remain FREE (no paywall):**
+  - Recipe Vault, My Bar (manual add/remove), Favorites, Today's Special, Academy content, Pro Tools content, Create Studio (manual editing), Social sharing
+
+  **Existing paywall layers unchanged:**
+  - Layer 1 (new): Pre-navigation gate via `navigateOrGate` (this change)
+  - Layer 2: Per-screen `EntitlementRequiredException` handlers (Feb 22)
+  - Layer 3: Backend 403 entitlement enforcement in PostgreSQL
+
+  **Static analysis:** Zero new errors in modified files.
+
+  **Files modified:**
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Added `navigateOrGate()` helper
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Gated 3 buttons (Scan, Chat, Voice)
+  - `mobile/app/lib/src/features/academy/academy_screen.dart`: Gated 2 buttons, converted to ConsumerStatefulWidget
+  - `mobile/app/lib/src/features/pro_tools/pro_tools_screen.dart`: Gated 2 buttons, converted to ConsumerStatefulWidget
+  - `mobile/app/lib/src/features/my_bar/my_bar_screen.dart`: Gated 2 scanner buttons
 
 - **Email Population Fix — Entra Token + Flutter Headers** (Feb 24): Fixed the `email` column in the `users` table being NULL for all users despite extraction code existing in APIM and backend. Root cause: the Entra External ID app registration (`f9f7f159`) was not configured to include the `email` optional claim in ID tokens. The `name` claim was present (display_name populated), but no email-related claim existed in the token. Three-layer fix applied:
 

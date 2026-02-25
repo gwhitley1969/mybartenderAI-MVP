@@ -38,6 +38,9 @@
 - ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
+- ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating
+- ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
+- ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`
 
 ### Recent Backend Improvements
 
@@ -192,7 +195,7 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
 
 **Subscription Functions (3)**
 - `subscription-config` - RevenueCat API keys for SDK initialization (GET /api/v1/subscription/config) — returns both Android (`revenueCatApiKey`) and iOS (`revenueCatAppleApiKey`) keys
-- `subscription-status` - User subscription status and entitlement (GET /api/v1/subscription/status)
+- `subscription-status` - User subscription status and entitlement (GET /api/v1/subscription/status) — returns `entitlement` from `users` table (authoritative source) alongside RevenueCat-synced `subscription` data
 - `subscription-webhook` - RevenueCat server-to-server webhook (POST /api/v1/subscription/webhook)
   - Handles: INITIAL_PURCHASE, RENEWAL, CANCELLATION, EXPIRATION, BILLING_ISSUE, PRODUCT_CHANGE, UNCANCELLATION, SUBSCRIPTION_PAUSED
   - Features: Idempotency via event ID, sandbox filtering, grace period handling
@@ -315,6 +318,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Token expiration** - short-lived access tokens (~1 hour)
 - **Silent refresh** - automatic token renewal
 - **Audit trail** - all requests logged with user ID
+- **4-layer paywall defense** - pre-navigation UI gate (`navigateOrGate`) → Profile screen dual-source check → per-screen `EntitlementRequiredException` handlers → backend 403 enforcement
 
 ## API Management (APIM) Configuration
 
@@ -329,8 +333,8 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 
 **Free (none):**
 
-- Features: Local cocktail database, basic search, browse recipes
-- AI features: None (paywall shown)
+- Features: Local cocktail database, basic search, browse recipes, My Bar (manual), Favorites, Today's Special, Academy content, Pro Tools content, Create Studio (manual editing), Social sharing
+- AI features: None — pre-navigation paywall gate (`navigateOrGate`) shows subscription sheet before navigating to AI screens (Chat, Voice, Scanner). 11 buttons gated across 6 screens (Home, Recipe Vault, Academy, Pro Tools, My Bar). Backend 403 enforcement remains as defense-in-depth.
 
 **Subscriber (paid):**
 
@@ -829,8 +833,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 24, 2026
-**Architecture Version**: 4.4 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening)
+**Last Updated**: February 25, 2026
+**Architecture Version**: 4.6 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
-**Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage
+**Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage + 4-Layer Paywall Defense

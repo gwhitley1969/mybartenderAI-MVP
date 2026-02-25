@@ -716,7 +716,8 @@ class ProfileScreen extends ConsumerWidget {
           ),
         ),
         data: (status) {
-          if (status.isPaid) {
+          final effectivelyPaid = status.isPaid || ref.watch(isPaidProvider);
+          if (effectivelyPaid) {
             return _buildActiveSubscription(context, ref, status);
           } else {
             return _buildNoSubscription(context, ref);

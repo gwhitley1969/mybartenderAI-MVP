@@ -2,8 +2,8 @@
 
 ## My AI Bartender
 
-**Document Version**: 3.2
-**Last Updated**: February 16, 2026
+**Document Version**: 3.5
+**Last Updated**: February 25, 2026
 **Product Owner**: Gene Whitley
 **Status**: Release Candidate
 
@@ -485,8 +485,9 @@ All features below require an active subscription (3-day free trial available on
 #### Subscription Upgrade Flow
 
 1. **Trigger Points**:
-   - Attempt subscriber feature (voice/vision/AI chat)
-   - From settings menu
+   - Tap any AI feature button (Chat, Voice, Scan My Bar) — pre-navigation paywall gate shows subscription sheet *before* navigating to the feature screen
+   - Backend 403 `entitlement_required` response on AI endpoints (defense-in-depth)
+   - From settings/profile menu
 2. **Subscribe Screen**:
    - Feature list (voice, AI, scanner, custom recipes)
    - Monthly ($7.99) and Annual ($79.99) options
@@ -495,6 +496,13 @@ All features below require an active subscription (3-day free trial available on
 3. **Payment**:
    - Google Play / App Store via RevenueCat
    - Instant activation
+4. **Post-Purchase**:
+   - Subscription sheet closes automatically
+   - `subscriptionStatusProvider` and `backendEntitlementProvider` invalidated for fresh state
+   - User taps button again — navigates immediately (simple, predictable UX)
+
+  **Dual-Source Entitlement Check (Feb 25, 2026):**
+  - `isPaidProvider` checks RevenueCat SDK cache first (instant, no network). If not paid, falls back to `backendEntitlementProvider` which queries PostgreSQL `users.entitlement` via the `subscription-status` endpoint. This ensures manual DB overrides (beta testers) and RevenueCat init failures don't cause false paywalls. The Profile screen, navigation gates, and all other UI consumers read `isPaidProvider` — so fixing the provider fixes everything.
 
 ### Core User Flows
 
@@ -1169,8 +1177,11 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 3-day trial with 20K tokens, 5 scans, 10 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
 | 3.2     | Feb 19, 2026 | Gene Whitley | Cross-platform subscription support: platform-aware RevenueCat API keys, iOS voice purchases via RevenueCat SDK, Apple API key in Key Vault, updated Phase 4 iOS status |
 | 3.3     | Feb 23, 2026 | Gene Whitley | Added `assetlinks.json` public endpoint for Android App Links domain verification |
+| 3.4     | Feb 25, 2026 | Gene Whitley | Added pre-navigation paywall gates: 9 AI feature buttons gated with `navigateOrGate` helper across 5 screens. Updated Subscription Upgrade Flow with pre-nav trigger and post-purchase UX |
+| 3.5     | Feb 25, 2026 | Gene Whitley | Fixed dual-source subscription bug: `isPaidProvider` now checks RevenueCat + backend PostgreSQL entitlement. Backend `subscription-status` returns `entitlement` field. Handles manual DB overrides for beta testers |
 
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: February 23, 2026
+**Last Updated**: February 25, 2026
+**Document Version**: 3.5

@@ -344,10 +344,10 @@ Verify app launches and subscription init logs "Android API key retrieved".
 
 ## Known Items (Not In Scope)
 
-- "Restore Purchases" button only exists on `voice_ai_screen.dart` — Apple may require it on the main subscription screen (address during App Store review)
+- ~~"Restore Purchases" button only exists on `voice_ai_screen.dart`~~ — **RESOLVED**: Restore Purchases now available on the subscription paywall sheet (`subscription_sheet.dart`, accessible from any gated feature) and on the Profile screen (`profile_screen.dart`). Apple requirement satisfied.
 - Reviewer screenshots needed for App Store IAP review — can be added later before submission
-- CLAUDE.md references old pricing "$4.99 for 20 minutes" — should be updated to "$4.99 for 60 minutes"
+- ~~CLAUDE.md references old pricing "$4.99 for 20 minutes"~~ — **RESOLVED**: Updated to "$4.99 for 60 minutes"
 
 ---
 
-**Last Updated**: February 19, 2026
+**Last Updated**: February 25, 2026

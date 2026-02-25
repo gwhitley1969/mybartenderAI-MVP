@@ -24,7 +24,8 @@ function decodeJwtClaims(authHeader) {
 
         return {
             sub: payload.sub || null,
-            email: payload.email || payload.preferred_username || null,
+            // Entra External ID (CIAM) uses 'emails' (array); standard OIDC uses 'email'
+            email: (Array.isArray(payload.emails) ? payload.emails[0] : payload.emails) || payload.email || payload.preferred_username || null,
             name: payload.name || null
         };
     } catch {

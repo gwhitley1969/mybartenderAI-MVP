@@ -21,6 +21,53 @@ void showSubscriptionSheet(BuildContext context, {VoidCallback? onPurchaseComple
   );
 }
 
+/// Gate a navigation action behind a subscription check.
+/// Checks RevenueCat first (fast, local). Falls back to backend
+/// entitlement from PostgreSQL (handles manual DB overrides).
+/// Awaits the backend check if it's still loading to avoid a
+/// false-negative flash.
+Future<void> navigateOrGate({
+  required BuildContext context,
+  required WidgetRef ref,
+  required VoidCallback navigate,
+}) async {
+  // Fast path: already resolved as paid (RevenueCat or cached backend)
+  final isPaid = ref.read(isPaidProvider);
+  developer.log('navigateOrGate: isPaid=$isPaid', name: 'Subscription');
+  if (isPaid) {
+    navigate();
+    return;
+  }
+
+  // If backend entitlement is still loading, wait for it before deciding
+  final backendAsync = ref.read(backendEntitlementProvider);
+  developer.log('navigateOrGate: backendAsync=$backendAsync', name: 'Subscription');
+  if (backendAsync.isLoading) {
+    try {
+      final entitlement = await ref.read(backendEntitlementProvider.future);
+      developer.log('navigateOrGate: awaited entitlement=$entitlement',
+          name: 'Subscription');
+      if (entitlement == 'paid') {
+        navigate();
+        return;
+      }
+    } catch (e) {
+      developer.log('navigateOrGate: backend await ERROR=$e',
+          name: 'Subscription');
+      // Backend unreachable — fall through to paywall
+    }
+  }
+
+  // Not paid in either system — show paywall
+  developer.log('navigateOrGate: showing paywall', name: 'Subscription');
+  if (context.mounted) {
+    showSubscriptionSheet(context, onPurchaseComplete: () {
+      ref.invalidate(subscriptionStatusProvider);
+      ref.invalidate(backendEntitlementProvider);
+    });
+  }
+}
+
 /// Bottom sheet for subscription options (shared across screens).
 ///
 /// Displays RevenueCat offerings (monthly + annual), handles purchase flow,

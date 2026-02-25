@@ -12,6 +12,7 @@ import '../favorites/favorites_screen.dart';
 import '../my_bar/my_bar_screen.dart';
 import '../recipe_vault/cocktail_detail_screen.dart';
 import '../recipe_vault/recipe_vault_screen.dart';
+import '../subscription/subscription_sheet.dart';
 import 'providers/todays_special_provider.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -271,7 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: 'Scan My Bar',
                   subtitle: 'Identify bottles',
                   color: AppColors.iconCirclePink,
-                  onTap: () => context.go('/smart-scanner'),
+                  onTap: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/smart-scanner')),
                 ),
               ),
               SizedBox(width: AppSpacing.md),
@@ -298,7 +299,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: 'Chat',
                   subtitle: 'Text conversation',
                   color: AppColors.iconCircleTeal,
-                  onTap: () => context.go('/ask-bartender'),
+                  onTap: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/ask-bartender')),
                 ),
               ),
               SizedBox(width: AppSpacing.md),
@@ -309,7 +310,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   title: 'Voice',
                   subtitle: 'Talk to AI',
                   color: AppColors.iconCircleBlue,
-                  onTap: () => context.go('/voice-ai'),
+                  onTap: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/voice-ai')),
                 ),
               ),
             ],

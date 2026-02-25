@@ -284,6 +284,20 @@ class BackendService {
     }
   }
 
+  /// Check the user's entitlement from the backend (PostgreSQL authoritative source).
+  /// Returns the entitlement string ('paid', 'none') or null on error.
+  Future<String?> getBackendEntitlement() async {
+    try {
+      final response = await _dio.get('/v1/subscription/status');
+      if (response.statusCode == 200 && response.data != null) {
+        return response.data['entitlement'] as String?;
+      }
+    } catch (e) {
+      print('BackendService: Failed to get backend entitlement: $e');
+    }
+    return null;
+  }
+
   /// Get subscription configuration (RevenueCat API key from Key Vault)
   Future<SubscriptionConfig> getSubscriptionConfig() async {
     try {

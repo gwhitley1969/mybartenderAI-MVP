@@ -4019,7 +4019,7 @@ app.http('subscription-status', {
 
             // Look up internal user UUID from Azure AD sub
             const userResult = await db.query(
-                'SELECT id, tier FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
                 [userId]
             );
 
@@ -4063,7 +4063,8 @@ app.http('subscription-status', {
                         cancelReason: status.cancel_reason
                     },
                     // Also include the current tier from users table for redundancy
-                    currentTier: user.tier
+                    currentTier: user.tier,
+                    entitlement: user.entitlement || 'none'
                 }
             };
 

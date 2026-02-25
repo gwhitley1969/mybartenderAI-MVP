@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
+import '../subscription/subscription_sheet.dart';
 import 'data/pro_tools_repository.dart';
 import 'models/pro_tools_models.dart';
 import 'pro_tools_tier_screen.dart';
@@ -9,14 +11,14 @@ import 'pro_tools_tier_screen.dart';
 /// Main Pro Tools screen showing a list of tool tiers.
 ///
 /// Users can tap a tier to see its tools.
-class ProToolsScreen extends StatefulWidget {
+class ProToolsScreen extends ConsumerStatefulWidget {
   const ProToolsScreen({super.key});
 
   @override
-  State<ProToolsScreen> createState() => _ProToolsScreenState();
+  ConsumerState<ProToolsScreen> createState() => _ProToolsScreenState();
 }
 
-class _ProToolsScreenState extends State<ProToolsScreen> {
+class _ProToolsScreenState extends ConsumerState<ProToolsScreen> {
   late Future<List<ToolTier>> _tiersFuture;
 
   @override
@@ -320,7 +322,7 @@ class _ProToolsScreenState extends State<ProToolsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => context.go('/ask-bartender'),
+                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/ask-bartender')),
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
@@ -337,7 +339,7 @@ class _ProToolsScreenState extends State<ProToolsScreen> {
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => context.go('/voice-ai'),
+                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/voice-ai')),
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(

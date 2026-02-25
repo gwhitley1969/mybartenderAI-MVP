@@ -256,6 +256,46 @@ The mobile app fetches available offerings dynamically from RevenueCat — subsc
 | `shouldShowUpgradePromptProvider` | `Provider<bool>` | True if not paid and not processing |
 | `subscriptionPurchaseNotifierProvider` | `StateNotifierProvider` | Purchase flow state management |
 
+### Pre-Navigation Paywall Gate (`subscription_sheet.dart`)
+
+The `navigateOrGate()` helper gates AI feature buttons at the UI layer. It checks `isPaidProvider` via `ref.read()` at tap time (not `ref.watch()` — avoids rebuilds since buttons don't change appearance for free vs paid users).
+
+```dart
+void navigateOrGate({
+  required BuildContext context,
+  required WidgetRef ref,
+  required VoidCallback navigate,
+}) {
+  final isPaid = ref.read(isPaidProvider);
+  if (isPaid) {
+    navigate();
+  } else {
+    showSubscriptionSheet(context, onPurchaseComplete: () {
+      ref.invalidate(subscriptionStatusProvider);
+    });
+  }
+}
+```
+
+**Gated buttons (11 total):**
+- Home screen: Scan My Bar, Chat, Voice (NOT Create — Create Studio is free)
+- Recipe Vault screen: Chat, Voice
+- Academy screen: Chat CTA, Voice CTA
+- Pro Tools screen: Chat CTA, Voice CTA
+- My Bar screen: AppBar scanner icon, empty-state Scanner button
+
+**4-layer paywall defense:**
+1. **Pre-navigation gate** (`navigateOrGate`): Prevents navigation to AI screens for free users
+2. **Profile screen dual-source check**: `isPaidProvider` (RevenueCat + backend) displayed in subscription card
+3. **Per-screen handlers**: `EntitlementRequiredException` catch blocks show paywall if user reaches screen
+4. **Backend enforcement**: 403 `entitlement_required` response from Azure Functions
+
+**Diagnostic logging** (`developer.log` with `name: 'Subscription'`):
+- `isPaidProvider`: Logs RevenueCat result, backend entitlement value, loading/error states
+- `navigateOrGate`: Logs `isPaid` value, backend async state, paywall trigger
+- `backendEntitlementProvider`: Logs fetched entitlement or error
+- On-device: `adb logcat | grep -i Subscription`
+
 ### Purchase Service (`purchase_service.dart`)
 
 - Product ID: `voice_minutes_60` (hardcoded constant)
@@ -440,5 +480,5 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 
 ---
 
-*Last Updated: February 19, 2026*
-*Implementation Status: Backend + Mobile code complete for both platforms. Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*
+*Last Updated: February 25, 2026*
+*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*

@@ -4,6 +4,136 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## SUB-003: Recipe Vault Missing Subscription Gate — Chat/Voice Bypass
+
+**Date Fixed**: February 25, 2026
+**Severity**: Medium (Unsubscribed users reach AI screen without paywall)
+**Component**: Mobile App (Recipe Vault screen navigation)
+**Files Modified**: `recipe_vault_screen.dart`
+**Backend Deployment**: No
+
+### Problem
+
+Unsubscribed users could tap "Chat" or "Voice" in the Recipe Vault screen and navigate directly to the AI Bartender or Voice AI screens without seeing a paywall. Instead of a subscription sheet, they'd send a message and see a generic error ("Sorry, I encountered an error. Please try again later.") because the backend returned 403 `entitlement_required`, which was caught by the generic `catch (e)` block instead of the specific `EntitlementRequiredException` handler.
+
+**Root cause**: `recipe_vault_screen.dart:293` did `context.push('/ask-bartender')` and line 310 did `context.push('/voice-ai')` — both bypassed `navigateOrGate()`. Compare with `home_screen.dart:302` which correctly used `navigateOrGate` for the same Chat button.
+
+### Fix
+
+Added `navigateOrGate` wrapper to both buttons in `recipe_vault_screen.dart`:
+- Chat button (line 293): `onPressed: () => navigateOrGate(context: context, ref: ref, navigate: () => context.push('/ask-bartender'))`
+- Voice button (line 310): Same pattern for `/voice-ai`
+- Added `import '../subscription/subscription_sheet.dart'`
+
+This is the same pattern used on Home, Academy, Pro Tools, and My Bar screens.
+
+### Verification
+
+1. Log in with unsubscribed account
+2. Navigate to Recipe Vault → tap "Chat" → paywall sheet appears (not navigation)
+3. Navigate to Recipe Vault → tap "Voice" → paywall sheet appears (not navigation)
+4. Log in with subscribed account → both buttons navigate normally
+
+---
+
+## SUB-002: Profile Screen Subscription Display — RevenueCat-Only Check
+
+**Date Fixed**: February 25, 2026
+**Severity**: Medium (Profile shows "No Active Subscription" for paid beta testers)
+**Component**: Mobile App (Profile screen subscription card)
+**Files Modified**: `profile_screen.dart`
+**Backend Deployment**: No
+
+### Problem
+
+The Profile screen's "Manage Subscription" card always showed "No Active Subscription" for beta testers with `entitlement='paid'` set manually in PostgreSQL, even after the dual-source `isPaidProvider` fix (SUB-001) was deployed.
+
+**Root cause**: `_buildSubscriptionCard()` in `profile_screen.dart:719` checked `status.isPaid` from `subscriptionStatusProvider` (RevenueCat stream only). It never consulted `isPaidProvider`, which includes the backend fallback. Every other screen used `isPaidProvider` — but the Profile screen had its own direct RevenueCat check.
+
+### Fix
+
+Changed the data handler in `_buildSubscriptionCard()` from:
+```dart
+if (status.isPaid) {
+```
+to:
+```dart
+final effectivelyPaid = status.isPaid || ref.watch(isPaidProvider);
+if (effectivelyPaid) {
+```
+
+No new imports needed — `subscription_provider.dart` (which exports `isPaidProvider`) was already imported.
+
+### Also Added: Diagnostic Logging
+
+Added `developer.log` with `name: 'Subscription'` to three key decision points:
+- `isPaidProvider` — logs RevenueCat result, backend entitlement value, loading state, and errors
+- `navigateOrGate` — logs `isPaid` value, backend async state, awaited entitlement result, and paywall trigger
+- `backendEntitlementProvider` already had logging from SUB-001
+
+This enables on-device diagnosis via: `adb logcat | grep -i Subscription`
+
+### Verification
+
+1. Log in with beta test account (`entitlement='paid'` in PostgreSQL)
+2. Open Profile screen → should show "ACTIVE" badge and "Manage Subscription" button
+3. Log in with free account → should show "No Active Subscription" with "Subscribe" button
+
+---
+
+## SUB-001: Dual-Source Subscription Check — Paywall Shown for Paid Beta Testers
+
+**Date Fixed**: February 25, 2026
+**Severity**: High (Paid users blocked from all AI features)
+**Component**: Mobile App (Riverpod subscription provider) + Backend (subscription-status endpoint)
+**Files Modified**: `subscription_provider.dart`, `subscription_sheet.dart`, `backend_service.dart`, `index.js`, + 4 screen files
+**Backend Deployment**: Yes (`func-mba-fresh`)
+
+### Problem
+
+Paid beta testers saw the paywall on every AI feature tap (Chat, Voice, Scan My Bar). The Profile screen also showed "No Active Subscription" for users with `entitlement='paid'` in PostgreSQL.
+
+**Root cause**: Two sources of truth disagreed:
+
+| Source | Location | Value for beta testers |
+|--------|----------|----------------------|
+| RevenueCat SDK cache | Mobile (local) | `isPaid: false` (no store purchase) |
+| PostgreSQL `users.entitlement` | Backend (authoritative) | `'paid'` (manual DB override) |
+
+`isPaidProvider` — the single source of truth for the entire Flutter app — only checked RevenueCat. Every consumer (Profile screen, `navigateOrGate`, all UI) read this provider and thought the user was free.
+
+This was the same root cause as the Build 12 regression (Feb 22), re-introduced under a different name when `navigateOrGate` was added.
+
+### Fix
+
+**Backend** (`index.js`):
+- `subscription-status` endpoint now queries `SELECT id, tier, entitlement FROM users` (added `entitlement` column)
+- Response includes `entitlement: user.entitlement || 'none'` at the top level
+
+**Flutter** (provider-level fix):
+- Added `backendEntitlementProvider` (FutureProvider) — calls `GET /v1/subscription/status`, extracts `entitlement` string, cached per session by Riverpod
+- Modified `isPaidProvider` to check RevenueCat first (fast path, no network), then fall back to `backendEntitlementProvider` (slow path, one network call)
+- Made `navigateOrGate()` async — awaits `backendEntitlementProvider.future` if still loading before deciding
+- All 9 gated button callbacks updated to `async`
+
+### Scenarios
+
+| User type | RevenueCat | Backend | Result |
+|-----------|------------|---------|--------|
+| Real subscriber | `true` | (not called) | Instant navigation |
+| Beta tester (manual DB) | `false` | `entitlement: 'paid'` | Navigation after ~200ms |
+| Free user | `false` | `entitlement: 'none'` | Paywall shown |
+| Offline | `false` | (error) | Paywall shown (fail-closed) |
+
+### Verification
+
+1. Log in with beta test account that has `entitlement='paid'` in PostgreSQL
+2. Profile screen should show active subscription (not "No Active Subscription")
+3. Tap Chat/Voice/Scan buttons — should navigate without paywall
+4. Log in with free account — paywall should appear on all AI features
+
+---
+
 ## SEC-001: Backend Security Hardening — Webhook Auth Bypass, Stack Trace Leakage, Missing Input Validation
 
 **Date Fixed**: February 24, 2026
@@ -936,4 +1066,4 @@ See `DEPLOYMENT_STATUS.md` "Create Studio SQLite Type-Casting Bug Fix" entry for
 
 ---
 
-**Last Updated**: February 24, 2026
+**Last Updated**: February 25, 2026

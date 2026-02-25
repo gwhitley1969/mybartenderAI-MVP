@@ -86,12 +86,13 @@
         </set-header>
 
         <!-- Extract user email if available -->
+        <!-- Entra External ID (CIAM) uses 'emails' (array); standard OIDC uses 'email' -->
         <set-header name="X-User-Email" exists-action="override">
             <value>@{
                 Jwt jwt;
                 if (context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ", "").TryParseJwt(out jwt))
                 {
-                    return jwt?.Claims.GetValueOrDefault("email", "") ?? jwt?.Claims.GetValueOrDefault("preferred_username", "") ?? "";
+                    return jwt?.Claims.GetValueOrDefault("emails", "") ?? jwt?.Claims.GetValueOrDefault("email", "") ?? jwt?.Claims.GetValueOrDefault("preferred_username", "") ?? "";
                 }
                 return "";
             }</value>

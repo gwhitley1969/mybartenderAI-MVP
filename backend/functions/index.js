@@ -3722,7 +3722,11 @@ app.http('subscription-webhook', {
                 ? new Date(event.event.expiration_at_ms)
                 : null;
 
-            context.log(`Event type: ${eventType}, ID: ${eventId}, Env: ${environment}, User: ${appUserId?.substring(0, 8)}..., Product: ${productId}`);
+            // Log event — mask emails (show only the part before @)
+            const maskedUserId = appUserId?.includes('@')
+                ? appUserId.split('@')[0] + '@***'
+                : appUserId?.substring(0, 8) + '...';
+            context.log(`Event type: ${eventType}, ID: ${eventId}, Env: ${environment}, User: ${maskedUserId}, Product: ${productId}`);
 
             // TEMPORARY: Sandbox filtering disabled for end-to-end testing
             // Re-enable before production launch by uncommenting the block below
@@ -3742,17 +3746,34 @@ app.http('subscription-webhook', {
                 };
             }
 
-            // Look up internal user UUID from azure_ad_sub
-            const userResult = await db.query(
-                'SELECT id FROM users WHERE azure_ad_sub = $1',
-                [appUserId]
-            );
+            // Dual-lookup: email-based (new) vs azure_ad_sub (legacy)
+            // If app_user_id contains @ and is NOT a UPN fallback, look up by email
+            // Otherwise, look up by azure_ad_sub (legacy format)
+            let userResult;
+            const isEmailFormat = appUserId.includes('@') && !appUserId.endsWith('mybartenderai.onmicrosoft.com');
+
+            if (isEmailFormat) {
+                context.log('Looking up user by email (new format)');
+                userResult = await db.query(
+                    'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
+                    [appUserId]
+                );
+            } else {
+                context.log('Looking up user by azure_ad_sub (legacy format)');
+                userResult = await db.query(
+                    'SELECT id FROM users WHERE azure_ad_sub = $1',
+                    [appUserId]
+                );
+            }
 
             let internalUserId = null;
             if (userResult.rows.length > 0) {
                 internalUserId = userResult.rows[0].id;
             } else {
-                context.warn(`User not found for azure_ad_sub: ${appUserId.substring(0, 8)}...`);
+                const maskedId = isEmailFormat
+                    ? appUserId.split('@')[0] + '@***'
+                    : appUserId.substring(0, 8) + '...';
+                context.warn(`User not found for ${isEmailFormat ? 'email' : 'azure_ad_sub'}: ${maskedId}`);
             }
 
             // Idempotency check - skip if we've already processed this event

@@ -1,5 +1,6 @@
+import 'dart:convert';
 import 'dart:developer' as developer;
-import 'dart:io' show Platform;
+import 'dart:io';
 
 import 'package:msal_auth/msal_auth.dart';
 import 'package:jwt_decoder/jwt_decoder.dart';
@@ -340,6 +341,59 @@ class AuthService {
     }
   }
 
+  /// Fetch the user's real email from Microsoft Graph API.
+  ///
+  /// The access token (audience: graph.microsoft.com, scope: User.Read) lets us
+  /// call GET /me to retrieve profile fields that CIAM doesn't put in the token.
+  /// Checks mail, otherMails, then userPrincipalName — skipping UPN-format values.
+  Future<String?> _fetchEmailFromGraph(String accessToken) async {
+    try {
+      _diagLog('Calling Microsoft Graph /me to fetch real email...');
+      final client = HttpClient();
+      final request = await client.getUrl(
+        Uri.parse(r'https://graph.microsoft.com/v1.0/me?$select=mail,otherMails,userPrincipalName'),
+      );
+      request.headers.set('Authorization', 'Bearer $accessToken');
+      request.headers.set('Accept', 'application/json');
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      client.close();
+
+      if (response.statusCode != 200) {
+        _diagLog('Graph API returned ${response.statusCode}: $body');
+        return null;
+      }
+
+      final profile = json.decode(body) as Map<String, dynamic>;
+      _diagLog('Graph /me response: mail=${profile['mail']}, otherMails=${profile['otherMails']}, upn=${profile['userPrincipalName']}');
+
+      // Priority: mail → otherMails[0] → userPrincipalName (skip UPN format)
+      final mail = profile['mail']?.toString();
+      if (mail != null && mail.isNotEmpty && !mail.endsWith('mybartenderai.onmicrosoft.com')) {
+        return mail;
+      }
+
+      final otherMails = profile['otherMails'];
+      if (otherMails is List && otherMails.isNotEmpty) {
+        final otherMail = otherMails[0].toString();
+        if (!otherMail.endsWith('mybartenderai.onmicrosoft.com')) {
+          return otherMail;
+        }
+      }
+
+      final upn = profile['userPrincipalName']?.toString();
+      if (upn != null && upn.isNotEmpty && !upn.endsWith('mybartenderai.onmicrosoft.com')) {
+        return upn;
+      }
+
+      _diagLog('Graph API: no real email found in profile');
+      return null;
+    } catch (e) {
+      _diagLog('Graph API call failed: $e');
+      return null;
+    }
+  }
+
   /// Handle the authentication result and create a User object
   Future<User?> _handleAuthResult(AuthenticationResult result) async {
     try {
@@ -376,22 +430,32 @@ class AuthService {
       final decodedToken = decodedIdToken;
       _diagLog('ID token decoded successfully');
 
-      // Log token claims for diagnostics (excluding sensitive data)
-      _diagLog('Token issuer (iss): ${decodedToken['iss']}');
-      _diagLog('Token audience (aud): ${decodedToken['aud']}');
-      _diagLog('Token issued at (iat): ${decodedToken['iat']}');
-      _diagLog('Token expires (exp): ${decodedToken['exp']}');
 
       // Extract user information from the ID token
       final userId = decodedToken['sub'] ?? decodedToken['oid'] ?? '';
       // Entra External ID (CIAM) uses 'emails' (array); standard OIDC uses 'email'
-      final email = (decodedToken['emails'] is List && (decodedToken['emails'] as List).isNotEmpty
+      var email = ((decodedToken['emails'] is List && (decodedToken['emails'] as List).isNotEmpty
               ? (decodedToken['emails'] as List)[0]
               : null) ??
           decodedToken['email'] ??
           decodedToken['preferred_username'] ??
           decodedToken['unique_name'] ??
-          '';
+          '') as String;
+
+      // If token claims didn't yield a real email, fetch from Microsoft Graph API.
+      // CIAM tokens often omit the email claim even when configured — the Graph API
+      // always has it via the User.Read scope we already request.
+      if (email.isEmpty || email.endsWith('mybartenderai.onmicrosoft.com')) {
+        _diagLog('Token has no real email (got: "${email.isEmpty ? "<empty>" : email}"), fetching from Graph API...');
+        final graphEmail = await _fetchEmailFromGraph(accessToken);
+        if (graphEmail != null) {
+          email = graphEmail;
+          _diagLog('Got real email from Graph API: ${email.split('@')[0]}@***');
+        } else {
+          _diagLog('WARNING: Could not get real email from Graph API either');
+        }
+      }
+
       final displayName = decodedToken['name'];
       final givenName = decodedToken['given_name'];
       final familyName = decodedToken['family_name'];

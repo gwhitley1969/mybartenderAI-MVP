@@ -58,18 +58,35 @@ class SubscriptionService {
 
   CustomerInfo? _cachedCustomerInfo;
 
-  /// Initialize RevenueCat with the user's ID
+  /// Initialize RevenueCat with the user's email as the App User ID
   ///
-  /// [userId] should be the user's azure_ad_sub from Entra External ID
+  /// [userEmail] should be the user's real email address (not UPN)
   /// [backendService] is used to fetch the RevenueCat API key from Azure Key Vault
-  /// This links RevenueCat purchases to our backend user
-  Future<void> initialize(String userId, BackendService backendService) async {
+  /// [displayName] optional display name for RevenueCat subscriber attributes
+  ///
+  /// Uses anonymous configure + logIn(email) pattern to trigger RevenueCat's
+  /// Transfer Behavior, which migrates existing subscribers from old sub-based
+  /// IDs to the new email-based ID automatically.
+  Future<void> initialize(String userEmail, BackendService backendService, {String? displayName}) async {
     if (_isInitialized) {
       debugPrint('SubscriptionService: Already initialized');
       return;
     }
 
-    debugPrint('SubscriptionService: Initializing with userId: ${userId.substring(0, 8)}...');
+    // Normalize email: lowercase + trim
+    final normalizedEmail = userEmail.toLowerCase().trim();
+
+    // Guard: don't initialize if email is empty or is a UPN fallback
+    if (normalizedEmail.isEmpty) {
+      debugPrint('SubscriptionService: WARNING — email is empty, skipping RevenueCat init');
+      return;
+    }
+    if (normalizedEmail.endsWith('mybartenderai.onmicrosoft.com')) {
+      debugPrint('SubscriptionService: WARNING — email is UPN format ($normalizedEmail), skipping RevenueCat init');
+      return;
+    }
+
+    debugPrint('SubscriptionService: Initializing with email: ${normalizedEmail.split('@')[0]}@***');
 
     try {
       // Fetch RevenueCat API key from backend (stored in Azure Key Vault)
@@ -86,14 +103,26 @@ class SubscriptionService {
         debugPrint('SubscriptionService: Android API key retrieved');
       }
 
-      // Configure RevenueCat
+      // Configure RevenueCat anonymously (no appUserID)
       await Purchases.configure(
-        PurchasesConfiguration(_revenueCatApiKey!)..appUserID = userId,
+        PurchasesConfiguration(_revenueCatApiKey!),
       );
 
       // Enable debug logs in debug mode
       if (kDebugMode) {
         await Purchases.setLogLevel(LogLevel.debug);
+      }
+
+      // Identify user by email — triggers Transfer Behavior for existing subscribers
+      // This migrates purchase history from old sub-based ID to new email-based ID
+      debugPrint('SubscriptionService: Logging in with email...');
+      await Purchases.logIn(normalizedEmail);
+      debugPrint('SubscriptionService: logIn successful');
+
+      // Set subscriber attributes for RevenueCat dashboard
+      await Purchases.setEmail(normalizedEmail);
+      if (displayName != null && displayName.isNotEmpty) {
+        await Purchases.setDisplayName(displayName);
       }
 
       // Listen for customer info updates

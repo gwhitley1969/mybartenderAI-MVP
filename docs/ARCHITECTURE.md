@@ -41,6 +41,7 @@
 - ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating
 - ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
 - ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`
+- ✅ **Email-Based RevenueCat App User ID** - `Purchases.logIn(email)` replaces opaque `sub`-based ID. Microsoft Graph API fetches real email (CIAM tokens lack email claims). Backend webhook uses dual-lookup (email + legacy `azure_ad_sub`). Database has `idx_users_email_lower` index for efficient lookups
 
 ### Recent Backend Improvements
 
@@ -518,6 +519,23 @@ RevenueCat requires a separate API key per store. The `subscription-config` endp
 
 This difference exists because Apple's StoreKit receipts cannot be verified by the Google Play Developer API — they're completely different validation systems.
 
+### App User ID Strategy (Email-Based)
+
+RevenueCat identifies subscribers by their **real email address** (e.g., `paulawhitley1971@gmail.com`) rather than an opaque Entra `sub` claim. This enables customer lookup by email in the RevenueCat dashboard.
+
+**Email retrieval**: Entra External ID (CIAM) tokens do not include email claims even when configured as optional claims. The Flutter app calls Microsoft Graph API `GET /me` during sign-in to fetch the real email from the user's profile (`auth_service.dart` → `_fetchEmailFromGraph()`).
+
+**Initialization pattern** (`subscription_service.dart`):
+1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no appUserID)
+2. `Purchases.logIn(normalizedEmail)` — identifies user by email, triggers Transfer Behavior for existing subscribers
+3. `Purchases.setEmail()` + `Purchases.setDisplayName()` — subscriber attributes for dashboard
+
+**Backend webhook dual-lookup** (`index.js`): The `subscription-webhook` function checks if `app_user_id` contains `@` (and isn't a UPN fallback):
+- Email format → `WHERE LOWER(email) = LOWER($1)` (uses `idx_users_email_lower` index)
+- Non-email format → `WHERE azure_ad_sub = $1` (legacy)
+
+Both lookup paths work indefinitely — no cutover window needed.
+
 ### Components
 
 **Database Tables:**
@@ -835,8 +853,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 25, 2026
-**Architecture Version**: 4.7 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer)
+**Last Updated**: February 26, 2026
+**Architecture Version**: 4.8 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage + 4-Layer Paywall Defense

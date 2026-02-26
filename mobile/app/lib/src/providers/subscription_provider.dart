@@ -112,15 +112,16 @@ final subscriptionStatusStringProvider = Provider<String>((ref) {
   );
 });
 
-/// Initialize the subscription service with the user's ID
+/// Initialize the subscription service with the user's email
 ///
 /// Call this after successful authentication
-/// [userId] should be the azure_ad_sub from the JWT
+/// [userEmail] should be the user's real email address
+/// [displayName] optional display name for RevenueCat subscriber attributes
 /// Uses BackendService to fetch RevenueCat API key from Azure Key Vault
-Future<void> initializeSubscriptionService(Ref ref, String userId) async {
+Future<void> initializeSubscriptionService(Ref ref, String userEmail, {String? displayName}) async {
   final subscriptionService = ref.read(subscriptionServiceProvider);
   final backendService = ref.read(backendServiceProvider);
-  await subscriptionService.initialize(userId, backendService);
+  await subscriptionService.initialize(userEmail, backendService, displayName: displayName);
 }
 
 /// State for subscription purchase flow

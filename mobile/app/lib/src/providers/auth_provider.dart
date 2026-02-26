@@ -101,8 +101,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user != null) {
         developer.log('Quick re-login successful: ${user.email}', name: 'AuthNotifier');
-        // Initialize RevenueCat with user's ID
-        await _initializeSubscription(user.id);
+        // Initialize RevenueCat with user's email for support lookup
+        await _initializeSubscription(user.email, displayName: user.displayName);
         state = AuthState.authenticated(user);
         _lastKnownUser = null; // Clear since we're now logged in
       } else {
@@ -125,8 +125,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user != null) {
         developer.log('User authenticated: ${user.email}', name: 'AuthNotifier');
-        // Initialize RevenueCat with user's ID (azure_ad_sub)
-        await _initializeSubscription(user.id);
+        // Initialize RevenueCat with user's email for support lookup
+        await _initializeSubscription(user.email, displayName: user.displayName);
         state = AuthState.authenticated(user);
       } else {
         developer.log('User not authenticated - redirecting to login', name: 'AuthNotifier');
@@ -147,8 +147,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user != null) {
         developer.log('Sign in successful: ${user.email}', name: 'AuthNotifier');
-        // Initialize RevenueCat with user's ID (azure_ad_sub)
-        await _initializeSubscription(user.id);
+        // Initialize RevenueCat with user's email for support lookup
+        await _initializeSubscription(user.email, displayName: user.displayName);
         state = AuthState.authenticated(user);
       } else {
         developer.log('Sign in cancelled', name: 'AuthNotifier');
@@ -169,8 +169,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       if (user != null) {
         developer.log('Sign up successful: ${user.email}', name: 'AuthNotifier');
-        // Initialize RevenueCat with user's ID (azure_ad_sub)
-        await _initializeSubscription(user.id);
+        // Initialize RevenueCat with user's email for support lookup
+        await _initializeSubscription(user.email, displayName: user.displayName);
         state = AuthState.authenticated(user);
       } else {
         developer.log('Sign up cancelled', name: 'AuthNotifier');
@@ -240,11 +240,12 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await refresh();
   }
 
-  /// Initialize RevenueCat subscription service with user ID
+  /// Initialize RevenueCat subscription service with user's email
+  /// Uses email as RevenueCat App User ID for support lookup by email
   /// Uses BackendService to fetch the RevenueCat API key from Azure Key Vault
-  Future<void> _initializeSubscription(String userId) async {
+  Future<void> _initializeSubscription(String userEmail, {String? displayName}) async {
     try {
-      await _subscriptionService.initialize(userId, _backendService);
+      await _subscriptionService.initialize(userEmail, _backendService, displayName: displayName);
       developer.log('RevenueCat initialized for user', name: 'AuthNotifier');
     } catch (e) {
       // Log the FULL error for debugging - don't silently swallow

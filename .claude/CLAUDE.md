@@ -10,7 +10,7 @@ Always use context7 when I need code generation, setup or configuration steps, o
 
 You have both the Microsoft Documentation and Azure MCP Servers installed.  Use them, when needed
 
-## ## Project Overview
+## Project Overview
 
 **My AI Bartender** is a mobile-first AI bartender application that helps users create cocktails based on their available ingredients. The app uses device camera to inventory home bars and provides real-time voice-guided cocktail-making instructions.
 
@@ -25,9 +25,8 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 ### Business Model
 
-- **3-Day Free Trial**: Limited AI interactions (100,000 tokens / 3 days) (10 scans / 3 days), (10 voice minutes / 3 days) unlimited access to local cocktail database
-
-- **Pro** $7.99 / month or $79.99 / year (1,000,000 tokens / 30 days) (30 scans / 30 days) (30 voice minutes / 30 days included + $4.99 for 20 minutes
+- **3-Day Free Trial**: Reduced AI access (20,000 tokens / 3 days, 5 scans / 3 days, 10 voice minutes / 3 days), unlimited access to local cocktail database
+- **Pro**: $7.99 / month or $79.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $4.99 for 60 additional minutes
 
 ## Tech Stack
 
@@ -55,7 +54,9 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
 
-- **Authentication**: PII-minimal approach with JWT
+- **Authentication**: Entra External ID (JWT) + Microsoft Graph API for email retrieval
+
+- **Subscriptions**: RevenueCat (Google Play + App Store), email-based App User ID
 
 - **Load Balancer**: Azure Front Door (`fd-mba-share`) external custom domain `share.mybartenderai.com`. 
 
@@ -135,17 +136,15 @@ Located in `kv-mybartenderai-prod`:
 
 22. **AZURE-OPENAI-REALTIME-KEY**: API key for Voice AI (East US 2 resource)
 
-23. **REVENUECAT-PUBLIC-API-KEY**
+23. **REVENUECAT-PUBLIC-API-KEY**: RevenueCat Android API key (`goog_...`)
 
-24. **REVENUECAT-WEBHOOK-SECRET**
+24. **REVENUECAT-WEBHOOK-SECRET**: Webhook Bearer token verification
+
+25. **REVENUECAT-APPLE-API-KEY**: RevenueCat iOS API key (`appl_...`)
 
 ## Architecture Highlights
 
-### 
-
-**Why This Approach:**
-
-**AI Model Strategy:**
+### AI Model Strategy
 
 - **GPT-4.1-mini** (South Central US): Primary model for cocktail chat recommendations
   
@@ -207,13 +206,12 @@ Located in `kv-mybartenderai-prod`:
   - Security: Hides Function URLs, DDoS protection
   - Built-in analytics and monitoring
 - **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
-- **Quotas** (enforced by backend):
-  - **Free**: 10,000 tokens / 30 days, 2 scans / 30 days (needs to be replaced, no longer valid)
-  - **Premium**: 300,000 tokens / 30 days, 15 scans / 30 days (+ $4.99/20 min voice purchase) (needs to be removed, no longer valid)
-  - **Pro**: 1,000,000 tokens / 30 days, 50 scans / 30 days, 60 voice minutes / 30 days (+ $4.99/20 min top-up)
-- 
+- **Quotas** (enforced by backend, single binary entitlement model):
+  - **Trial** (3-day free trial): 20,000 tokens, 5 scans, 10 voice minutes
+  - **Pro** (paid subscribers): 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days (+ $4.99/60 min top-up)
+  - **Free** (non-subscribers): Local cocktail database only, paywall for AI features
 
-### ## Development Environment
+## Development Environment
 
 ### Required Tools
 
@@ -239,33 +237,36 @@ Located in `kv-mybartenderai-prod`:
 
 ### Azure Functions
 
-- **Language**: JavaScript/Node.js (removed native dependencies like better-sqlite3)
-- **Authentication**: Connection strings with Key Vault for MVP phase (no longer MVP phase, in beta now)
-- **Storage Access**: Managed Identities
-- **Current**: Migrate to DefaultAzureCredential/Managed Identity when upgrading hosting plan
+- **Language**: JavaScript/Node.js (v4 programming model, single `index.js` entry point)
+- **Runtime**: Azure Functions v4 on Premium Consumption plan
+- **Authentication**: Managed Identity for Key Vault and Storage; JWT-only for API requests
+- **Storage Access**: Managed Identities (System-Assigned)
 
-**Deployed Functions:**
+**Deployed Functions (36 total):**
 
 - `ask-bartender`, `ask-bartender-simple`, `ask-bartender-test`: GPT-4.1-mini cocktail recommendations
 - `recommend`: AI-powered cocktail suggestions
+- `refine-cocktail`: AI recipe refinement for Create Studio
+- `vision-analyze`: Smart Scanner using Claude Haiku
+- `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API (Pro tier)
+- `voice-purchase`, `voice-quota`, `voice-usage`, `voice-realtime-test`, `voice-session-cleanup`: Voice AI management
+- `subscription-config`, `subscription-status`, `subscription-webhook`: RevenueCat subscription system
 - `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
 - `download-images`, `download-images-mi`: Image asset management
 - `sync-cocktaildb`, `sync-cocktaildb-mi`: Database sync (TIMERS DISABLED)
-- `health`: Health check endpoint
-- `refine-cocktail`: AI recipe refinement for Create Studio
-- `rotate-keys-timer`: Automated key rotation
 - `social-inbox`, `social-invite`, `social-outbox`, `social-share-internal`: Social features
-- `speech-token`: Speech service token exchange
+- `auth-exchange`, `auth-rotate`: Token management
 - `users-me`: User profile endpoint
 - `validate-age`: Age verification for Entra External ID
-- `vision-analyze`: Smart Scanner using Claude Haiku
-- `voice-bartender`: Legacy voice (Azure Speech Services)
-- `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API (Pro tier)
-- `auth-exchange`, `auth-rotate`: Token management
 - `cocktail-preview`: Public cocktail preview for sharing
+- `well-known-assetlinks`: Android App Links verification
+- `health`: Health check endpoint
+- `speech-token`: Speech service token exchange
+- `voice-bartender`: Legacy voice (Azure Speech Services)
+- `rotate-keys-timer`: Automated key rotation
 - `test-keyvault`, `test-mi-access`, `test-write`: Diagnostic endpoints
-  
-  
+
+
 
 ### Infrastructure
 
@@ -274,9 +275,9 @@ Located in `kv-mybartenderai-prod`:
 
 ## Current Status & Known Issues
 
-### Completed (January 2026)
+### Completed
 
-**Infrastructure:**
+**Infrastructure (Jan 2026):**
 
 - ✅ Azure infrastructure (South Central US + East US 2 for Voice AI)
 - ✅ PostgreSQL as authoritative source
@@ -292,24 +293,37 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Age verification (21+) with Custom Authentication Extension
 - ✅ JWT-only authentication flow
 - ✅ Token refresh and secure storage
+- ✅ Microsoft Graph API email retrieval (CIAM tokens lack email claims)
 
 **Mobile App Features:**
 
 - ✅ AI Bartender Chat (GPT-4.1-mini)
 - ✅ Recipe Vault with offline SQLite database
 - ✅ My Bar inventory management
-- ✅ Smart Scanner (Claude Haiku)
+- ✅ Scan My Bar / Smart Scanner (Claude Haiku)
 - ✅ Voice AI (GPT-realtime-mini via Azure OpenAI Realtime API, Pro tier)
 - ✅ Create Studio with AI refinement
 - ✅ Today's Special with notifications
 - ✅ Social sharing (Instagram/Facebook)
 - ✅ Friends via Code sharing
 - ✅ User profile with settings
+- ✅ In-App Review with win moment triggers
+
+**Subscription System (Feb 2026):**
+
+- ✅ RevenueCat integration (Google Play + App Store)
+- ✅ Email-based App User ID (customer lookup by email in RevenueCat dashboard)
+- ✅ Webhook-based subscription lifecycle with idempotency
+- ✅ 4-layer paywall defense (pre-nav gate, per-screen handler, dual-source check, backend enforcement)
+- ✅ Dual-source `isPaidProvider` (RevenueCat + PostgreSQL authoritative)
+- ✅ 3-day free trial with reduced quotas
+- ✅ Voice minute add-on purchases ($4.99/60 min)
+- ✅ Backend security hardening (fail-closed webhook auth, input validation, no stack traces)
 
 **Backend:**
 
-- ✅ All API endpoints deployed and operational
-- ✅ Tier-based quota enforcement in PostgreSQL
+- ✅ All 36 API endpoints deployed and operational
+- ✅ Entitlement-based quota enforcement in PostgreSQL
 
 ### In Progress
 
@@ -318,7 +332,7 @@ Located in `kv-mybartenderai-prod`:
 ### Upcoming
 
 - 📋 Android Play Store deployment
-- 📋 iOS configuration and TestFlight
+- 📋 iOS TestFlight testing
 
 ## Developer Background
 
@@ -359,14 +373,14 @@ Located in `kv-mybartenderai-prod`:
 
 Refer to these files in the repository:
 
-- `README.md`: Project overview and setup instructions (may be outdated - verify before relying on)
-- `ARCHITECTURE.md`: Detailed architecture documentation
-- `DEPLOYMENT_STATUS.md`: Current deployment state and progress
+- `docs/ARCHITECTURE.md`: Detailed architecture documentation (authoritative)
+- `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog
+- `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
+- `docs/REVENUECAT_PLAN.md`: RevenueCat setup checklist (Google Play + App Store)
+- `docs/USER_SUBSCRIPTION_MANAGEMENT.md`: PostgreSQL admin guide for user/subscription management
+- `README.md`: Project overview and setup instructions (may be outdated)
 - `FLUTTER_INTEGRATION_PLAN.md`: Mobile app integration strategy
-- `MANAGED_IDENTITY_MIGRATION.md`: Documentation of MI migration attempts and future plans (currently using SAS for MVP)
-- `PLAN.md`: Project roadmap and planning documentation
-- `/docs/`: Additional technical documentation (if exists)
-- `/infrastructure/`: Bicep templates and deployment scripts (if exists)
+- `/infrastructure/`: Bicep templates and deployment scripts
 
 ## Quick Commands Reference
 
@@ -414,7 +428,7 @@ flutter test
 
 ---
 
-**Last Updated**: February, 2026
+**Last Updated**: February 26, 2026
 **Project Phase**: Release Candidate
 **Primary Focus**: Play Store deployment preparation
-**Recent Changes**: Azure OpenAI model migration (GPT-4.1-mini, gpt-realtime-mini)
+**Recent Changes**: RevenueCat email-based App User ID, Graph API email retrieval, subscription system complete, backend security hardening

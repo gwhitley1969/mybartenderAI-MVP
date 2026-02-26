@@ -1,6 +1,6 @@
 # User Subscription Management — PostgreSQL
 
-**Last Updated**: February 25, 2026
+**Last Updated**: February 26, 2026
 
 This guide explains how to view and modify user subscription status directly in the PostgreSQL database (`pg-mybartenderdb`).
 
@@ -100,7 +100,7 @@ The `users` table contains these identity and subscription columns:
 |--------|------|--------|---------|
 | `id` | UUID | auto-generated | Internal primary key (used in foreign keys) |
 | `azure_ad_sub` | TEXT | Entra External ID `sub` claim | Links to Entra identity provider |
-| `email` | TEXT | user's email or NULL | Populated from JWT — **requires Entra `email` optional claim** (see [Entra Token Configuration](#entra-token-configuration-critical)) |
+| `email` | TEXT | user's email or NULL | Populated from Microsoft Graph API on sign-in (real email, not UPN). See [Email Population](#email-population-via-graph-api) |
 | `display_name` | TEXT | user's name or NULL | Populated from JWT `name` claim on every API call — **most reliable identifier today** |
 | `tier` | VARCHAR(20) | `free`, `premium`, `pro` | Legacy tier (still used for quota limits) |
 | `entitlement` | TEXT | `paid`, `none` | **Primary access gate** — all Azure Functions check this |
@@ -139,7 +139,7 @@ The `users` table has three identity columns that map to the same person:
 | Column | Source | When to Use |
 |--------|--------|-------------|
 | `display_name` | JWT `name` claim (refreshed on every API call) | **Most practical today** — populated for most active users |
-| `email` | JWT `email` claim (requires Entra optional claim config) | **Best identifier once configured** — currently NULL for all users |
+| `email` | Microsoft Graph API `GET /me` on sign-in | **Recommended** — populated via Microsoft Graph API on sign-in (Feb 26, 2026) |
 | `azure_ad_sub` | Entra External ID `sub` claim (set on first login) | When you have the Entra identity token |
 | `id` | Auto-generated UUID (internal primary key) | When referencing from other tables or scripts |
 
@@ -153,7 +153,7 @@ FROM users
 WHERE display_name ILIKE '%whitley%';
 ```
 
-### Find by Email (once Entra email claim is configured)
+### Find by Email (Recommended)
 
 ```sql
 SELECT id, email, display_name, tier, entitlement, subscription_status,
@@ -184,7 +184,7 @@ ORDER BY last_login_at DESC;
 powershell.exe -Command "psql 'postgresql://pgadmin:Advocate2%21@pg-mybartenderdb.postgres.database.azure.com/mybartender?sslmode=require' -c \"SELECT id, display_name, email, tier, entitlement, subscription_status FROM users WHERE display_name ILIKE '%whitley%';\""
 ```
 
-### Git Bash One-Liner: Find User by Email (once configured)
+### Git Bash One-Liner: Find User by Email
 
 ```bash
 powershell.exe -Command "psql 'postgresql://pgadmin:Advocate2%21@pg-mybartenderdb.postgres.database.azure.com/mybartender?sslmode=require' -c \"SELECT id, email, tier, entitlement, subscription_status FROM users WHERE email = 'user@example.com';\""
@@ -216,7 +216,7 @@ SET tier = 'pro',
     updated_at = NOW()
 WHERE display_name ILIKE '%whitley%';
 
--- By email (once Entra email claim is configured)
+-- By email
 UPDATE users
 SET tier = 'pro',
     entitlement = 'paid',
@@ -259,7 +259,7 @@ SET tier = 'free',
     updated_at = NOW()
 WHERE display_name ILIKE '%username%';
 
--- By email (once Entra email claim is configured)
+-- By email
 UPDATE users
 SET tier = 'free',
     entitlement = 'none',
@@ -283,7 +283,7 @@ SET voice_minutes_used_this_cycle = 0,
     updated_at = NOW()
 WHERE display_name ILIKE '%username%';
 
--- By email (once Entra email claim is configured)
+-- By email
 UPDATE users
 SET voice_minutes_used_this_cycle = 0,
     voice_cycle_started_at = NOW(),
@@ -321,34 +321,32 @@ powershell.exe -Command "psql 'postgresql://pgadmin:Advocate2%21@pg-mybartenderd
 
 ---
 
-## Entra Token Configuration (Critical)
+## Email Population via Graph API
 
-The `email` column in the `users` table is **NULL for all users** because the Entra External ID app registration does not include the `email` optional claim in ID tokens. The `name` claim IS present (which is why `display_name` populates), but no email claim exists in the token.
+The `email` column in the `users` table is populated via **Microsoft Graph API** during Flutter sign-in (since Feb 26, 2026).
 
-### Root Cause
+### Background
 
-App registration `f9f7f159-b847-4211-98c9-18e5b8193045` is missing the `email` optional claim on ID tokens. Without this, neither APIM extraction nor backend `jwtDecode.js` can find an email that isn't in the token.
+Entra External ID (CIAM) tokens do **not** include email claims even when the `email` optional claim is configured in Token Configuration. The `name` claim IS present (which is why `display_name` populates), but `email`, `emails`, `preferred_username`, and `unique_name` are all absent from CIAM tokens. Adding custom claims via the Enterprise App's Attributes & Claims blade triggers `AADSTS50146` (requires application-specific signing key), breaking authentication.
 
-### Fix: Add Email Optional Claim (Azure Portal)
+### Solution: Microsoft Graph API
 
-1. Go to **Microsoft Entra admin center** → **Applications** → **App registrations**
-2. Find app **`f9f7f159-b847-4211-98c9-18e5b8193045`**
-3. Go to **Token configuration** → **Add optional claim**
-4. Select **ID** token type → check **`email`** → Save
-5. If prompted about Microsoft Graph `email` permission, **accept it**
+The Flutter app calls Microsoft Graph API `GET /me?$select=mail,otherMails,userPrincipalName` during sign-in, using the MSAL access token (audience: `graph.microsoft.com`, scope: `User.Read`). This reliably returns the real email for both Google sign-in users and local accounts.
 
-**Why this is safe:** Adding an optional claim only adds data to the token payload. It doesn't change validation, audience, issuer, or any security properties. Existing app behavior is unchanged.
+**Fallback chain**: `mail` → `otherMails[0]` → `userPrincipalName` (skips UPN format `@mybartenderai.onmicrosoft.com`).
 
-### What Happens After Configuration
+**Code location**: `mobile/app/lib/src/services/auth_service.dart` → `_fetchEmailFromGraph()`
 
-- APIM's `GetValueOrDefault("email", "")` will find the claim in the JWT
-- The `X-User-Email` header will be set correctly by APIM policy
-- Backend `jwtDecode.js` will extract it and pass to `getOrCreateUser()`
-- Email populates in the database on each user's **next API call** (no app rebuild needed)
+### How Email Reaches the Database
+
+1. User signs in → Flutter calls Graph API → real email stored in `User.email`
+2. Flutter sends `x-user-email` header with every API call (belt-and-suspenders, from Dio interceptor)
+3. APIM extracts email from JWT if present (may still be empty for CIAM tokens)
+4. Backend `getOrCreateUser()` writes email via `COALESCE($2, email)` — preserves existing data
+
+Email populates on the user's **next sign-in** with the updated app.
 
 ### Verification
-
-After configuring Entra, open the app and make any API call (chat, scan, etc.), then run:
 
 ```sql
 SELECT id, email, display_name, last_login_at
@@ -357,7 +355,7 @@ ORDER BY last_login_at DESC
 LIMIT 5;
 ```
 
-Email should now be populated for the user who just made the call.
+Email should show real addresses (e.g., `paulawhitley1971@gmail.com`) for users who have signed in with the updated app.
 
 ---
 
@@ -382,6 +380,7 @@ The `subscription-webhook` function receives RevenueCat server-to-server notific
 - **Authentication**: RevenueCat sends `Authorization: Bearer <secret>` header
 - **Secret**: `REVENUECAT_WEBHOOK_SECRET` app setting → Key Vault reference → `REVENUECAT-WEBHOOK-SECRET` in `kv-mybartenderai-prod`
 - **Verified working**: Feb 25, 2026 — two production INITIAL_PURCHASE events processed
+- **App User ID format** (Feb 26, 2026): New/migrated subscribers use email as `app_user_id`. Backend dual-lookup handles both email and legacy `azure_ad_sub` formats. See webhook handler in `backend/functions/index.js`
 
 ### Troubleshooting Webhook 401 Errors
 

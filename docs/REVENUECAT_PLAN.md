@@ -25,6 +25,20 @@ RevenueCat Overview dashboard confirms: **2 Active Subscriptions, $88 Revenue, $
 ### Known Dashboard Quirk
 RevenueCat's **Customers list views** (Active subscription, Sandbox, etc.) show 0 even though the Overview page and API both correctly report 2 active subscribers. This is a RevenueCat dashboard propagation delay for new projects — not a data issue. Use the **Overview** page or **Ctrl+K customer search** for real-time data.
 
+### App User ID — Email-Based (Feb 26, 2026)
+
+RevenueCat now uses the user's **real email address** as the App User ID (previously an opaque Entra `sub` claim like `kHsMrzygdgCbPcm8B5hNStcDyx6iylr9jfJ0wreO8pU`). This enables:
+- **Customer lookup by email** in RevenueCat dashboard (Ctrl+K search)
+- **Support workflow**: Customer emails support → search by email → view subscription status
+
+**How it works:**
+- Flutter calls Microsoft Graph API `GET /me` to fetch real email (CIAM tokens lack email claims)
+- `Purchases.configure()` runs anonymously, then `Purchases.logIn(normalizedEmail)` identifies the user
+- RevenueCat's Transfer Behavior automatically migrates existing subscribers from old ID to email-based ID
+- Backend webhook handler uses dual-lookup: email format → `WHERE LOWER(email)`, legacy format → `WHERE azure_ad_sub`
+
+**Existing subscribers** (Wild Heels, Xtend-AI): Will migrate automatically on next app launch with updated code.
+
 ### Credentials Already Obtained
 - Apple Team ID: `4ML27KY869`
 - Bundle ID: `com.mybartenderai.mybartenderai`
@@ -381,4 +395,4 @@ Verify app launches and subscription init logs "Android API key retrieved".
 
 ---
 
-**Last Updated**: February 25, 2026
+**Last Updated**: February 26, 2026

@@ -89,7 +89,7 @@ RevenueCat (handles platform billing)
 Azure Functions (func-mba-fresh)
     |
     | subscription-webhook:
-    |   - Verifies RevenueCat signature (HMAC-SHA256)
+    |   - Verifies RevenueCat Bearer token auth
     |   - Checks idempotency via event ID
     |   - Updates user_subscriptions table
     |   - Database trigger syncs users.tier + users.entitlement
@@ -327,11 +327,11 @@ class VoiceQuota {
 | Operation | Method | Route | Auth | Notes |
 |-----------|--------|-------|------|-------|
 | `subscription-config` | GET | `/api/v1/subscription/config` | JWT | Returns API key |
-| `subscription-webhook` | POST | `/api/v1/subscription/webhook` | Signature | RevenueCat webhook |
+| `subscription-webhook` | POST | `/api/v1/subscription/webhook` | Bearer token | RevenueCat webhook |
 | `subscription-status` | GET | `/api/v1/subscription/status` | JWT | User status |
 
 - `subscription-webhook` does NOT use JWT validation (RevenueCat doesn't send JWT)
-- Authentication is via `X-RevenueCat-Webhook-Signature` header verified against `REVENUECAT_WEBHOOK_SECRET`
+- Authentication is via `Authorization: Bearer <secret>` header sent by RevenueCat, verified against `REVENUECAT_WEBHOOK_SECRET`
 
 ---
 
@@ -359,10 +359,44 @@ class VoiceQuota {
 
 1. **Remote Configuration**: RevenueCat public API key fetched from backend at runtime (key rotation without app update)
 2. **Key Vault Storage**: All secrets stored in Azure Key Vault with Managed Identity access
-3. **Webhook Verification**: RevenueCat webhooks verified via HMAC-SHA256 signature
+3. **Webhook Verification**: RevenueCat webhooks verified via Bearer token auth
 4. **JWT Validation**: All user-facing endpoints validate Entra External ID JWT
 5. **Server-Side Enforcement**: Voice minute balances maintained server-side; client can only read, never write
 6. **Idempotent Processing**: All purchase and webhook operations are idempotent via unique transaction/event IDs
+
+---
+
+## Email-Based App User ID (Feb 26, 2026)
+
+RevenueCat now uses the user's **real email address** as the App User ID, enabling customer lookup by email in the RevenueCat dashboard.
+
+### How It Works
+
+**Email retrieval**: Entra External ID (CIAM) tokens do not include email claims even when configured as optional claims. The Flutter app calls Microsoft Graph API `GET /me` during sign-in to fetch the real email.
+
+**RevenueCat initialization** (`subscription_service.dart`):
+1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no `appUserID`)
+2. `Purchases.logIn(normalizedEmail)` — identifies user by email
+3. `Purchases.setEmail(email)` + `Purchases.setDisplayName(name)` — subscriber attributes
+
+**Why `logIn()` instead of `appUserID` in configure**: `logIn()` triggers RevenueCat's Transfer Behavior, which automatically migrates existing subscribers' purchase history from the old sub-based ID to the new email-based ID.
+
+### Backend Webhook Dual-Lookup
+
+The `subscription-webhook` function handles both email-based and legacy `azure_ad_sub`-based App User IDs:
+
+- If `app_user_id` contains `@` and doesn't end with `mybartenderai.onmicrosoft.com` → email lookup: `WHERE LOWER(email) = LOWER($1)`
+- Otherwise → legacy lookup: `WHERE azure_ad_sub = $1`
+
+**Database index**: `idx_users_email_lower` on `users(LOWER(email))` ensures efficient case-insensitive email lookups.
+
+**Migration file**: `backend/functions/migrations/012_email_lookup_index.sql`
+
+### Guard Clauses
+
+RevenueCat initialization is skipped (user gets free tier) if:
+- Email is empty (Graph API failed)
+- Email ends with `mybartenderai.onmicrosoft.com` (UPN fallback, not a real email)
 
 ---
 
@@ -480,5 +514,5 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 
 ---
 
-*Last Updated: February 25, 2026*
-*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*
+*Last Updated: February 26, 2026*
+*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Email-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*

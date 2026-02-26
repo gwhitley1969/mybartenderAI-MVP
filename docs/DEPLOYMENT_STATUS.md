@@ -2,11 +2,50 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 25, 2026
+**Last Updated**: February 26, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **RevenueCat Email Migration — App User ID Now Uses Email** (Feb 26): Changed RevenueCat App User ID from opaque Entra `sub` claim to user's real email address, enabling customer lookup by email in the RevenueCat dashboard. Four-phase deployment:
+
+  **1. Email Retrieval via Microsoft Graph API (`auth_service.dart`):**
+  - Entra External ID (CIAM) tokens don't include email claims even when configured as optional claims
+  - New `_fetchEmailFromGraph()` method calls Microsoft Graph `GET /me?$select=mail,otherMails,userPrincipalName` using the MSAL access token (audience: `graph.microsoft.com`, scope: `User.Read`)
+  - Fallback chain: `mail` → `otherMails[0]` → `userPrincipalName` (skips UPN format `@mybartenderai.onmicrosoft.com`)
+  - Integrated into `_handleAuthResult()`: if token claims yield no real email, Graph API is called automatically
+
+  **2. Database Migration (production PostgreSQL):**
+  - Created `idx_users_email_lower` index on `users(LOWER(email))` for efficient case-insensitive webhook lookups
+  - Migration file: `backend/functions/migrations/012_email_lookup_index.sql`
+
+  **3. Backend Dual-Lookup Webhook (`index.js`):**
+  - Webhook handler now checks if `app_user_id` contains `@` (and isn't a UPN fallback)
+  - Email format → `WHERE LOWER(email) = LOWER($1)` (new subscribers)
+  - Non-email format → `WHERE azure_ad_sub = $1` (legacy subscribers)
+  - Webhook logging masks emails: `username@***`
+  - Both lookup paths work indefinitely — no cutover window
+
+  **4. Flutter RevenueCat Initialization (`subscription_service.dart`):**
+  - Changed from `PurchasesConfiguration(apiKey)..appUserID = userId` to anonymous configure + `Purchases.logIn(normalizedEmail)`
+  - `logIn()` triggers RevenueCat's Transfer Behavior, automatically migrating existing subscribers from old sub-based ID to email-based ID
+  - Added guard clauses: skip init if email is empty or UPN format
+  - Sets `$email` and `$displayName` subscriber attributes for RevenueCat dashboard
+
+  **Files modified:**
+  - `mobile/app/lib/src/services/auth_service.dart`: Added `_fetchEmailFromGraph()`, modified email extraction fallback
+  - `mobile/app/lib/src/services/subscription_service.dart`: Anonymous configure + `logIn(email)` pattern
+  - `mobile/app/lib/src/providers/auth_provider.dart`: Updated 4 call sites to pass `user.email` + `displayName`
+  - `mobile/app/lib/src/providers/subscription_provider.dart`: Updated helper function signature
+  - `backend/functions/index.js`: Dual-lookup webhook + masked email logging
+  - `backend/functions/migrations/012_email_lookup_index.sql`: New — email lookup index
+
+  **Azure changes:**
+  - PostgreSQL: `idx_users_email_lower` index created on production `pg-mybartenderdb`
+  - Backend: Deployed to `func-mba-fresh` (health check verified)
+
+  **Verification:** Sign in → Graph API returns real email → RevenueCat `logIn(email)` succeeds → RevenueCat dashboard shows email as App User ID. Tested on emulator with `vwhitley1967@gmail.com`.
 
 - **RevenueCat Webhook Verified + Free Trial Offer + Key Vault Cleanup** (Feb 25): End-to-end subscription pipeline fully verified with two real Google Play production purchases. Three issues diagnosed and resolved:
 

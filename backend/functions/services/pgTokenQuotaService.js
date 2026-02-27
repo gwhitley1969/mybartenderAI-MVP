@@ -40,9 +40,9 @@ exports.QuotaExceededError = QuotaExceededError;
  */
 const getMonthlyCap = async (client, userId) => {
     try {
-        // Look up user's tier, entitlement, and subscription status from the users table
+        // Look up user's tier, entitlement, and subscription status (case-insensitive for RevenueCat compat)
         const result = await client.query(
-            'SELECT tier, entitlement, subscription_status FROM users WHERE azure_ad_sub = $1',
+            'SELECT tier, entitlement, subscription_status FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
             [userId]
         );
 
@@ -115,9 +115,9 @@ const getCurrentUsage = async (userId, now = new Date()) => {
     const month = normalizeMonth(now);
     const pool = postgresPool_js_1.getPool();
 
-    // Get user's entitlement, subscription status, and tier
+    // Get user's entitlement, subscription status, and tier (case-insensitive for RevenueCat compat)
     const tierResult = await pool.query(
-        'SELECT tier, entitlement, subscription_status FROM users WHERE azure_ad_sub = $1',
+        'SELECT tier, entitlement, subscription_status FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
         [userId]
     );
 

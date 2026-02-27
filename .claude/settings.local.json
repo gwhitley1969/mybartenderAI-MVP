@@ -75,7 +75,11 @@
       "mcp__revenuecat__mcp_RC_detach_products_from_entitlement",
       "mcp__revenuecat__mcp_RC_get_app",
       "WebFetch(domain:community.revenuecat.com)",
-      "Bash(powershell.exe -Command \"\\(Invoke-WebRequest -Uri ''https://func-mba-fresh.azurewebsites.net/api/health'' -UseBasicParsing -TimeoutSec 15\\).Content\")"
+      "Bash(powershell.exe -Command \"\\(Invoke-WebRequest -Uri ''https://func-mba-fresh.azurewebsites.net/api/health'' -UseBasicParsing -TimeoutSec 15\\).Content\")",
+      "Bash(git clean:*)",
+      "Bash(python:*)",
+      "Bash(done)",
+      "Bash(powershell.exe:*)"
     ],
     "deny": [],
     "ask": []

@@ -38,10 +38,10 @@
 - ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
-- ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating
+- ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
 - ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
 - ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`
-- ✅ **Email-Based RevenueCat App User ID** - `Purchases.logIn(email)` replaces opaque `sub`-based ID. Microsoft Graph API fetches real email (CIAM tokens lack email claims). Backend webhook uses dual-lookup (email + legacy `azure_ad_sub`). Database has `idx_users_email_lower` index for efficient lookups
+- ✅ **Entra Sub-Based RevenueCat App User ID** - `Purchases.logIn(userId)` uses opaque Entra `sub` claim (per RevenueCat best practices — email NOT recommended as App User ID). `Purchases.setEmail(email)` sets `$email` subscriber attribute for dashboard search via Ctrl+K. No email dependency for init — ALL users can subscribe (including Google-federated). 6-layer email extraction populates `$email` attribute when available. `logout()` resets `_isInitialized` for clean re-login. Backend webhook uses case-insensitive `LOWER(azure_ad_sub)` lookup (RevenueCat lowercases App User IDs; see SUB-004). Database has `idx_users_email_lower` and `idx_users_azure_ad_sub_lower` indexes
 
 ### Recent Backend Improvements
 
@@ -319,7 +319,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Token expiration** - short-lived access tokens (~1 hour)
 - **Silent refresh** - automatic token renewal
 - **Audit trail** - all requests logged with user ID
-- **4-layer paywall defense** - pre-navigation UI gate (`navigateOrGate`) → Profile screen dual-source check → per-screen `EntitlementRequiredException` handlers → backend 403 enforcement
+- **4-layer paywall defense** - pre-navigation UI gate (`navigateOrGate` with fresh SDK check for lazy init race) → Profile screen dual-source check → per-screen `EntitlementRequiredException` handlers → backend 403 enforcement
 
 ## API Management (APIM) Configuration
 
@@ -335,7 +335,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 **Free (none):**
 
 - Features: Local cocktail database, basic search, browse recipes, My Bar (manual), Favorites, Today's Special, Academy content, Pro Tools content, Create Studio (manual editing), Social sharing
-- AI features: None — pre-navigation paywall gate (`navigateOrGate`) shows subscription sheet before navigating to AI screens (Chat, Voice, Scanner). 11 buttons gated across 6 screens (Home, Recipe Vault, Academy, Pro Tools, My Bar). Backend 403 enforcement remains as defense-in-depth.
+- AI features: None — pre-navigation paywall gate (`navigateOrGate`) shows subscription sheet before navigating to AI screens (Chat, Voice, Scanner). 11 buttons gated across 6 screens (Home, Recipe Vault, Academy, Pro Tools, My Bar). Uses 3-step check (cached → fresh SDK → backend) to avoid false-positive paywalls for trial users. Backend 403 enforcement remains as defense-in-depth.
 
 **Subscriber (paid):**
 
@@ -532,9 +532,9 @@ RevenueCat identifies subscribers by their **real email address** (e.g., `paulaw
 
 **Backend webhook dual-lookup** (`index.js`): The `subscription-webhook` function checks if `app_user_id` contains `@` (and isn't a UPN fallback):
 - Email format → `WHERE LOWER(email) = LOWER($1)` (uses `idx_users_email_lower` index)
-- Non-email format → `WHERE azure_ad_sub = $1` (legacy)
+- Non-email format → `WHERE LOWER(azure_ad_sub) = LOWER($1)` (uses `idx_users_azure_ad_sub_lower` index)
 
-Both lookup paths work indefinitely — no cutover window needed.
+Both lookup paths use **case-insensitive** comparison. This is critical because RevenueCat normalizes App User IDs to lowercase when sending webhook events, but Entra `sub` claims contain mixed case (base64url encoding). See `BUG_FIXES.md` SUB-004. All 10 `azure_ad_sub` lookups across 3 backend files (`index.js`, `userService.js`, `pgTokenQuotaService.js`) use `LOWER()` for consistency.
 
 ### Components
 

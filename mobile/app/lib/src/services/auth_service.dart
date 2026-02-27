@@ -347,17 +347,16 @@ class AuthService {
   /// call GET /me to retrieve profile fields that CIAM doesn't put in the token.
   /// Checks mail, otherMails, then userPrincipalName — skipping UPN-format values.
   Future<String?> _fetchEmailFromGraph(String accessToken) async {
+    final client = HttpClient();
     try {
       _diagLog('Calling Microsoft Graph /me to fetch real email...');
-      final client = HttpClient();
       final request = await client.getUrl(
-        Uri.parse(r'https://graph.microsoft.com/v1.0/me?$select=mail,otherMails,userPrincipalName'),
+        Uri.parse(r'https://graph.microsoft.com/v1.0/me?$select=mail,otherMails,userPrincipalName,identities'),
       );
       request.headers.set('Authorization', 'Bearer $accessToken');
       request.headers.set('Accept', 'application/json');
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
-      client.close();
 
       if (response.statusCode != 200) {
         _diagLog('Graph API returned ${response.statusCode}: $body');
@@ -386,11 +385,31 @@ class AuthService {
         return upn;
       }
 
+      // Check identities array — for federated users, the email may be in issuerAssignedId
+      final identities = profile['identities'];
+      if (identities is List) {
+        _diagLog('Graph API: found ${identities.length} identities');
+        for (final identity in identities) {
+          if (identity is Map<String, dynamic>) {
+            final issuerAssignedId = identity['issuerAssignedId']?.toString() ?? '';
+            final signInType = identity['signInType']?.toString() ?? '';
+            _diagLog('  Identity: signInType=$signInType, id=${issuerAssignedId.length > 8 ? '${issuerAssignedId.substring(0, 8)}...' : issuerAssignedId}');
+            if (issuerAssignedId.contains('@') &&
+                !issuerAssignedId.endsWith('mybartenderai.onmicrosoft.com')) {
+              _diagLog('Found email from identities: ${issuerAssignedId.split("@")[0]}@***');
+              return issuerAssignedId;
+            }
+          }
+        }
+      }
+
       _diagLog('Graph API: no real email found in profile');
       return null;
     } catch (e) {
       _diagLog('Graph API call failed: $e');
       return null;
+    } finally {
+      client.close();
     }
   }
 
@@ -430,6 +449,19 @@ class AuthService {
       final decodedToken = decodedIdToken;
       _diagLog('ID token decoded successfully');
 
+      // Log ALL ID token claims for debugging federated identity email resolution
+      _diagLog('=== ALL ID TOKEN CLAIMS ===');
+      for (final entry in decodedToken.entries) {
+        final key = entry.key;
+        if (key == 'sub' || key == 'oid') {
+          final val = entry.value?.toString() ?? '';
+          _diagLog('  $key: ${val.length > 8 ? '${val.substring(0, 8)}...' : val}');
+        } else {
+          _diagLog('  $key: ${entry.value}');
+        }
+      }
+      _diagLog('=== END ID TOKEN CLAIMS ===');
+      _diagLog('MSAL Account — username: ${result.account.username ?? "NULL"}, name: ${result.account.name ?? "NULL"}');
 
       // Extract user information from the ID token
       final userId = decodedToken['sub'] ?? decodedToken['oid'] ?? '';
@@ -442,7 +474,19 @@ class AuthService {
           decodedToken['unique_name'] ??
           '') as String;
 
-      // If token claims didn't yield a real email, fetch from Microsoft Graph API.
+      // If token claims didn't yield a real email, try MSAL Account.username
+      // For some IdPs, the Account object has the email even when token claims don't
+      if (email.isEmpty || email.endsWith('mybartenderai.onmicrosoft.com')) {
+        final accountUsername = result.account.username;
+        if (accountUsername != null &&
+            accountUsername.contains('@') &&
+            !accountUsername.endsWith('mybartenderai.onmicrosoft.com')) {
+          _diagLog('Got email from MSAL Account.username: ${accountUsername.split("@")[0]}@***');
+          email = accountUsername;
+        }
+      }
+
+      // If still no real email, fetch from Microsoft Graph API.
       // CIAM tokens often omit the email claim even when configured — the Graph API
       // always has it via the User.Read scope we already request.
       if (email.isEmpty || email.endsWith('mybartenderai.onmicrosoft.com')) {

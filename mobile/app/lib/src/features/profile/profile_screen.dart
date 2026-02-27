@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -58,6 +59,12 @@ class ProfileScreen extends ConsumerWidget {
                         'Full Name',
                         '${user.givenName ?? ''} ${user.familyName ?? ''}'.trim(),
                       ),
+                    _buildCopyableInfoRow(
+                      context,
+                      Icons.fingerprint,
+                      'Account ID',
+                      user.id,
+                    ),
                   ]),
                   SizedBox(height: AppSpacing.xl),
 
@@ -200,6 +207,50 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCopyableInfoRow(BuildContext context, IconData icon, String label, String value) {
+    return InkWell(
+      onTap: () {
+        Clipboard.setData(ClipboardData(text: value));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Account ID copied to clipboard'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      },
+      child: Padding(
+        padding: EdgeInsets.all(AppSpacing.md),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.iconCirclePurple, size: 24),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    value,
+                    style: AppTypography.bodyMedium.copyWith(fontSize: 12),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.copy, color: AppColors.textSecondary, size: 18),
+          ],
+        ),
       ),
     );
   }

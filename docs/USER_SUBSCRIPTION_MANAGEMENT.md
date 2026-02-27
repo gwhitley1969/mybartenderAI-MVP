@@ -1,6 +1,6 @@
 # User Subscription Management — PostgreSQL
 
-**Last Updated**: February 26, 2026
+**Last Updated**: February 27, 2026
 
 This guide explains how to view and modify user subscription status directly in the PostgreSQL database (`pg-mybartenderdb`).
 
@@ -116,7 +116,7 @@ The `users` table contains these identity and subscription columns:
 **4-layer paywall defense (Feb 2026):**
 
 1. **Dual-source `isPaidProvider` (Flutter — Riverpod):** Checks RevenueCat SDK cache first (fast, local, no network). If RevenueCat says not-paid, falls back to `backendEntitlementProvider` which fetches `entitlement` from the backend `subscription-status` endpoint (PostgreSQL authoritative source). This handles manual DB overrides (beta testers) and RevenueCat init failures. Result is cached per session. Includes `developer.log` diagnostic logging (filterable via `adb logcat | grep -i Subscription`).
-2. **Pre-navigation gate (Flutter):** `navigateOrGate()` reads `isPaidProvider` at tap time. If the backend entitlement is still loading, it awaits the result before deciding. Free users see the subscription sheet *before* navigating to the AI screen. **11 buttons gated across 6 screens**: Home (Scan My Bar, Chat, Voice), Recipe Vault (Chat, Voice), Academy (Chat CTA, Voice CTA), Pro Tools (Chat CTA, Voice CTA), My Bar (AppBar scanner, empty-state Scanner).
+2. **Pre-navigation gate (Flutter):** `navigateOrGate()` uses a 3-step check: (a) `isPaidProvider` via `ref.read()` (cached state), (b) fresh RevenueCat SDK `getStatus()` call to bypass lazy provider init race (Feb 27 fix — the stream provider may still be `AsyncLoading` on first tap after launch), (c) `backendEntitlementProvider` await for PostgreSQL authoritative check. Free users see the subscription sheet *before* navigating to the AI screen. **11 buttons gated across 6 screens**: Home (Scan My Bar, Chat, Voice), Recipe Vault (Chat, Voice), Academy (Chat CTA, Voice CTA), Pro Tools (Chat CTA, Voice CTA), My Bar (AppBar scanner, empty-state Scanner).
 3. **Per-screen handlers (Flutter):** Each AI screen catches `EntitlementRequiredException` from backend 403 responses and shows a contextual paywall. Profile screen also uses `isPaidProvider` (dual-source) for subscription card display.
 4. **Backend enforcement (Azure Functions):** Every protected function checks entitlement in PostgreSQL:
 
@@ -162,12 +162,16 @@ FROM users
 WHERE email = 'user@example.com';
 ```
 
-### Find by Entra Sub Claim
+### Find by Entra Sub Claim (Account ID)
+
+The user's Entra sub is displayed as **"Account ID"** in the mobile app's Profile → Account Information card (tap to copy). This is also the RevenueCat App User ID. Ask the user to copy it from their profile and send it to you.
+
+> **Note:** Use `LOWER()` for case-insensitive matching. RevenueCat normalizes App User IDs to lowercase, but the stored `azure_ad_sub` may contain mixed case. See `BUG_FIXES.md` SUB-004.
 
 ```sql
 SELECT id, email, tier, entitlement, subscription_status
 FROM users
-WHERE azure_ad_sub = 'THE-SUB-CLAIM-VALUE';
+WHERE LOWER(azure_ad_sub) = LOWER('THE-SUB-CLAIM-VALUE');
 ```
 
 ### List All Users
@@ -298,9 +302,10 @@ WHERE email = 'user@example.com';
 ```sql
 SELECT id, email, tier, entitlement, subscription_status
 FROM users
-WHERE azure_ad_sub = 'THE-SUB-CLAIM-VALUE';
+WHERE LOWER(azure_ad_sub) = LOWER('THE-SUB-CLAIM-VALUE');
 ```
 
+> **Important:** Always use `LOWER()` for `azure_ad_sub` lookups — RevenueCat normalizes IDs to lowercase. See `BUG_FIXES.md` SUB-004.
 > See the [Finding a User](#finding-a-user) section above for the recommended email-based lookup approach.
 
 ---
@@ -329,13 +334,24 @@ The `email` column in the `users` table is populated via **Microsoft Graph API**
 
 Entra External ID (CIAM) tokens do **not** include email claims even when the `email` optional claim is configured in Token Configuration. The `name` claim IS present (which is why `display_name` populates), but `email`, `emails`, `preferred_username`, and `unique_name` are all absent from CIAM tokens. Adding custom claims via the Enterprise App's Attributes & Claims blade triggers `AADSTS50146` (requires application-specific signing key), breaking authentication.
 
-### Solution: Microsoft Graph API
+### Solution: 6-Layer Email Extraction Chain
 
-The Flutter app calls Microsoft Graph API `GET /me?$select=mail,otherMails,userPrincipalName` during sign-in, using the MSAL access token (audience: `graph.microsoft.com`, scope: `User.Read`). This reliably returns the real email for both Google sign-in users and local accounts.
+The Flutter app uses a 6-layer fallback chain to resolve the user's real email during sign-in:
 
-**Fallback chain**: `mail` → `otherMails[0]` → `userPrincipalName` (skips UPN format `@mybartenderai.onmicrosoft.com`).
+| Layer | Source | Works For |
+|-------|--------|-----------|
+| 1 | ID token `emails` array | Email sign-up users |
+| 2 | ID token `email` / `preferred_username` / `unique_name` | Standard OIDC providers |
+| 3 | MSAL `Account.username` | Some federated IdPs (no network cost) |
+| 4 | Graph API `mail` field | Email sign-up users |
+| 5 | Graph API `otherMails[0]` | Users with alternate emails |
+| 6 | Graph API `identities[].issuerAssignedId` | Federated users (if email-format) |
 
-**Code location**: `mobile/app/lib/src/services/auth_service.dart` → `_fetchEmailFromGraph()`
+Graph API call: `GET /me?$select=mail,otherMails,userPrincipalName,identities` using the MSAL access token (audience: `graph.microsoft.com`, scope: `User.Read`).
+
+**Known limitation**: For Google-federated CIAM users, layers 1-5 may all return empty/null. Layer 6 checks `identities` but Google's `issuerAssignedId` is typically a numeric sub (not the email). Entra claim mapping may be needed to fully resolve this — see `docs/REVENUECAT_EMAIL_ID_ANALYSIS.md`.
+
+**Code location**: `mobile/app/lib/src/services/auth_service.dart` → `_handleAuthResult()` (layers 1-3) and `_fetchEmailFromGraph()` (layers 4-6)
 
 ### How Email Reaches the Database
 
@@ -380,7 +396,7 @@ The `subscription-webhook` function receives RevenueCat server-to-server notific
 - **Authentication**: RevenueCat sends `Authorization: Bearer <secret>` header
 - **Secret**: `REVENUECAT_WEBHOOK_SECRET` app setting → Key Vault reference → `REVENUECAT-WEBHOOK-SECRET` in `kv-mybartenderai-prod`
 - **Verified working**: Feb 25, 2026 — two production INITIAL_PURCHASE events processed
-- **App User ID format** (Feb 26, 2026): New/migrated subscribers use email as `app_user_id`. Backend dual-lookup handles both email and legacy `azure_ad_sub` formats. See webhook handler in `backend/functions/index.js`
+- **App User ID format** (Feb 26, 2026): All subscribers use the Entra `sub` claim (opaque GUID) as `app_user_id`. Email is set as the `$email` subscriber attribute for RevenueCat Ctrl+K dashboard search. Backend webhook looks up users via `WHERE LOWER(azure_ad_sub) = LOWER($1)` (case-insensitive — RevenueCat normalizes App User IDs to lowercase, but Entra subs contain mixed case; see `BUG_FIXES.md` SUB-004). The email lookup path (`WHERE LOWER(email)`) remains for backward compatibility. See `docs/REVENUECAT_EMAIL_ID_ANALYSIS.md` for the full redesign rationale
 
 ### Troubleshooting Webhook 401 Errors
 

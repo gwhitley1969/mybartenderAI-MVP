@@ -9,13 +9,14 @@ RevenueCat integration is **fully operational on Android**. Two real production 
 
 RevenueCat Overview dashboard confirms: **2 Active Subscriptions, $88 Revenue, $15 MRR, 27 Active Customers**.
 
-### What's Working (Android — Verified Feb 25, 2026)
+### What's Working (Android — Verified Feb 25-27, 2026)
 - Google Play Console: `pro_monthly` and `pro_annual` subscriptions active
 - RevenueCat Dashboard: Products mapped, `paid` entitlement configured, Default offering with `$rc_monthly`/`$rc_annual` packages
 - Webhook: `subscription-webhook` receives events, verifies `Bearer` auth, processes INITIAL_PURCHASE/RENEWAL/etc.
 - Database: `user_subscriptions` and `subscription_events` tables populated correctly via webhook
 - PostgreSQL trigger: `sync_user_tier_from_subscription` automatically syncs `users.entitlement` to `paid`
 - App: Users can subscribe, AI features unlock immediately
+- `navigateOrGate()`: 3-step check (cached provider → fresh SDK call → backend) eliminates false-positive paywalls for trial/paid users on first tap after launch (Feb 27 fix)
 
 ### What's Remaining (iOS)
 - App Store Connect: `voice_minutes_60` consumable NOT created yet (subscriptions exist)
@@ -25,19 +26,29 @@ RevenueCat Overview dashboard confirms: **2 Active Subscriptions, $88 Revenue, $
 ### Known Dashboard Quirk
 RevenueCat's **Customers list views** (Active subscription, Sandbox, etc.) show 0 even though the Overview page and API both correctly report 2 active subscribers. This is a RevenueCat dashboard propagation delay for new projects — not a data issue. Use the **Overview** page or **Ctrl+K customer search** for real-time data.
 
-### App User ID — Email-Based (Feb 26, 2026)
+### App User ID — Entra Sub + Email Attribute (Build 17 — Feb 26, 2026)
 
-RevenueCat now uses the user's **real email address** as the App User ID (previously an opaque Entra `sub` claim like `kHsMrzygdgCbPcm8B5hNStcDyx6iylr9jfJ0wreO8pU`). This enables:
-- **Customer lookup by email** in RevenueCat dashboard (Ctrl+K search)
-- **Support workflow**: Customer emails support → search by email → view subscription status
+RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User ID. Email is set as the `$email` subscriber attribute for dashboard searchability. This follows RevenueCat's documented best practice: *"We don't recommend using email addresses as App User IDs."*
+
+**Why not email:**
+- Email extraction fails for Google-federated CIAM users (all 6 layers return empty) — blocked them from subscribing
+- RevenueCat's Transfer Behavior doesn't migrate between identified users — existing users' purchases stayed with GUID
+- RevenueCat explicitly recommends opaque, non-guessable IDs (guessability, GDPR concerns)
 
 **How it works:**
-- Flutter calls Microsoft Graph API `GET /me` to fetch real email (CIAM tokens lack email claims)
-- `Purchases.configure()` runs anonymously, then `Purchases.logIn(normalizedEmail)` identifies the user
-- RevenueCat's Transfer Behavior automatically migrates existing subscribers from old ID to email-based ID
-- Backend webhook handler uses dual-lookup: email format → `WHERE LOWER(email)`, legacy format → `WHERE azure_ad_sub`
+- `Purchases.configure()` runs anonymously, then `Purchases.logIn(userId)` identifies by Entra sub (always available)
+- `Purchases.setEmail(email)` sets `$email` subscriber attribute when email is available — searchable via Ctrl+K
+- `Purchases.setDisplayName(name)` sets `$displayName` attribute
+- No email dependency — ALL users (email, Google, Apple) can subscribe
+- Backend webhook looks up users via `WHERE LOWER(azure_ad_sub) = LOWER($1)` (case-insensitive — RevenueCat lowercases App User IDs; see `BUG_FIXES.md` SUB-004)
 
-**Existing subscribers** (Wild Heels, Xtend-AI): Will migrate automatically on next app launch with updated code.
+**Existing subscribers** (Wild Heels, Xtend-AI): Reconnect automatically — their App User IDs are already the Entra sub.
+
+**Dashboard search**: Use Ctrl+K in RevenueCat to search by email. The `$email` subscriber attribute is indexed for search. For Google-federated users where email isn't extracted, search by App User ID (Entra sub) and cross-reference with the PostgreSQL `users` table.
+
+**Build 16 (superseded):** Attempted email-based App User ID approach. Never deployed. Auth service improvements (6-layer email extraction, diagnostic logging, HttpClient fix) retained in Build 17 for populating the `$email` attribute.
+
+**Full analysis:** `docs/REVENUECAT_EMAIL_ID_ANALYSIS.md`
 
 ### Credentials Already Obtained
 - Apple Team ID: `4ML27KY869`
@@ -395,4 +406,4 @@ Verify app launches and subscription init logs "Android API key retrieved".
 
 ---
 
-**Last Updated**: February 26, 2026
+**Last Updated**: February 27, 2026

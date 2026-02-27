@@ -3177,9 +3177,9 @@ app.http('voice-usage', {
 
             context.log('Recording usage for session:', sessionId, 'duration:', durationSeconds);
 
-            // Look up user by azure_ad_sub to get internal UUID
+            // Look up user by azure_ad_sub to get internal UUID (case-insensitive for RevenueCat compat)
             const userResult = await db.query(
-                'SELECT id FROM users WHERE azure_ad_sub = $1',
+                'SELECT id FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
                 [userId]
             );
 
@@ -3312,9 +3312,9 @@ app.http('voice-quota', {
                 };
             }
 
-            // Check user entitlement - look up by azure_ad_sub (the JWT sub claim)
+            // Check user entitlement - look up by azure_ad_sub (case-insensitive for RevenueCat compat)
             const userResult = await db.query(
-                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
                 [userId]
             );
 
@@ -3457,9 +3457,9 @@ app.http('voice-purchase', {
                 };
             }
 
-            // Look up internal user UUID from Azure AD sub
+            // Look up internal user UUID from Azure AD sub (case-insensitive for RevenueCat compat)
             const userResult = await db.query(
-                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
                 [userId]
             );
 
@@ -3746,22 +3746,22 @@ app.http('subscription-webhook', {
                 };
             }
 
-            // Dual-lookup: email-based (new) vs azure_ad_sub (legacy)
+            // Dual-lookup: azure_ad_sub (current) vs email (legacy/backward-compat)
             // If app_user_id contains @ and is NOT a UPN fallback, look up by email
-            // Otherwise, look up by azure_ad_sub (legacy format)
+            // Otherwise, look up by azure_ad_sub (current Entra sub format)
             let userResult;
             const isEmailFormat = appUserId.includes('@') && !appUserId.endsWith('mybartenderai.onmicrosoft.com');
 
             if (isEmailFormat) {
-                context.log('Looking up user by email (new format)');
+                context.log('Looking up user by email (legacy/backward-compat)');
                 userResult = await db.query(
                     'SELECT id FROM users WHERE LOWER(email) = LOWER($1)',
                     [appUserId]
                 );
             } else {
-                context.log('Looking up user by azure_ad_sub (legacy format)');
+                context.log('Looking up user by azure_ad_sub (current format, case-insensitive)');
                 userResult = await db.query(
-                    'SELECT id FROM users WHERE azure_ad_sub = $1',
+                    'SELECT id FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
                     [appUserId]
                 );
             }
@@ -4037,9 +4037,9 @@ app.http('subscription-status', {
 
             context.log(`User ID from header: ${userId.substring(0, 8)}...`);
 
-            // Look up internal user UUID from Azure AD sub
+            // Look up internal user UUID from Azure AD sub (case-insensitive for RevenueCat compat)
             const userResult = await db.query(
-                'SELECT id, tier, entitlement FROM users WHERE azure_ad_sub = $1',
+                'SELECT id, tier, entitlement FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
                 [userId]
             );
 

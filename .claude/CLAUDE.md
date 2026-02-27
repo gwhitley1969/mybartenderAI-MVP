@@ -56,7 +56,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **Authentication**: Entra External ID (JWT) + Microsoft Graph API for email retrieval
 
-- **Subscriptions**: RevenueCat (Google Play + App Store), email-based App User ID
+- **Subscriptions**: RevenueCat (Google Play + App Store), Entra sub-based App User ID + $email subscriber attribute
 
 - **Load Balancer**: Azure Front Door (`fd-mba-share`) external custom domain `share.mybartenderai.com`. 
 
@@ -312,7 +312,7 @@ Located in `kv-mybartenderai-prod`:
 **Subscription System (Feb 2026):**
 
 - ✅ RevenueCat integration (Google Play + App Store)
-- ✅ Email-based App User ID (customer lookup by email in RevenueCat dashboard)
+- ✅ Entra sub-based App User ID with $email subscriber attribute (Ctrl+K search in RevenueCat dashboard)
 - ✅ Webhook-based subscription lifecycle with idempotency
 - ✅ 4-layer paywall defense (pre-nav gate, per-screen handler, dual-source check, backend enforcement)
 - ✅ Dual-source `isPaidProvider` (RevenueCat + PostgreSQL authoritative)
@@ -328,11 +328,14 @@ Located in `kv-mybartenderai-prod`:
 ### In Progress
 
 - 🔄 Taste Profile feature (UI design)
+- 🔄 iOS TestFlight testing
+- 🔄 Android Play Store deployment beta testing
 
 ### Upcoming
 
-- 📋 Android Play Store deployment
-- 📋 iOS TestFlight testing
+
+
+
 
 ## Developer Background
 
@@ -431,4 +434,4 @@ flutter test
 **Last Updated**: February 26, 2026
 **Project Phase**: Release Candidate
 **Primary Focus**: Play Store deployment preparation
-**Recent Changes**: RevenueCat email-based App User ID, Graph API email retrieval, subscription system complete, backend security hardening
+**Recent Changes**: RevenueCat Entra sub-based App User ID redesign (Build 17), Graph API email retrieval, subscription system complete, backend security hardening

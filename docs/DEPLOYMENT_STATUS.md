@@ -2,50 +2,71 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 26, 2026
+**Last Updated**: February 27, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
 
-- **RevenueCat Email Migration — App User ID Now Uses Email** (Feb 26): Changed RevenueCat App User ID from opaque Entra `sub` claim to user's real email address, enabling customer lookup by email in the RevenueCat dashboard. Four-phase deployment:
-
-  **1. Email Retrieval via Microsoft Graph API (`auth_service.dart`):**
-  - Entra External ID (CIAM) tokens don't include email claims even when configured as optional claims
-  - New `_fetchEmailFromGraph()` method calls Microsoft Graph `GET /me?$select=mail,otherMails,userPrincipalName` using the MSAL access token (audience: `graph.microsoft.com`, scope: `User.Read`)
-  - Fallback chain: `mail` → `otherMails[0]` → `userPrincipalName` (skips UPN format `@mybartenderai.onmicrosoft.com`)
-  - Integrated into `_handleAuthResult()`: if token claims yield no real email, Graph API is called automatically
-
-  **2. Database Migration (production PostgreSQL):**
-  - Created `idx_users_email_lower` index on `users(LOWER(email))` for efficient case-insensitive webhook lookups
-  - Migration file: `backend/functions/migrations/012_email_lookup_index.sql`
-
-  **3. Backend Dual-Lookup Webhook (`index.js`):**
-  - Webhook handler now checks if `app_user_id` contains `@` (and isn't a UPN fallback)
-  - Email format → `WHERE LOWER(email) = LOWER($1)` (new subscribers)
-  - Non-email format → `WHERE azure_ad_sub = $1` (legacy subscribers)
-  - Webhook logging masks emails: `username@***`
-  - Both lookup paths work indefinitely — no cutover window
-
-  **4. Flutter RevenueCat Initialization (`subscription_service.dart`):**
-  - Changed from `PurchasesConfiguration(apiKey)..appUserID = userId` to anonymous configure + `Purchases.logIn(normalizedEmail)`
-  - `logIn()` triggers RevenueCat's Transfer Behavior, automatically migrating existing subscribers from old sub-based ID to email-based ID
-  - Added guard clauses: skip init if email is empty or UPN format
-  - Sets `$email` and `$displayName` subscriber attributes for RevenueCat dashboard
+- **Fix: Trial User Paywall — RevenueCat Case-Sensitivity Bug (SUB-004)** (Feb 27): Fixed critical bug where trial users (e.g., Eugene Huffman) saw "Subscription Required" paywall on Voice AI and generic errors on Chat despite RevenueCat SDK recognizing them as paid. Root cause: RevenueCat normalizes App User IDs to **lowercase** when sending webhook events, but Entra `sub` claims contain **mixed case** (base64url encoding). PostgreSQL's `=` operator is case-sensitive, so the webhook's `WHERE azure_ad_sub = $1` failed to match. Changed ALL `azure_ad_sub` lookups (10 locations across 3 files) to `WHERE LOWER(azure_ad_sub) = LOWER($1)`. Added `idx_users_azure_ad_sub_lower` functional index. Manually fixed Eugene's record. Deployed to `func-mba-fresh`.
 
   **Files modified:**
-  - `mobile/app/lib/src/services/auth_service.dart`: Added `_fetchEmailFromGraph()`, modified email extraction fallback
-  - `mobile/app/lib/src/services/subscription_service.dart`: Anonymous configure + `logIn(email)` pattern
-  - `mobile/app/lib/src/providers/auth_provider.dart`: Updated 4 call sites to pass `user.email` + `displayName`
-  - `mobile/app/lib/src/providers/subscription_provider.dart`: Updated helper function signature
-  - `backend/functions/index.js`: Dual-lookup webhook + masked email logging
-  - `backend/functions/migrations/012_email_lookup_index.sql`: New — email lookup index
+  - `backend/functions/index.js`: 5 lookups (webhook, voice-usage, voice-quota, voice-purchase, subscription-status)
+  - `backend/functions/services/userService.js`: 3 lookups (getOrCreateUser primary + retry, updateUserTier)
+  - `backend/functions/services/pgTokenQuotaService.js`: 2 lookups (getMonthlyCap, token quota check)
 
-  **Azure changes:**
-  - PostgreSQL: `idx_users_email_lower` index created on production `pg-mybartenderdb`
-  - Backend: Deployed to `func-mba-fresh` (health check verified)
+  See `docs/BUG_FIXES.md` (SUB-004) for full details.
 
-  **Verification:** Sign in → Graph API returns real email → RevenueCat `logIn(email)` succeeds → RevenueCat dashboard shows email as App User ID. Tested on emulator with `vwhitley1967@gmail.com`.
+- **UX: Share Button Discoverability** (Feb 27): Replaced the share `IconButton` (icon-only) in the cocktail detail screen's `SliverAppBar` with a filled purple `ElevatedButton.icon` labeled **"Share"**. User testing revealed many users didn't recognize the `Icons.share` symbol. The new button uses `AppColors.primaryPurple` background with white text for high contrast against both the dark hero image (expanded) and the dark app background (collapsed/pinned). Compact sizing (`minimumSize: Size(0, 32)`, `padding: horizontal: 12`) keeps it small enough to coexist with the favorite `IconButton`. Affects both Recipe Vault and Create Studio cocktail views (same `CocktailDetailScreen`).
+
+  **File modified:**
+  - `mobile/app/lib/src/features/recipe_vault/cocktail_detail_screen.dart`: Replaced share `IconButton` with `ElevatedButton.icon` in `SliverAppBar` actions
+
+- **Fix: Trial User Paywall Race Condition — navigateOrGate Fresh SDK Check** (Feb 27): Fixed false-positive paywall appearing for trial/paid users on their first AI feature tap after app launch. Root cause: the `subscriptionStatusProvider` (a `StreamProvider`) uses lazy initialization — on first read, it's in `AsyncLoading` state. `isPaidProvider` reads this and returns `false` (fail-closed). Trial users tapping an AI feature immediately after launch would see the paywall even though RevenueCat SDK had already initialized and knew they were paid.
+
+  **Fix:** Added a fresh RevenueCat SDK check in `navigateOrGate()` between the provider check and the backend fallback. If `isPaidProvider` returns `false`, it now calls `service.getStatus()` directly on the SDK (reads from local cache, ~1-5ms). If this returns `isPaid`, it navigates immediately and invalidates `subscriptionStatusProvider` so future taps use the fast path.
+
+  **Updated `navigateOrGate()` check order:**
+  1. `isPaidProvider` via `ref.read()` (fast path — cached Riverpod state)
+  2. **NEW**: Fresh RevenueCat SDK `getStatus()` (bypasses lazy provider init race)
+  3. `backendEntitlementProvider` await (PostgreSQL authoritative — handles manual DB overrides)
+  4. Show paywall if all checks fail
+
+  **Files modified:**
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Added fresh SDK check block in `navigateOrGate()`
+  - `mobile/app/lib/src/providers/subscription_provider.dart`: Removed unused `initializeSubscriptionService()` function (dead code cleanup)
+  - `backend/functions/index.js`: Updated webhook dual-lookup comments (`azure_ad_sub` is "current" format, email is "legacy/backward-compat")
+
+- **Redesign: RevenueCat App User ID — Entra Sub + Email Attribute — Build 17** (Feb 26): Complete redesign of RevenueCat user identification. Replaced broken email-based `Purchases.logIn(email)` with `Purchases.logIn(userId)` using the Entra `sub` claim (opaque GUID). Email is now set as the `$email` subscriber attribute for dashboard searchability via Ctrl+K. This aligns with RevenueCat's documented best practice: *"We don't recommend using email addresses as App User IDs."*
+
+  **Why the email-based approach (Builds 15-16) failed:**
+  1. Google-federated CIAM users — email extraction fails across all 6 layers → init skipped → can't subscribe
+  2. Email sign-up users (e.g., vwhitley1967) — still had GUID App User ID because Transfer Behavior only migrates from anonymous → identified users, not between identified users
+  3. RevenueCat explicitly recommends against email as App User ID (guessability, GDPR)
+
+  **What Build 17 does:**
+  - `Purchases.logIn(userId)` — uses Entra sub (always available, never fails)
+  - `Purchases.setEmail(email)` — sets `$email` subscriber attribute when email is available (searchable via Ctrl+K)
+  - `Purchases.setDisplayName(name)` — sets `$displayName` subscriber attribute
+  - No email dependency for RevenueCat initialization — ALL users can subscribe
+  - Existing users (Wild Heels, Xtend-AI, vwhitley1967) reconnect automatically (same Entra sub)
+
+  **Profile Account ID display:** Added "Account ID" row to Profile → Account Information card showing the user's Entra sub. Tap to copy to clipboard. Enables support workflow: user copies Account ID → pastes in support email → support searches RevenueCat by ID or `$email` attribute.
+
+  **Files modified:**
+  - `mobile/app/lib/src/services/subscription_service.dart`: `initialize()` takes `userId` + optional `email`; `logIn(userId)` + `setEmail(email)`
+  - `mobile/app/lib/src/providers/auth_provider.dart`: All 4 call sites pass `user.id` + `email: user.email`
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Lazy init passes `user.id` — no email guard needed
+  - `mobile/app/lib/src/features/profile/profile_screen.dart`: Account ID row with tap-to-copy in Account Information card
+  - `mobile/app/pubspec.yaml`: Version bump 1.0.0+16 → 1.0.0+17
+
+  **Backend:** No changes needed. Webhook dual-lookup already handles Entra sub via `WHERE azure_ad_sub = $1`.
+
+  **Root cause analysis:** `docs/REVENUECAT_EMAIL_ID_ANALYSIS.md`
+
+  **Build 16 (superseded):** Attempted to fix the email-based approach with email validation guards, 6-layer extraction, and `logout()` reset. Never deployed to production. Auth service improvements (diagnostic logging, MSAL fallback, Graph API `identities` parsing, HttpClient fix) are retained in Build 17 — they populate the `$email` attribute.
+
+  **Verification:** Sign in → `logIn successful` in logcat → RevenueCat dashboard shows Entra sub as App User ID → `$email` attribute set → Ctrl+K search by email works → Google-federated users can reach subscription offerings.
 
 - **RevenueCat Webhook Verified + Free Trial Offer + Key Vault Cleanup** (Feb 25): End-to-end subscription pipeline fully verified with two real Google Play production purchases. Three issues diagnosed and resolved:
 

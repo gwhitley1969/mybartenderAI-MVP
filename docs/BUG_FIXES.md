@@ -4,6 +4,86 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## SUB-004: Trial User Paywall — RevenueCat Case-Sensitivity Bug (Webhook Lookup Failure)
+
+**Date Fixed**: February 27, 2026
+**Severity**: Critical (ALL new subscribers with mixed-case Entra sub blocked from AI features)
+**Component**: Backend (Azure Functions — webhook + all `azure_ad_sub` lookups)
+**Files Modified**: `backend/functions/index.js`, `backend/functions/services/userService.js`, `backend/functions/services/pgTokenQuotaService.js`
+**Backend Deployment**: Yes (`func azure functionapp publish func-mba-fresh`)
+**Database Migration**: Yes (functional index + manual user fix)
+
+### Problem
+
+Trial users (e.g., Eugene Huffman) saw "Subscription Required" paywall on Voice AI and generic errors on Chat, even though RevenueCat SDK recognized them as paid (Profile showed "Trial ends Mar 1, 2026" with PRO badge). The client-side RevenueCat SDK worked correctly, but the backend never updated the user's entitlement in PostgreSQL.
+
+**Root cause**: RevenueCat normalizes App User IDs to **lowercase** when sending webhook events. The Entra External ID `sub` claim is base64url-encoded with **mixed case**. PostgreSQL's `=` operator is case-sensitive by default, so the webhook's SQL lookup `WHERE azure_ad_sub = $1` failed to find the user.
+
+**Evidence**:
+- Eugene's `azure_ad_sub` in `users` table: `hRO4sYsKDsg2q8ExnyoM_pcmhjJZ7y4Wxd7whblqhYg` (mixed case)
+- Webhook `revenuecat_app_user_id`: `hro4syskdsg2q8exnyom_pcmhjjz7y4wxd7whblqhyg` (all lowercase)
+- Eugene's `subscription_events` row had `user_id = NULL` (lookup failed)
+- Eugene's `users` record still had `entitlement = 'none'`, `subscription_status = 'none'`
+
+**Impact**: ANY new subscriber whose Entra sub contains uppercase characters had their webhook silently fail. The event was recorded (audit log worked) but with `user_id = NULL`, so the user's entitlement was never updated.
+
+### Fix
+
+Changed ALL `azure_ad_sub` lookups across 3 files (10 locations) from case-sensitive to case-insensitive:
+
+```sql
+-- Before (case-sensitive — breaks when RevenueCat lowercases the ID):
+WHERE azure_ad_sub = $1
+
+-- After (case-insensitive — handles RevenueCat's normalization):
+WHERE LOWER(azure_ad_sub) = LOWER($1)
+```
+
+**Locations fixed** (10 total):
+| File | Function/Endpoint | Line |
+|------|-------------------|------|
+| `index.js` | `subscription-webhook` | ~3764 |
+| `index.js` | `voice-usage` | ~3182 |
+| `index.js` | `voice-quota` | ~3317 |
+| `index.js` | `voice-purchase` | ~3462 |
+| `index.js` | `subscription-status` | ~4042 |
+| `userService.js` | `getOrCreateUser` (primary) | ~87 |
+| `userService.js` | `getOrCreateUser` (race retry) | ~156 |
+| `userService.js` | `updateUserTier` | ~255 |
+| `pgTokenQuotaService.js` | `getMonthlyCap` | ~45 |
+| `pgTokenQuotaService.js` | token quota check | ~120 |
+
+**Database migration** (run once):
+```sql
+-- Functional index for LOWER() query performance
+CREATE INDEX IF NOT EXISTS idx_users_azure_ad_sub_lower ON users(LOWER(azure_ad_sub));
+
+-- Fix Eugene's record (webhook had failed before code fix)
+UPDATE users
+SET tier = 'pro', entitlement = 'paid', subscription_status = 'trialing',
+    monthly_voice_minutes_included = 10, voice_minutes_used_this_cycle = 0,
+    voice_cycle_started_at = NOW(), updated_at = NOW()
+WHERE display_name = 'Eugene Huffman';
+
+-- Link orphaned subscription event
+UPDATE subscription_events
+SET user_id = (SELECT id FROM users WHERE display_name = 'Eugene Huffman')
+WHERE id = 3 AND user_id IS NULL;
+```
+
+### Why `LOWER()` on Both Sides
+
+Even though RevenueCat currently sends lowercase, wrapping both sides ensures correctness regardless of which direction the mismatch comes from. PostgreSQL can use the functional index `idx_users_azure_ad_sub_lower` for efficient lookups. Alternative approaches (`ILIKE`, `citext` extension) were considered but `LOWER()=LOWER()` is the most portable and explicit pattern.
+
+### Verification
+
+1. Eugene confirmed Voice AI and Chat working after fix
+2. Database verified: `entitlement = 'paid'`, `subscription_status = 'trialing'`, `tier = 'pro'`
+3. Future webhook events will match users correctly via `LOWER()` comparison
+4. All 10 lookup locations across 3 backend files updated consistently
+
+---
+
 ## SUB-003: Recipe Vault Missing Subscription Gate — Chat/Voice Bypass
 
 **Date Fixed**: February 25, 2026

@@ -22,10 +22,9 @@ void showSubscriptionSheet(BuildContext context, {VoidCallback? onPurchaseComple
 }
 
 /// Gate a navigation action behind a subscription check.
-/// Checks RevenueCat first (fast, local). Falls back to backend
-/// entitlement from PostgreSQL (handles manual DB overrides).
-/// Awaits the backend check if it's still loading to avoid a
-/// false-negative flash.
+/// Checks RevenueCat first (fast, local). Falls back to a fresh SDK check
+/// (bypasses lazy provider init race), then backend entitlement from
+/// PostgreSQL (handles manual DB overrides / webhook timing).
 Future<void> navigateOrGate({
   required BuildContext context,
   required WidgetRef ref,
@@ -39,9 +38,34 @@ Future<void> navigateOrGate({
     return;
   }
 
+  // ── Fresh RevenueCat SDK check ──
+  // The stream provider may still be in AsyncLoading if this is the first
+  // tap (lazy provider init race). Ask the SDK directly — getStatus() reads
+  // from the local cache populated during auth init, so it's fast (~1-5ms).
+  final service = ref.read(subscriptionServiceProvider);
+  if (service.isInitialized) {
+    try {
+      developer.log('navigateOrGate: doing fresh RevenueCat check',
+          name: 'Subscription');
+      final freshStatus = await service.getStatus();
+      if (freshStatus.isPaid) {
+        developer.log('navigateOrGate: fresh RC check = PAID, navigating',
+            name: 'Subscription');
+        // Force the stream provider to re-run so future taps use fast path
+        ref.invalidate(subscriptionStatusProvider);
+        navigate();
+        return;
+      }
+    } catch (e) {
+      developer.log('navigateOrGate: fresh RC check failed: $e',
+          name: 'Subscription');
+    }
+  }
+
   // If backend entitlement is still loading, wait for it before deciding
   final backendAsync = ref.read(backendEntitlementProvider);
-  developer.log('navigateOrGate: backendAsync=$backendAsync', name: 'Subscription');
+  developer.log('navigateOrGate: backendAsync=$backendAsync',
+      name: 'Subscription');
   if (backendAsync.isLoading) {
     try {
       final entitlement = await ref.read(backendEntitlementProvider.future);
@@ -98,6 +122,7 @@ class _SubscriptionSheetState extends ConsumerState<SubscriptionSheet> {
 
   /// Try to initialize RevenueCat now if it failed at login time.
   /// This handles transient network failures at app startup.
+  /// Uses user.id (Entra sub) as App User ID — always available, no email dependency.
   Future<void> _attemptLazyInit() async {
     final user = ref.read(currentUserProvider);
     if (user == null) return;
@@ -107,7 +132,8 @@ class _SubscriptionSheetState extends ConsumerState<SubscriptionSheet> {
     try {
       final service = ref.read(subscriptionServiceProvider);
       final backendService = ref.read(backendServiceProvider);
-      await service.initialize(user.id, backendService);
+      await service.initialize(user.id, backendService,
+          email: user.email, displayName: user.displayName);
       developer.log('SubscriptionSheet: Lazy RevenueCat init succeeded', name: 'SubscriptionSheet');
       ref.invalidate(subscriptionOfferingsProvider);
       ref.invalidate(subscriptionStatusProvider);

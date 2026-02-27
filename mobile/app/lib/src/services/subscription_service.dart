@@ -58,35 +58,26 @@ class SubscriptionService {
 
   CustomerInfo? _cachedCustomerInfo;
 
-  /// Initialize RevenueCat with the user's email as the App User ID
+  /// Initialize RevenueCat with the user's Entra sub as App User ID
   ///
-  /// [userEmail] should be the user's real email address (not UPN)
+  /// [userId] is the Entra External ID `sub` claim (always available, opaque).
+  /// RevenueCat recommends non-guessable IDs — NOT email addresses.
   /// [backendService] is used to fetch the RevenueCat API key from Azure Key Vault
-  /// [displayName] optional display name for RevenueCat subscriber attributes
-  ///
-  /// Uses anonymous configure + logIn(email) pattern to trigger RevenueCat's
-  /// Transfer Behavior, which migrates existing subscribers from old sub-based
-  /// IDs to the new email-based ID automatically.
-  Future<void> initialize(String userEmail, BackendService backendService, {String? displayName}) async {
+  /// [email] optional — set as $email subscriber attribute for dashboard search (Ctrl+K)
+  /// [displayName] optional — set as $displayName subscriber attribute
+  Future<void> initialize(String userId, BackendService backendService, {String? email, String? displayName}) async {
     if (_isInitialized) {
       debugPrint('SubscriptionService: Already initialized');
       return;
     }
 
-    // Normalize email: lowercase + trim
-    final normalizedEmail = userEmail.toLowerCase().trim();
-
-    // Guard: don't initialize if email is empty or is a UPN fallback
-    if (normalizedEmail.isEmpty) {
-      debugPrint('SubscriptionService: WARNING — email is empty, skipping RevenueCat init');
-      return;
-    }
-    if (normalizedEmail.endsWith('mybartenderai.onmicrosoft.com')) {
-      debugPrint('SubscriptionService: WARNING — email is UPN format ($normalizedEmail), skipping RevenueCat init');
+    // Guard: userId must be non-empty (Entra sub is always present)
+    if (userId.trim().isEmpty) {
+      debugPrint('SubscriptionService: WARNING — userId is empty, skipping RevenueCat init');
       return;
     }
 
-    debugPrint('SubscriptionService: Initializing with email: ${normalizedEmail.split('@')[0]}@***');
+    debugPrint('SubscriptionService: Initializing with userId: ${userId.length > 8 ? '${userId.substring(0, 8)}...' : userId}');
 
     try {
       // Fetch RevenueCat API key from backend (stored in Azure Key Vault)
@@ -113,14 +104,20 @@ class SubscriptionService {
         await Purchases.setLogLevel(LogLevel.debug);
       }
 
-      // Identify user by email — triggers Transfer Behavior for existing subscribers
-      // This migrates purchase history from old sub-based ID to new email-based ID
-      debugPrint('SubscriptionService: Logging in with email...');
-      await Purchases.logIn(normalizedEmail);
+      // Identify user by Entra sub — deterministic, always available
+      debugPrint('SubscriptionService: Logging in with userId...');
+      await Purchases.logIn(userId);
       debugPrint('SubscriptionService: logIn successful');
 
-      // Set subscriber attributes for RevenueCat dashboard
-      await Purchases.setEmail(normalizedEmail);
+      // Set subscriber attributes for RevenueCat dashboard searchability
+      // $email attribute enables Ctrl+K search by email in dashboard
+      final normalizedEmail = email?.toLowerCase().trim() ?? '';
+      if (normalizedEmail.isNotEmpty &&
+          normalizedEmail.contains('@') &&
+          !normalizedEmail.endsWith('mybartenderai.onmicrosoft.com')) {
+        await Purchases.setEmail(normalizedEmail);
+        debugPrint('SubscriptionService: \$email attribute set');
+      }
       if (displayName != null && displayName.isNotEmpty) {
         await Purchases.setDisplayName(displayName);
       }
@@ -295,9 +292,11 @@ class SubscriptionService {
     try {
       await Purchases.logOut();
       _cachedCustomerInfo = null;
+      _isInitialized = false;
       _statusController.add(SubscriptionStatus.none);
     } catch (e) {
       debugPrint('SubscriptionService: Logout error: $e');
+      _isInitialized = false; // Reset even on error so re-login can re-initialize
     }
   }
 

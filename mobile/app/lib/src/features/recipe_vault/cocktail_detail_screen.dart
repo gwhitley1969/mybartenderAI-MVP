@@ -68,11 +68,25 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
                 actions: [
-                  // Share button - wrapped in Builder for iOS sharePositionOrigin
+                  // Share button - filled purple for discoverability
                   Builder(
-                    builder: (shareContext) => IconButton(
-                      icon: Icon(Icons.share, color: AppColors.primaryPurple),
-                      onPressed: () => _shareRecipe(shareContext, cocktail),
+                    builder: (shareContext) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: ElevatedButton.icon(
+                        onPressed: () => _shareRecipe(shareContext, cocktail),
+                        icon: const Icon(Icons.share, size: 16),
+                        label: const Text('Share'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primaryPurple,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                          minimumSize: const Size(0, 32),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppSpacing.buttonBorderRadiusSmall),
+                          ),
+                          textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                        ),
+                      ),
                     ),
                   ),
                   // Favorite button

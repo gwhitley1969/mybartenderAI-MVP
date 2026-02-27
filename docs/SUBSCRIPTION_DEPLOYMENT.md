@@ -246,6 +246,8 @@ The mobile app fetches available offerings dynamically from RevenueCat — subsc
 - Single entitlement check: `_paidEntitlement = 'paid'`
 - `_parseCustomerInfo()` checks `info.entitlements.active['paid']`
 - Detects trial via `PeriodType.trial`
+- **Entra sub-based App User ID**: Anonymous `Purchases.configure()` + `Purchases.logIn(userId)` where `userId` is the Entra `sub` claim (always available, opaque). `Purchases.setEmail(email)` sets `$email` subscriber attribute for dashboard search. No email dependency — ALL users can subscribe
+- **`logout()` resets `_isInitialized`**: Enables clean re-initialization after sign-out/re-sign-in with a different account
 
 ### Subscription Providers (`subscription_provider.dart`)
 
@@ -256,24 +258,46 @@ The mobile app fetches available offerings dynamically from RevenueCat — subsc
 | `shouldShowUpgradePromptProvider` | `Provider<bool>` | True if not paid and not processing |
 | `subscriptionPurchaseNotifierProvider` | `StateNotifierProvider` | Purchase flow state management |
 
+### Lazy RevenueCat Initialization (`subscription_sheet.dart`)
+
+The subscription sheet includes `_attemptLazyInit()` for cases where RevenueCat wasn't initialized at login (e.g., transient network failure). It passes `user.id` (Entra sub — always available) with optional `email` and `displayName` for subscriber attributes:
+- No email validation guard needed — `user.id` is always present
+- Google-federated users can now reach subscription offerings (previously blocked)
+- On success, invalidates `subscriptionOfferingsProvider` and `subscriptionStatusProvider`
+
 ### Pre-Navigation Paywall Gate (`subscription_sheet.dart`)
 
-The `navigateOrGate()` helper gates AI feature buttons at the UI layer. It checks `isPaidProvider` via `ref.read()` at tap time (not `ref.watch()` — avoids rebuilds since buttons don't change appearance for free vs paid users).
+The `navigateOrGate()` helper gates AI feature buttons at the UI layer. It uses a 3-step check with increasing latency:
+
+1. **`isPaidProvider` via `ref.read()`** — cached Riverpod state (instant, no network)
+2. **Fresh RevenueCat SDK `getStatus()`** — reads SDK local cache directly, bypasses lazy stream provider init race (~1-5ms). Only runs if step 1 returned `false`. On success, invalidates `subscriptionStatusProvider` so future taps use the fast path
+3. **`backendEntitlementProvider` await** — PostgreSQL authoritative source, handles manual DB overrides and webhook timing. Only runs if steps 1-2 both returned not-paid
 
 ```dart
-void navigateOrGate({
+Future<void> navigateOrGate({
   required BuildContext context,
   required WidgetRef ref,
   required VoidCallback navigate,
-}) {
+}) async {
+  // Step 1: Cached provider (instant)
   final isPaid = ref.read(isPaidProvider);
-  if (isPaid) {
-    navigate();
-  } else {
-    showSubscriptionSheet(context, onPurchaseComplete: () {
+  if (isPaid) { navigate(); return; }
+
+  // Step 2: Fresh SDK check (bypasses lazy provider init race)
+  final service = ref.read(subscriptionServiceProvider);
+  if (service.isInitialized) {
+    final freshStatus = await service.getStatus();
+    if (freshStatus.isPaid) {
       ref.invalidate(subscriptionStatusProvider);
-    });
+      navigate(); return;
+    }
   }
+
+  // Step 3: Backend entitlement (PostgreSQL authoritative)
+  // ... await backendEntitlementProvider if loading ...
+
+  // All checks failed → show paywall
+  showSubscriptionSheet(context, ...);
 }
 ```
 
@@ -285,7 +309,7 @@ void navigateOrGate({
 - My Bar screen: AppBar scanner icon, empty-state Scanner button
 
 **4-layer paywall defense:**
-1. **Pre-navigation gate** (`navigateOrGate`): Prevents navigation to AI screens for free users
+1. **Pre-navigation gate** (`navigateOrGate`): Prevents navigation to AI screens for free users. Includes fresh SDK check to handle lazy provider init race (Feb 27 fix)
 2. **Profile screen dual-source check**: `isPaidProvider` (RevenueCat + backend) displayed in subscription card
 3. **Per-screen handlers**: `EntitlementRequiredException` catch blocks show paywall if user reaches screen
 4. **Backend enforcement**: 403 `entitlement_required` response from Azure Functions
@@ -366,37 +390,43 @@ class VoiceQuota {
 
 ---
 
-## Email-Based App User ID (Feb 26, 2026)
+## Entra Sub-Based App User ID (Feb 26, 2026)
 
-RevenueCat now uses the user's **real email address** as the App User ID, enabling customer lookup by email in the RevenueCat dashboard.
+RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User ID. Email is set as the `$email` subscriber attribute for dashboard searchability via Ctrl+K. This follows RevenueCat's documented best practice: *"We don't recommend using email addresses as App User IDs."*
 
 ### How It Works
 
-**Email retrieval**: Entra External ID (CIAM) tokens do not include email claims even when configured as optional claims. The Flutter app calls Microsoft Graph API `GET /me` during sign-in to fetch the real email.
-
 **RevenueCat initialization** (`subscription_service.dart`):
 1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no `appUserID`)
-2. `Purchases.logIn(normalizedEmail)` — identifies user by email
-3. `Purchases.setEmail(email)` + `Purchases.setDisplayName(name)` — subscriber attributes
+2. `Purchases.logIn(userId)` — identifies user by Entra sub (always available)
+3. `Purchases.setEmail(email)` — sets `$email` subscriber attribute when email is available
+4. `Purchases.setDisplayName(name)` — sets `$displayName` subscriber attribute
 
-**Why `logIn()` instead of `appUserID` in configure**: `logIn()` triggers RevenueCat's Transfer Behavior, which automatically migrates existing subscribers' purchase history from the old sub-based ID to the new email-based ID.
+**Why Entra sub, not email**: Email extraction fails for Google-federated CIAM users (all 6 layers return empty). Using the Entra sub ensures ALL users can subscribe. Email is still valuable for dashboard searchability — that's handled by the `$email` subscriber attribute, which RevenueCat's Ctrl+K search indexes.
 
-### Backend Webhook Dual-Lookup
+**Email retrieval** (for `$email` attribute): The Flutter app's 6-layer email extraction chain populates `user.email` when possible. This is passed as an optional parameter to `initialize()` and set via `Purchases.setEmail()`. If email is unavailable (Google-federated users), RevenueCat init still succeeds — the `$email` attribute is simply not set.
 
-The `subscription-webhook` function handles both email-based and legacy `azure_ad_sub`-based App User IDs:
+### Backend Webhook Lookup
 
-- If `app_user_id` contains `@` and doesn't end with `mybartenderai.onmicrosoft.com` → email lookup: `WHERE LOWER(email) = LOWER($1)`
-- Otherwise → legacy lookup: `WHERE azure_ad_sub = $1`
+The `subscription-webhook` function looks up users by `azure_ad_sub` using **case-insensitive** comparison:
 
-**Database index**: `idx_users_email_lower` on `users(LOWER(email))` ensures efficient case-insensitive email lookups.
+- `app_user_id` is always the Entra sub → `WHERE LOWER(azure_ad_sub) = LOWER($1)`
+- **Critical**: RevenueCat normalizes App User IDs to **lowercase** when sending webhook events, but Entra `sub` claims contain mixed case (base64url encoding). Case-insensitive lookup is required to match. See `BUG_FIXES.md` SUB-004 for the full root cause analysis
+- The email lookup path (`WHERE LOWER(email)`) remains for backward compatibility but is unused for new events
+- ALL `azure_ad_sub` lookups across the backend use `LOWER()` (10 locations in 3 files) for consistency
+
+**Database indexes**:
+- `idx_users_email_lower` on `users(LOWER(email))` — efficient case-insensitive email lookups
+- `idx_users_azure_ad_sub_lower` on `users(LOWER(azure_ad_sub))` — efficient case-insensitive sub lookups (added Feb 27, 2026)
 
 **Migration file**: `backend/functions/migrations/012_email_lookup_index.sql`
 
 ### Guard Clauses
 
 RevenueCat initialization is skipped (user gets free tier) if:
-- Email is empty (Graph API failed)
-- Email ends with `mybartenderai.onmicrosoft.com` (UPN fallback, not a real email)
+- `userId` (Entra sub) is empty — should never happen, but guarded defensively
+
+Email is NOT required for initialization. The `$email` subscriber attribute is set only when a valid email is available (non-empty, contains `@`, not a `mybartenderai.onmicrosoft.com` UPN).
 
 ---
 
@@ -514,5 +544,5 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 
 ---
 
-*Last Updated: February 26, 2026*
-*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Email-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*
+*Last Updated: February 27, 2026*
+*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race (Feb 27). Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix — RevenueCat lowercases App User IDs). Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*

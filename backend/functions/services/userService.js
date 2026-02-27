@@ -80,11 +80,11 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
     const pool = getPool();
 
     try {
-        // First, try to find existing user
+        // First, try to find existing user (case-insensitive for RevenueCat compat)
         const selectResult = await pool.query(
             `SELECT id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at
              FROM users
-             WHERE azure_ad_sub = $1`,
+             WHERE LOWER(azure_ad_sub) = LOWER($1)`,
             [azureAdSub]
         );
 
@@ -153,7 +153,7 @@ async function getOrCreateUser(azureAdSub, context = null, options = {}) {
             const retryResult = await pool.query(
                 `SELECT id, azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, last_login_at
                  FROM users
-                 WHERE azure_ad_sub = $1`,
+                 WHERE LOWER(azure_ad_sub) = LOWER($1)`,
                 [azureAdSub]
             );
 
@@ -252,7 +252,7 @@ async function updateUserTier(azureAdSub, newTier, context = null) {
     const result = await pool.query(
         `UPDATE users
          SET tier = $2, updated_at = NOW()
-         WHERE azure_ad_sub = $1
+         WHERE LOWER(azure_ad_sub) = LOWER($1)
          RETURNING id, azure_ad_sub, tier, email, display_name`,
         [azureAdSub, newTier.toLowerCase()]
     );

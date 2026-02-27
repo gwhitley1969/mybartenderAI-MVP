@@ -23,7 +23,7 @@ Voice minute consumables ($4.99 for 60 minutes) are handled per-platform:
 
 | Status | Description |
 |--------|-------------|
-| `trialing` | In 3-day free trial (same access as `active`) |
+| `trialing` | In 3-day free trial (reduced quotas: 20K tokens, 5 scans, 10 voice min) |
 | `active` | Paying subscriber |
 | `expired` | Subscription lapsed or canceled |
 | `none` | Never subscribed |
@@ -176,7 +176,7 @@ PostgreSQL (pg-mybartenderdb)
 | Field | Value |
 |-------|-------|
 | Route | `POST /api/v1/subscription/webhook` |
-| Auth | RevenueCat signature (NOT JWT) |
+| Auth | Bearer token (NOT JWT) — verified against `REVENUECAT_WEBHOOK_SECRET` |
 | Purpose | Receives RevenueCat server-to-server notifications |
 
 **Events Handled:**
@@ -196,7 +196,7 @@ PostgreSQL (pg-mybartenderdb)
 **Key Features:**
 - **Idempotency**: Each event has unique `event.id` stored in `subscription_events.revenuecat_event_id`
 - **Grace period handling**: BILLING_ISSUE respects `grace_period_expires_date_ms`
-- **Sandbox filtering**: Production webhook ignores `environment: 'SANDBOX'` events
+- **Sandbox filtering**: Currently **DISABLED** for end-to-end testing (sandbox events ARE processed). Re-enable before production launch by uncommenting the early-return block in `index.js:3813-3821`
 
 ### 3. subscription-status
 
@@ -211,13 +211,22 @@ PostgreSQL (pg-mybartenderdb)
 {
   "success": true,
   "subscription": {
-    "entitlement": "paid",
-    "subscriptionStatus": "active",
+    "tier": "pro",
+    "productId": "pro_monthly",
     "isActive": true,
-    "expiresAt": "2026-03-23T00:00:00Z"
-  }
+    "autoRenewing": true,
+    "expiresAt": "2026-03-23T00:00:00Z",
+    "cancelReason": null
+  },
+  "currentTier": "pro",
+  "entitlement": "paid"
 }
 ```
+
+**Notes:**
+- `entitlement` is at the top level (not inside `subscription`)
+- `subscription` contains data from the `user_subscriptions` table
+- If user has no subscription record, defaults to `tier: 'free'`, `is_active: false`
 
 ---
 
@@ -226,8 +235,8 @@ PostgreSQL (pg-mybartenderdb)
 | Item | Google Play Product ID | App Store Product ID |
 |------|----------------------|---------------------|
 | Entitlement ID | `paid` | `paid` |
-| Monthly subscription | `pro_monthly` (base plan: `monthly-autorenewing`) | `pro_monthly` |
-| Annual subscription | `pro_annual` (base plan: `annual-autorenewing`) | `pro_annual` |
+| Monthly subscription | `pro_monthly` (base plan: `monthly-id`) | `pro_monthly` |
+| Annual subscription | `pro_annual` (base plan: `annual-id`) | `pro_annual` |
 | Voice add-on (consumable) | `voice_minutes_60` | `voice_minutes_60` |
 
 **RevenueCat Offerings:**
@@ -442,8 +451,8 @@ Email is NOT required for initialization. The `$email` subscriber attribute is s
 
 ### 2. Google Play Console
 
-- Create subscription `pro_monthly` ($7.99/mo, base plan `monthly-autorenewing`)
-- Create subscription `pro_annual` ($79.99/yr, base plan `annual-autorenewing`)
+- Create subscription `pro_monthly` ($7.99/mo, base plan `monthly-id`)
+- Create subscription `pro_annual` ($79.99/yr, base plan `annual-id`)
 - Create consumable product `voice_minutes_60` at $4.99
 - See `REVENUECAT_PLAN.md` Phase 1 for step-by-step
 
@@ -456,7 +465,7 @@ Email is NOT required for initialization. The `$email` subscriber attribute is s
 
 ### 4. Configure Webhook
 
-- URL: `https://apim-mba-002.azure-api.net/v1/subscription/webhook`
+- URL: `https://apim-mba-002.azure-api.net/api/v1/subscription/webhook`
 - Enable all subscription lifecycle events
 - Copy webhook secret to Key Vault
 

@@ -392,7 +392,7 @@ Email should show real addresses (e.g., `paulawhitley1971@gmail.com`) for users 
 
 The `subscription-webhook` function receives RevenueCat server-to-server notifications:
 
-- **Webhook URL**: `https://func-mba-fresh.azurewebsites.net/api/v1/subscription/webhook`
+- **Webhook URL**: `https://apim-mba-002.azure-api.net/api/v1/subscription/webhook` (routes through APIM)
 - **Authentication**: RevenueCat sends `Authorization: Bearer <secret>` header
 - **Secret**: `REVENUECAT_WEBHOOK_SECRET` app setting → Key Vault reference → `REVENUECAT-WEBHOOK-SECRET` in `kv-mybartenderai-prod`
 - **Verified working**: Feb 25, 2026 — two production INITIAL_PURCHASE events processed

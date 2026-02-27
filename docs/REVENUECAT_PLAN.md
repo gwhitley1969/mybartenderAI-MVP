@@ -167,12 +167,12 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 **Product 1 — Pro Monthly**:
 - **App**: My AI Bartender (Play Store)
 - **Store product ID (Identifier)**: `pro_monthly`
-- **Base plan ID**: `monthly-autorenewing` (from Phase 1A step 6)
+- **Base plan ID**: `monthly-id` (from Phase 1A step 6)
 
 **Product 2 — Pro Annual**:
 - **App**: My AI Bartender (Play Store)
 - **Store product ID**: `pro_annual`
-- **Base plan ID**: `annual-autorenewing` (from Phase 1B step 6)
+- **Base plan ID**: `annual-id` (from Phase 1B step 6)
 
 **Product 3 — Voice Minutes**:
 - **App**: My AI Bartender (Play Store)
@@ -209,13 +209,13 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 - Click **"+ New"** (or edit existing)
 - **Identifier**: `$rc_monthly` (RevenueCat standard identifier for monthly)
 - **Attach products**:
-  - `pro_monthly` (Play Store) — with base plan `monthly-autorenewing`
+  - `pro_monthly` (Play Store) — with base plan `monthly-id`
   - `pro_monthly` (App Store)
 
 **Package: Annual**
 - **Identifier**: `$rc_annual`
 - **Attach products**:
-  - `pro_annual` (Play Store) — with base plan `annual-autorenewing`
+  - `pro_annual` (Play Store) — with base plan `annual-id`
   - `pro_annual` (App Store)
 
 ### 3E. Clean Up Test Store (Optional)
@@ -228,7 +228,7 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 
 **Status**: COMPLETED and VERIFIED (Feb 25, 2026)
 
-- Webhook URL: `https://func-mba-fresh.azurewebsites.net/api/v1/subscription/webhook`
+- Webhook URL: `https://apim-mba-002.azure-api.net/api/v1/subscription/webhook` (routes through APIM)
 - Authentication: `Bearer` token using `REVENUECAT_WEBHOOK_SECRET` (Key Vault reference)
 - Verified working: Two production INITIAL_PURCHASE events processed successfully
 - RevenueCat dashboard shows "Sent" status for webhook events

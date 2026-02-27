@@ -18,10 +18,16 @@ RevenueCat Overview dashboard confirms: **2 Active Subscriptions, $88 Revenue, $
 - App: Users can subscribe, AI features unlock immediately
 - `navigateOrGate()`: 3-step check (cached provider → fresh SDK call → backend) eliminates false-positive paywalls for trial/paid users on first tap after launch (Feb 27 fix)
 
+### What's Working (iOS — Verified Feb 27, 2026)
+- App Store Connect: `pro_monthly` and `pro_annual` subscriptions active, `voice_minutes_60` consumable created
+- RevenueCat Dashboard: Apple products mapped, showing "Ready to Submit" (normal for pre-submission — sandbox works)
+- iOS sandbox testing: Annual subscription and trial purchase verified on physical device (iPhone, iOS 26.3)
+- Webhook race condition fix deployed (SUB-005): auto-creates user if webhook arrives before first API call
+
 ### What's Remaining (iOS)
-- App Store Connect: `voice_minutes_60` consumable NOT created yet (subscriptions exist)
-- RevenueCat Dashboard: Apple products need verification
-- TestFlight testing not yet started
+- TestFlight build not yet uploaded (Xcode direct-to-device used for sandbox testing)
+- Voice minutes consumable purchase not yet tested on iOS
+- App Store review submission pending
 
 ### Known Dashboard Quirk
 RevenueCat's **Customers list views** (Active subscription, Sandbox, etc.) show 0 even though the Overview page and API both correctly report 2 active subscribers. This is a RevenueCat dashboard propagation delay for new projects — not a data issue. Use the **Overview** page or **Ctrl+K customer search** for real-time data.
@@ -346,33 +352,36 @@ Added `import 'dart:io' show Platform;`. Uses `config.revenueCatAppleApiKey` on 
 
 ## Phase 7: Verification
 
-### 7A. Backend Deployment
-1. Deploy `index.js` and `voice-purchase/index.js` to `func-mba-fresh`
-2. Call `GET /v1/subscription/config` — confirm response has both `revenueCatApiKey` and `revenueCatAppleApiKey`
+### 7A. Backend Deployment ✅
+1. Deploy `index.js` and `voice-purchase/index.js` to `func-mba-fresh` — DONE
+2. Call `GET /v1/subscription/config` — confirmed response has both `revenueCatApiKey` and `revenueCatAppleApiKey`
 
-### 7B. Flutter static analysis
+### 7B. Flutter static analysis ✅
 ```bash
 flutter analyze --no-pub
 ```
 Filter results for modified files only (pre-existing errors exist elsewhere).
 **Status**: COMPLETED — zero new errors in modified files.
 
-### 7C. Android build
+### 7C. Android build ✅
 ```bash
 flutter build appbundle --release
 ```
-Verify app launches and subscription init logs "Android API key retrieved".
+Verified: app launches and subscription init logs "Android API key retrieved".
 
-### 7D. RevenueCat sandbox testing
-1. In RevenueCat dashboard, verify products show green checkmarks (not "Could not check")
-2. Use a Google Play test account to test sandbox subscription purchase
-3. Verify webhook fires and backend processes the event
+### 7D. RevenueCat sandbox testing ✅
+1. RevenueCat dashboard: Play Store products show green "Published" checkmarks
+2. Two real Google Play production purchases verified (Wild Heels annual, Xtend-AI monthly)
+3. Webhook fires and backend processes events correctly
 
-### 7E. iOS testing (when TestFlight ready)
-1. Verify subscription init logs "iOS API key retrieved"
-2. Test sandbox subscription purchase
-3. Test sandbox voice minutes consumable purchase
-4. Verify webhook credits 60 minutes
+### 7E. iOS testing ✅ (Feb 27, 2026)
+1. ✅ Subscription init logs "iOS API key retrieved"
+2. ✅ Sandbox annual subscription purchase — Paul (pwhitley1967@gmail.com)
+3. ✅ Sandbox trial subscription purchase — verified working
+4. ✅ Webhook race condition discovered (SUB-005) — auto-create user fix deployed
+5. ✅ App Store products show "Ready to Submit" (yellow) in RevenueCat — normal for pre-submission, sandbox purchases work
+6. [ ] Voice minutes consumable purchase via RevenueCat SDK
+7. [ ] Verify webhook credits 60 minutes for voice pack
 
 ---
 
@@ -389,11 +398,11 @@ Verify app launches and subscription init logs "Android API key retrieved".
 
 ## Execution Order
 
-1. **Phases 1-3** (manual portal work) — can be done immediately, no code changes needed
+1. **Phases 1-3** (manual portal work) — DONE (Android complete, iOS subscriptions created)
 2. **Phase 4** (Azure CLI) — DONE
-3. **Phase 5** (backend code) — DONE, needs deployment to `func-mba-fresh`
+3. **Phase 5** (backend code) — DONE, deployed to `func-mba-fresh`
 4. **Phase 6** (Flutter code) — DONE
-5. **Phase 7** (verification) — after everything above
+5. **Phase 7** (verification) — DONE (Android production + iOS sandbox verified)
 
 ## Known Items (Not In Scope)
 
@@ -402,7 +411,9 @@ Verify app launches and subscription init logs "Android API key retrieved".
 - ~~CLAUDE.md references old pricing "$4.99 for 20 minutes"~~ — **RESOLVED**: Updated to "$4.99 for 60 minutes"
 - ~~Webhook returning 401~~ — **RESOLVED** (Feb 25, 2026): Key Vault reference for `REVENUECAT_WEBHOOK_SECRET` was not resolving. Fixed by restarting Function App; secret now uses `@Microsoft.KeyVault(SecretUri=...)` reference pattern.
 - ~~No free trial on `pro_monthly`~~ — **RESOLVED** (Feb 25, 2026): Free trial is a Google Play **Offer** (not a base plan setting). Created 3-day free trial offer on `pro_monthly` base plan. Backend already handles `period_type === 'TRIAL'`.
+- ~~Webhook race condition — user not found~~ — **RESOLVED** (Feb 27, 2026): Webhook auto-creates user record if not found. See `BUG_FIXES.md` SUB-005.
 - **RevenueCat Customers list shows 0**: Known dashboard propagation delay for new projects. Overview page and API correctly report 2 active subscribers. Not a data issue.
+- **App Store products "Ready to Submit"**: Normal for pre-submission apps. Sandbox purchases work correctly. Status resolves when app binary is submitted to App Store Connect.
 
 ---
 

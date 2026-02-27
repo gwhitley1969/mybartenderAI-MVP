@@ -196,7 +196,8 @@ PostgreSQL (pg-mybartenderdb)
 **Key Features:**
 - **Idempotency**: Each event has unique `event.id` stored in `subscription_events.revenuecat_event_id`
 - **Grace period handling**: BILLING_ISSUE respects `grace_period_expires_date_ms`
-- **Sandbox filtering**: Currently **DISABLED** for end-to-end testing (sandbox events ARE processed). Re-enable before production launch by uncommenting the early-return block in `index.js:3813-3821`
+- **Auto-create user on race condition** (SUB-005 fix, Feb 27): If the webhook arrives before the mobile app's first API call creates the user, the webhook auto-creates a minimal user record using `azure_ad_sub` from `app_user_id` and `$email`/`$displayName` from `subscriber_attributes`. Handles concurrent INSERT via `23505` unique constraint catch + retry lookup. See `BUG_FIXES.md` SUB-005
+- **Sandbox filtering**: Currently **DISABLED** for end-to-end testing (sandbox events ARE processed). Re-enable before production launch by uncommenting the early-return block in `index.js:3855-3863`
 
 ### 3. subscription-status
 
@@ -498,7 +499,8 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 
 ### Test Scenarios — Android
 
-- [ ] New subscription purchase (monthly with trial)
+- [x] New subscription purchase (monthly with trial) — verified Feb 25
+- [x] New subscription purchase (annual) — verified Feb 25 (Wild Heels)
 - [ ] Trial expiration → paid conversion
 - [ ] Subscription renewal (voice cycle reset)
 - [ ] Cancellation (verify still active until expiry)
@@ -509,8 +511,10 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 
 ### Test Scenarios — iOS
 
-- [ ] Subscription init logs "iOS API key retrieved"
-- [ ] New subscription purchase (monthly with trial)
+- [x] Subscription init logs "iOS API key retrieved" — verified Feb 27
+- [x] New subscription purchase (annual) — verified Feb 27 (Paul, sandbox)
+- [x] New subscription purchase (trial) — verified Feb 27 (sandbox)
+- [x] Webhook auto-creates user on race condition — verified Feb 27 (SUB-005)
 - [ ] Subscription renewal
 - [ ] Restore purchases on new device
 - [ ] Voice add-on purchase via RevenueCat SDK (+60 minutes credited via webhook)
@@ -538,6 +542,22 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 - Verify database trigger: `SELECT * FROM pg_trigger WHERE tgname = 'trigger_sync_user_tier';`
 - Check `subscription_events` table for recent entries
 - Verify `users.entitlement` column reflects expected state
+- Check for `user_id = NULL` in `subscription_events` — indicates webhook couldn't find the user (race condition or case mismatch). The SUB-005 auto-create fix should prevent this going forward, but if it recurs, manually link the event and update the user's entitlement (see `BUG_FIXES.md` SUB-005)
+
+### Webhook Race Condition (User Not Found)
+
+If `subscription_events` has a row with `user_id = NULL`:
+1. The webhook arrived before `getOrCreateUser()` created the user record
+2. As of SUB-005 fix (Feb 27), the webhook auto-creates the user — this should not recur
+3. If it does, manually fix: find the user by `azure_ad_sub`, UPDATE their entitlement, and link the orphaned event:
+```sql
+-- Find the user
+SELECT id, azure_ad_sub FROM users WHERE LOWER(azure_ad_sub) = LOWER('THE_APP_USER_ID');
+-- Update entitlement
+UPDATE users SET entitlement = 'paid', subscription_status = 'active', tier = 'pro' WHERE id = 'USER_UUID';
+-- Link orphaned event
+UPDATE subscription_events SET user_id = 'USER_UUID' WHERE user_id IS NULL AND revenuecat_app_user_id = 'THE_APP_USER_ID';
+```
 
 ---
 
@@ -554,4 +574,4 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 ---
 
 *Last Updated: February 27, 2026*
-*Implementation Status: Backend + Mobile code complete for both platforms. Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race (Feb 27). Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix — RevenueCat lowercases App User IDs). Store product creation and RevenueCat dashboard configuration pending — see REVENUECAT_PLAN.md.*
+*Implementation Status: Backend + Mobile code complete for both platforms. iOS sandbox subscription testing verified (annual + trial purchases). Webhook auto-creates user records on race condition (SUB-005 fix). Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix). App Store products show "Ready to Submit" in RevenueCat — normal for pre-submission; sandbox purchases work correctly.*

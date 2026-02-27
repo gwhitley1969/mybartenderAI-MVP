@@ -8,6 +8,19 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (February 2026)
 
+- **Fix: iOS Subscriber Paywall — Webhook Race Condition (SUB-005)** (Feb 27): Fixed critical bug where new iOS user (Paul, pwhitley1967@gmail.com) purchased `pro_annual` ($79.99) but Voice AI showed "Subscription Required" and Chat returned errors. Root cause: **race condition** — the RevenueCat webhook arrived at 20:10:19 but Paul's user record wasn't created until 20:10:26 (7 seconds later). The webhook's `WHERE LOWER(azure_ad_sub) = LOWER($1)` query found no match → `user_id = NULL` → entitlement never updated.
+
+  **Fix:** The `subscription-webhook` function now **auto-creates a minimal user record** when it can't find the user by `azure_ad_sub`. It extracts `$email` and `$displayName` from RevenueCat's `subscriber_attributes` in the webhook payload. The user starts as `free`/`none`, then the `INITIAL_PURCHASE` handler immediately upgrades to `paid`. Handles concurrent INSERT race conditions via `23505` unique constraint catch + retry lookup. The app's `getOrCreateUser()` enriches the record on the next API call.
+
+  **Files modified:**
+  - `backend/functions/index.js`: Auto-create user logic in webhook's user-not-found branch (lines 3772-3819)
+
+  **Manual fix for Paul:** Updated `users` table directly + linked orphaned `subscription_events` record.
+
+  **iOS sandbox testing verified:** Trial subscription purchase tested end-to-end on physical iPhone (iOS 26.3) with sandbox tester account — webhook auto-creates user, entitlement activates immediately.
+
+  See `docs/BUG_FIXES.md` (SUB-005) for full details.
+
 - **Fix: Trial User Paywall — RevenueCat Case-Sensitivity Bug (SUB-004)** (Feb 27): Fixed critical bug where trial users (e.g., Eugene Huffman) saw "Subscription Required" paywall on Voice AI and generic errors on Chat despite RevenueCat SDK recognizing them as paid. Root cause: RevenueCat normalizes App User IDs to **lowercase** when sending webhook events, but Entra `sub` claims contain **mixed case** (base64url encoding). PostgreSQL's `=` operator is case-sensitive, so the webhook's `WHERE azure_ad_sub = $1` failed to match. Changed ALL `azure_ad_sub` lookups (10 locations across 3 files) to `WHERE LOWER(azure_ad_sub) = LOWER($1)`. Added `idx_users_azure_ad_sub_lower` functional index. Manually fixed Eugene's record. Deployed to `func-mba-fresh`.
 
   **Files modified:**

@@ -3770,10 +3770,52 @@ app.http('subscription-webhook', {
             if (userResult.rows.length > 0) {
                 internalUserId = userResult.rows[0].id;
             } else {
+                // Race condition: RevenueCat webhook can arrive before the mobile app's
+                // first API call creates the user record (observed on iOS — purchase at
+                // 20:10:19, user created at 20:10:26). Auto-create a minimal user record
+                // so the subscription activates immediately. The app's getOrCreateUser()
+                // will enrich it with email/display_name on the next API call.
                 const maskedId = isEmailFormat
                     ? appUserId.split('@')[0] + '@***'
                     : appUserId.substring(0, 8) + '...';
-                context.warn(`User not found for ${isEmailFormat ? 'email' : 'azure_ad_sub'}: ${maskedId}`);
+                context.warn(`User not found for ${isEmailFormat ? 'email' : 'azure_ad_sub'}: ${maskedId} — auto-creating from webhook`);
+
+                // Extract email and display name from RevenueCat subscriber attributes if available
+                const subscriberAttrs = event.event?.subscriber_attributes || {};
+                const webhookEmail = subscriberAttrs['$email']?.value || null;
+                const webhookDisplayName = subscriberAttrs['$displayName']?.value || null;
+
+                if (!isEmailFormat) {
+                    // app_user_id is azure_ad_sub — create user with it
+                    try {
+                        const createResult = await db.query(
+                            `INSERT INTO users (azure_ad_sub, tier, entitlement, subscription_status, email, display_name, created_at, updated_at, last_login_at)
+                             VALUES ($1, 'free', 'none', 'none', $2, $3, NOW(), NOW(), NOW())
+                             RETURNING id`,
+                            [appUserId, webhookEmail, webhookDisplayName]
+                        );
+                        internalUserId = createResult.rows[0].id;
+                        context.log(`Auto-created user ${internalUserId} from webhook for azure_ad_sub: ${maskedId}`);
+                    } catch (createError) {
+                        if (createError.code === '23505') {
+                            // Unique constraint violation — user was created between our SELECT and INSERT
+                            // (concurrent request from the mobile app). Retry the lookup.
+                            context.warn('Race condition on INSERT — retrying lookup');
+                            const retryResult = await db.query(
+                                'SELECT id FROM users WHERE LOWER(azure_ad_sub) = LOWER($1)',
+                                [appUserId]
+                            );
+                            if (retryResult.rows.length > 0) {
+                                internalUserId = retryResult.rows[0].id;
+                                context.log(`Found user on retry: ${internalUserId}`);
+                            }
+                        } else {
+                            context.error(`Failed to auto-create user: ${createError.message}`);
+                        }
+                    }
+                } else {
+                    context.warn('Cannot auto-create user from email-format app_user_id (legacy path)');
+                }
             }
 
             // Idempotency check - skip if we've already processed this event

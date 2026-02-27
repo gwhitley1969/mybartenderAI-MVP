@@ -4,6 +4,52 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## SUB-005: iOS Subscriber Paywall — Webhook Race Condition (User Record Not Yet Created)
+
+**Date Fixed**: February 27, 2026
+**Severity**: Critical (new users who purchase before first API call get blocked from AI features)
+**Component**: Backend (Azure Functions — `subscription-webhook`)
+**Files Modified**: `backend/functions/index.js`
+**Backend Deployment**: Yes (`az functionapp deployment source config-zip`)
+**Database Migration**: No (uses existing `users` table)
+
+### Problem
+
+Paul (pwhitley1967@gmail.com) purchased `pro_annual` ($79.99) on iOS. RevenueCat SDK recognized the purchase client-side (showed "60 minutes of voice"), but Voice AI showed "Subscription Required" paywall and Chat returned an error. Backend `users.entitlement` was still `none`.
+
+### Root Cause
+
+**Race condition**: The RevenueCat webhook arrived **before** the user record existed in PostgreSQL.
+
+**Timeline**:
+- `20:10:19` — Webhook `INITIAL_PURCHASE` event arrived, looked for `azure_ad_sub` → no match → `user_id = NULL`
+- `20:10:26` — App's first API call hit `getOrCreateUser()` → Paul's user record created (7 seconds later)
+
+**Why it happened**: On iOS, the Flutter app initializes RevenueCat (`Purchases.logIn(entraSub)`) before making any backend API calls. If the user purchases immediately, RevenueCat fires the webhook before `getOrCreateUser()` has run. On Android, this was less likely because users typically browsed before purchasing, but it's possible on either platform.
+
+### Fix
+
+Modified the `subscription-webhook` function's user lookup: when the user is not found by `azure_ad_sub`, the webhook now **auto-creates a minimal user record** instead of returning `user_not_found`.
+
+**New behavior** (lines 3772-3819 of `index.js`):
+1. User lookup fails → extract `$email` and `$displayName` from RevenueCat's `subscriber_attributes` in the webhook payload
+2. INSERT a new user with `azure_ad_sub = app_user_id`, `tier = 'free'`, `entitlement = 'none'`
+3. The `INITIAL_PURCHASE` handler immediately upgrades to `entitlement = 'paid'`
+4. If a concurrent `getOrCreateUser()` INSERT triggers a `23505` unique constraint violation, catch it and retry the lookup
+5. When the app's next API call hits `getOrCreateUser()`, it finds the existing record and enriches with any missing fields
+
+**Manual fix for Paul**: Updated `users` table directly (SET `entitlement = 'paid'`, `subscription_status = 'active'`). Also linked the orphaned `subscription_events` record (id=5) to Paul's user.
+
+### Key Difference from SUB-004
+
+SUB-004 was a **case-sensitivity** bug (RevenueCat lowercased the App User ID). SUB-005 is a **timing** bug (webhook arrives before user exists). Both result in `user_id = NULL` in `subscription_events`, but for different reasons.
+
+### Verification
+
+The fix is deployed. Future users who purchase before their first API call will have their user record auto-created by the webhook, and their subscription will activate immediately.
+
+---
+
 ## SUB-004: Trial User Paywall — RevenueCat Case-Sensitivity Bug (Webhook Lookup Failure)
 
 **Date Fixed**: February 27, 2026

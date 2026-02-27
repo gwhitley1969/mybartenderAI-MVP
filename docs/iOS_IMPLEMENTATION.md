@@ -4,9 +4,9 @@
 
 This document details the iOS-specific configuration and implementation for My AI Bartender. The Flutter app uses MSAL (Microsoft Authentication Library) for authentication with Microsoft Entra External ID (CIAM).
 
-**Status**: Ready (January 2026)
-**Tested**: Physical iPhone device with successful authentication flow
-**Last Updated**: February 23, 2026
+**Status**: Ready — iOS sandbox subscription testing verified (February 2026)
+**Tested**: Physical iPhone (iOS 26.3) — authentication, subscription purchase, trial, voice AI
+**Last Updated**: February 27, 2026
 
 ---
 
@@ -962,5 +962,84 @@ dart run flutter_native_splash:create
 
 ---
 
-**Last Updated**: February 23, 2026
-**Implementation Status**: Complete and Tested
+## Subscription & In-App Purchases (iOS)
+
+### Overview
+
+iOS subscriptions use RevenueCat SDK for all purchase types (subscriptions + consumables). This differs from Android, where subscriptions use RevenueCat but voice minute consumables use Google Play Billing with direct backend verification.
+
+### Platform-Specific API Key Selection
+
+The `subscription-config` endpoint returns both platform keys. Flutter selects at runtime:
+
+```dart
+if (Platform.isIOS) {
+  apiKey = config.revenueCatAppleApiKey;  // appl_fHUlSMXyyWiYidJqYFQlqYfiJmM
+} else {
+  apiKey = config.revenueCatApiKey;       // goog_...
+}
+```
+
+### App Store Connect Products
+
+| Product | Product ID | Type | Price | Status |
+|---------|-----------|------|-------|--------|
+| Pro Monthly | `pro_monthly` | Auto-renewable subscription | $7.99/mo | Created |
+| Pro Annual | `pro_annual` | Auto-renewable subscription | $79.99/yr | Created |
+| Voice Minutes | `voice_minutes_60` | Consumable | $4.99 | Created |
+
+Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pre-submission. Sandbox purchases work correctly.
+
+### Sandbox Testing (Verified Feb 27, 2026)
+
+**Setup:**
+1. Create sandbox testers: App Store Connect → Users and Access → Sandbox → Testers
+2. Sign in on device: Settings → **Developer** → Sandbox Apple Account (iOS 18+)
+3. The "Developer" menu only appears after deploying a dev build from Xcode at least once
+4. Run: `flutter build ios --release` → deploy via Xcode → purchases use sandbox automatically
+
+**Verified scenarios:**
+- Annual subscription purchase (Paul, pwhitley1967@gmail.com)
+- Trial subscription purchase
+- Webhook receives `store: "APP_STORE"` events and processes correctly
+- Webhook auto-creates user on race condition (SUB-005 fix)
+
+**Sandbox subscription timing:**
+| Real Duration | Sandbox Duration |
+|--------------|-----------------|
+| 3-day trial | 3 minutes |
+| 1 month | 5 minutes |
+| 1 year | 1 hour |
+
+### Voice Minutes Purchase Path (iOS)
+
+iOS uses RevenueCat SDK for voice minutes (not `in_app_purchase` plugin like Android):
+
+```
+User taps "Buy 60 Minutes" → RevenueCat SDK → StoreKit → Apple processes purchase
+    → RevenueCat webhook → subscription-webhook function
+    → NON_RENEWING_PURCHASE event → credits 60 minutes in PostgreSQL
+    → App refreshes voiceQuotaProvider (2-second delay for webhook processing)
+```
+
+`onVerifyPurchase` callback is `null` on iOS — RevenueCat handles validation.
+
+### Bug Fix: Webhook Race Condition (SUB-005)
+
+**Problem:** RevenueCat webhook can arrive before the user record exists in PostgreSQL (observed: webhook at 20:10:19, user created at 20:10:26 — 7 seconds later).
+
+**Fix:** Webhook auto-creates a minimal user record using `azure_ad_sub` from `app_user_id` and `$email`/`$displayName` from RevenueCat's `subscriber_attributes`. Handles concurrent INSERT via `23505` unique constraint catch + retry.
+
+See `BUG_FIXES.md` SUB-005 for full details.
+
+### Remaining iOS Test Scenarios
+
+- [ ] Voice minutes consumable purchase via RevenueCat SDK
+- [ ] `voiceQuotaProvider` refresh after purchase success
+- [ ] Restore purchases on new device
+- [ ] TestFlight build + external beta testing
+
+---
+
+**Last Updated**: February 27, 2026
+**Implementation Status**: Complete and Tested — iOS sandbox subscription testing verified

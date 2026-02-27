@@ -395,8 +395,9 @@ The `subscription-webhook` function receives RevenueCat server-to-server notific
 - **Webhook URL**: `https://apim-mba-002.azure-api.net/api/v1/subscription/webhook` (routes through APIM)
 - **Authentication**: RevenueCat sends `Authorization: Bearer <secret>` header
 - **Secret**: `REVENUECAT_WEBHOOK_SECRET` app setting → Key Vault reference → `REVENUECAT-WEBHOOK-SECRET` in `kv-mybartenderai-prod`
-- **Verified working**: Feb 25, 2026 — two production INITIAL_PURCHASE events processed
+- **Verified working**: Feb 25, 2026 (Android production), Feb 27, 2026 (iOS sandbox)
 - **App User ID format** (Feb 26, 2026): All subscribers use the Entra `sub` claim (opaque GUID) as `app_user_id`. Email is set as the `$email` subscriber attribute for RevenueCat Ctrl+K dashboard search. Backend webhook looks up users via `WHERE LOWER(azure_ad_sub) = LOWER($1)` (case-insensitive — RevenueCat normalizes App User IDs to lowercase, but Entra subs contain mixed case; see `BUG_FIXES.md` SUB-004). The email lookup path (`WHERE LOWER(email)`) remains for backward compatibility. See `docs/REVENUECAT_EMAIL_ID_ANALYSIS.md` for the full redesign rationale
+- **Auto-create on race condition** (Feb 27, 2026): If the webhook arrives before the mobile app's first API call creates the user record, the webhook now auto-creates a minimal user with `azure_ad_sub`, `$email`, and `$displayName` from the webhook payload. See `BUG_FIXES.md` SUB-005
 
 ### Troubleshooting Webhook 401 Errors
 

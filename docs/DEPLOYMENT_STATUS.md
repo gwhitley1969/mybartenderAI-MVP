@@ -2,11 +2,16 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 27, 2026
+**Last Updated**: February 28, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (February 2026)
+
+- **Fix: Recipe Card Cropped on Facebook/Email — Compact 4:5 Layout** (Feb 28): Fixed shared recipe card images being cropped on Facebook, email, and WhatsApp. The hero image, oversized fonts, and generous padding produced cards exceeding 2000px tall, but social platforms crop shared images to roughly 4:5 (1080×1350). Recipients only saw the top portion (hero photo, name, tags) — ingredients, instructions, and the promo footer were invisible. Compacted all 24 dimensions to fit within a ~1062px height budget (well within the 1350px crop threshold): hero image 500→280px, name font 48→34px, section titles 32→22px, ingredient/measure font 24→16px, instruction font 22→15px, instruction truncation 300→200 chars, and tightened all padding/gaps throughout. Card width remains 1080px (rendered at 2x → 2160px).
+
+  **File modified:**
+  - `mobile/app/lib/src/widgets/shareable_recipe_card.dart`: All dimension reductions (no structural/logic changes)
 
 - **Fix: iOS Subscriber Paywall — Webhook Race Condition (SUB-005)** (Feb 27): Fixed critical bug where new iOS user (Paul, pwhitley1967@gmail.com) purchased `pro_annual` ($79.99) but Voice AI showed "Subscription Required" and Chat returned errors. Root cause: **race condition** — the RevenueCat webhook arrived at 20:10:19 but Paul's user record wasn't created until 20:10:26 (7 seconds later). The webhook's `WHERE LOWER(azure_ad_sub) = LOWER($1)` query found no match → `user_id = NULL` → entitlement never updated.
 

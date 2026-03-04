@@ -561,17 +561,37 @@ UPDATE subscription_events SET user_id = 'USER_UUID' WHERE user_id IS NULL AND r
 
 ---
 
+## Account Deletion (Apple Guideline 5.1.1(v))
+
+Account deletion is implemented via `DELETE /v1/users/me`. When a user deletes their account:
+
+1. **All user data is removed** from PostgreSQL in a transaction (users, user_profile, and all cascaded tables)
+2. **Subscription audit trail is preserved** — `subscription_events` rows have `user_id` set to NULL
+3. **RevenueCat subscriber record persists** — if the user re-signs in with an active subscription, the webhook re-links them
+4. **Entra External ID account is NOT deleted** — the user can sign back in and gets a fresh empty account
+
+### Impact on Subscriptions
+
+- Active subscriptions continue in the App Store / Google Play — the user must cancel separately
+- If the user re-signs in while a subscription is active, the RevenueCat webhook will re-create their entitlement
+- Purchased voice minute balances are permanently lost on deletion
+
+See `docs/DELETE_USER.md` for full implementation details including database cascades, APIM configuration, and Flutter UI.
+
+---
+
 ## Related Documentation
 
 - [RevenueCat Documentation](https://docs.revenuecat.com/)
 - [Google Play Billing](https://developer.android.com/google/play/billing)
 - [Azure Key Vault References](https://docs.microsoft.com/en-us/azure/app-service/app-service-key-vault-references)
 - `ARCHITECTURE.md` — Overall system architecture
+- `DELETE_USER.md` — Account deletion implementation (Apple 5.1.1(v))
 - `REVENUECAT_PLAN.md` — Cross-platform RevenueCat setup checklist (store products, dashboard config, code changes)
 - `GOOGLE_PLAY_BILLING_SETUP.md` — Google Play service account setup for voice purchase verification
 - `CLAUDE.md` — Project context and conventions
 
 ---
 
-*Last Updated: February 27, 2026*
+*Last Updated: March 4, 2026*
 *Implementation Status: Backend + Mobile code complete for both platforms. iOS sandbox subscription testing verified (annual + trial purchases). Webhook auto-creates user records on race condition (SUB-005 fix). Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix). App Store products show "Ready to Submit" in RevenueCat — normal for pre-submission; sandbox purchases work correctly.*

@@ -2,11 +2,24 @@
 
 ## Current Status: Release Candidate
 
-**Last Updated**: February 28, 2026
+**Last Updated**: March 4, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
-### Recent Updates (February 2026)
+### Recent Updates (March 2026)
+
+- **Feature: Account Deletion — Apple Guideline 5.1.1(v)** (Mar 4): Implemented full account deletion across all layers. `DELETE /v1/users/me` removes all user data from PostgreSQL in a single transaction using database cascades (user_profile, users, and all dependent tables). Subscription audit trail (`subscription_events`) preserved with `user_id = NULL`. Flutter UI presents double-confirmation dialogs. Fixed `users-me/index.js` — was the last remaining v3-style function doing its own JWT validation with wrong audience. Rewrote to v4 pattern (reads `x-user-id` from APIM header). Also fixed APIM JWT policies on all three `users-me` operations (`users-me-get`, `users-me-update`, `users-me-delete`) — they had wrong audience (`04551003...` instead of `f9f7f159...`), wrong issuer format, and wrong OpenID config URL. Bug was hidden because mobile app never called GET/PATCH on `/v1/users/me` through APIM until DELETE was added.
+
+  **Files modified:**
+  - `backend/functions/users-me/index.js`: Rewritten from v3 to v4 pattern — removed JWT validation, reads x-user-id from APIM
+  - `mobile/app/lib/src/services/backend_service.dart`: `deleteAccount()` method + cleaned diagnostic error messages
+  - `mobile/app/lib/src/providers/auth_provider.dart`: `deleteAccount()` in AuthNotifier
+  - `mobile/app/lib/src/features/profile/profile_screen.dart`: Delete Account UI with double-confirmation + cleaned diagnostic messages
+  - APIM: Fixed JWT policies on `users-me-get`, `users-me-update`, `users-me-delete` operations
+
+  See `docs/DELETE_USER.md` for full implementation details.
+
+### Previous Updates (February 2026)
 
 - **Fix: Recipe Card Cropped on Facebook/Email — Compact 4:5 Layout** (Feb 28): Fixed shared recipe card images being cropped on Facebook, email, and WhatsApp. The hero image, oversized fonts, and generous padding produced cards exceeding 2000px tall, but social platforms crop shared images to roughly 4:5 (1080×1350). Recipients only saw the top portion (hero photo, name, tags) — ingredients, instructions, and the promo footer were invisible. Compacted all 24 dimensions to fit within a ~1062px height budget (well within the 1350px crop threshold): hero image 500→280px, name font 48→34px, section titles 32→22px, ingredient/measure font 24→16px, instruction font 22→15px, instruction truncation 300→200 chars, and tightened all padding/gaps throughout. Card width remains 1080px (rendered at 2x → 2160px).
 
@@ -852,7 +865,7 @@ All functions deployed to `func-mba-fresh`:
 | `voice-session`        | POST   | `/api/v1/voice/session`          | JWT (Paid)| Working |
 | `refine-cocktail`      | POST   | `/api/v1/create-studio/refine`   | JWT       | Working |
 | `cocktail-preview`     | GET    | `/api/v1/cocktails/preview/{id}` | Public    | Working |
-| `users-me`             | GET    | `/api/v1/users/me`               | JWT       | Working |
+| `users-me`             | GET/PATCH/DELETE | `/api/v1/users/me`      | JWT       | Working |
 
 ### Authentication Endpoints
 

@@ -1,6 +1,6 @@
 # User Subscription Management — PostgreSQL
 
-**Last Updated**: February 27, 2026
+**Last Updated**: March 4, 2026
 
 This guide explains how to view and modify user subscription status directly in the PostgreSQL database (`pg-mybartenderdb`).
 
@@ -307,6 +307,39 @@ WHERE LOWER(azure_ad_sub) = LOWER('THE-SUB-CLAIM-VALUE');
 
 > **Important:** Always use `LOWER()` for `azure_ad_sub` lookups — RevenueCat normalizes IDs to lowercase. See `BUG_FIXES.md` SUB-004.
 > See the [Finding a User](#finding-a-user) section above for the recommended email-based lookup approach.
+
+### Delete a User Account (Apple Guideline 5.1.1(v))
+
+Account deletion is normally done through the mobile app (Profile → Delete Account), which calls `DELETE /v1/users/me`. The backend deletes all data in a transaction using database cascades.
+
+If you need to manually delete a user from SQL:
+
+```sql
+-- Step 1: Find the user and note both IDs
+SELECT id, azure_ad_sub, display_name, email FROM users WHERE display_name ILIKE '%username%';
+
+-- Step 2: Delete from user_profile (cascades to custom_recipes, recipe_share, share_invite, friendships)
+DELETE FROM user_profile WHERE user_id = 'AZURE_AD_SUB_VALUE';
+
+-- Step 3: Delete from users (cascades to user_inventory, usage_tracking, voice_sessions,
+--   vision_scans, user_subscriptions, voice_addon_purchases, voice_purchase_transactions)
+-- subscription_events.user_id is SET NULL (audit trail preserved)
+DELETE FROM users WHERE azure_ad_sub = 'AZURE_AD_SUB_VALUE';
+```
+
+### Verify Account Deletion
+
+```sql
+-- All should return 0 rows
+SELECT * FROM users WHERE display_name ILIKE '%username%';
+SELECT * FROM user_profile WHERE user_id = 'AZURE_AD_SUB_VALUE';
+
+-- Audit trail should still exist with user_id = NULL
+SELECT id, event_type, user_id FROM subscription_events
+WHERE revenuecat_app_user_id = 'AZURE_AD_SUB_VALUE';
+```
+
+> See `docs/DELETE_USER.md` for full details on the deletion architecture, cascade paths, and troubleshooting.
 
 ---
 

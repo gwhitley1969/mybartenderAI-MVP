@@ -298,6 +298,25 @@ class BackendService {
     return null;
   }
 
+  /// Delete the current user's account and all associated data.
+  /// Backend deletes all user data from PostgreSQL in a transaction.
+  /// Returns true on success, throws on failure.
+  Future<bool> deleteAccount() async {
+    try {
+      final response = await _dio.delete('/v1/users/me');
+      return response.statusCode == 200;
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 401) {
+        throw Exception('Authentication expired. Please sign in again.');
+      }
+      if (e.response?.statusCode == 404) {
+        throw Exception('Account not found.');
+      }
+      throw Exception(
+          'Failed to delete account. Please try again.');
+    }
+  }
+
   /// Get subscription configuration (RevenueCat API key from Key Vault)
   Future<SubscriptionConfig> getSubscriptionConfig() async {
     try {

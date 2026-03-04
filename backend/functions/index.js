@@ -2413,7 +2413,7 @@ app.http('auth-rotate', {
 // 16. Users Me - GET/PATCH /v1/users/me
 // =============================================================================
 app.http('users-me', {
-    methods: ['GET', 'PATCH'],
+    methods: ['GET', 'PATCH', 'DELETE'],
     authLevel: 'anonymous',
     route: 'v1/users/me',
     handler: async (request, context) => {

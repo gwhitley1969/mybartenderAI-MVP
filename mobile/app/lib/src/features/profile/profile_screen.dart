@@ -107,6 +107,10 @@ class ProfileScreen extends ConsumerWidget {
 
                   // Sign Out Button
                   _buildSignOutButton(context, ref),
+                  SizedBox(height: AppSpacing.md),
+
+                  // Delete Account
+                  _buildDeleteAccountButton(context, ref),
                   SizedBox(height: AppSpacing.xl),
 
                   // App Info
@@ -1050,6 +1054,175 @@ class ProfileScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildDeleteAccountButton(BuildContext context, WidgetRef ref) {
+    return Center(
+      child: TextButton(
+        onPressed: () => _showDeleteAccountDialog(context, ref),
+        child: Text(
+          'Delete Account',
+          style: AppTypography.caption.copyWith(
+            color: AppColors.error,
+            decoration: TextDecoration.underline,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showDeleteAccountDialog(
+      BuildContext context, WidgetRef ref) async {
+    final isPaid = ref.read(isPaidProvider);
+
+    // Step 1: Initial confirmation — explain what will be deleted
+    final firstConfirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.backgroundSecondary,
+        title: Text('Delete Account?', style: AppTypography.heading3),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'This will permanently delete your account and all associated data, including:',
+              style: AppTypography.bodyMedium,
+            ),
+            SizedBox(height: AppSpacing.sm),
+            Text('  \u2022 Your profile and preferences',
+                style: AppTypography.bodySmall),
+            Text('  \u2022 Custom recipes and shared recipes',
+                style: AppTypography.bodySmall),
+            Text('  \u2022 Friends and social connections',
+                style: AppTypography.bodySmall),
+            Text('  \u2022 Voice session history',
+                style: AppTypography.bodySmall),
+            Text('  \u2022 Bar inventory and scan history',
+                style: AppTypography.bodySmall),
+            if (isPaid) ...[
+              SizedBox(height: AppSpacing.md),
+              Text(
+                'Your subscription will remain active until it expires. '
+                'To cancel, manage it through your app store settings.',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.warning,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+            SizedBox(height: AppSpacing.md),
+            Text(
+              'This action cannot be undone.',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Cancel',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete Account',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.error,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (firstConfirm != true || !context.mounted) return;
+
+    // Step 2: Final confirmation
+    final finalConfirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.backgroundSecondary,
+        title: Text(
+          'Are you sure?',
+          style: AppTypography.heading3.copyWith(color: AppColors.error),
+        ),
+        content: Text(
+          'All your data will be permanently deleted. This cannot be reversed.',
+          style: AppTypography.bodyMedium,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(
+              'Keep Account',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(
+              'Delete Forever',
+              style: AppTypography.bodyMedium.copyWith(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (finalConfirm != true || !context.mounted) return;
+
+    // Step 3: Show loading dialog and execute deletion
+    if (!context.mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => PopScope(
+        canPop: false,
+        child: AlertDialog(
+          backgroundColor: AppColors.backgroundSecondary,
+          content: Row(
+            children: [
+              const CircularProgressIndicator(),
+              SizedBox(width: AppSpacing.lg),
+              Text('Deleting account...', style: AppTypography.bodyMedium),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      await ref.read(authNotifierProvider.notifier).deleteAccount();
+      // Router will auto-redirect to login screen (state → unauthenticated)
+      // Loading dialog is dismissed automatically when navigator stack rebuilds
+    } catch (e) {
+      // Dismiss the loading dialog
+      if (context.mounted) Navigator.of(context).pop();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Failed to delete account. Please try again or contact support.'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildHelpSupportCard(BuildContext context) {

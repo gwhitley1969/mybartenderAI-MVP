@@ -34,7 +34,7 @@ function trackAuthFailure(userId, reason, details = {}) {
 
     console.log(`[AUTH_FAILURE] User: ${userId}, Reason: ${reason}`, details);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
     }
 }
@@ -58,7 +58,7 @@ function trackRateLimitExceeded(userId, endpoint, details = {}) {
 
     console.log(`[RATE_LIMIT] User: ${userId}, Endpoint: ${endpoint}`, details);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
 
         // Also track as metric for easier alerting
@@ -88,7 +88,7 @@ function trackAuthSuccess(userId, tier, details = {}) {
 
     console.log(`[AUTH_SUCCESS] User: ${userId}, Tier: ${tier}`);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
 
         // Track tier distribution as metric
@@ -117,7 +117,7 @@ function trackKeyRotation(subscriptionId, success, details = {}) {
 
     console.log(`[KEY_ROTATION] Subscription: ${subscriptionId}, Success: ${success}`, details);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
 
         if (!success) {
@@ -150,7 +150,7 @@ function trackSuspiciousActivity(userId, activity, details = {}) {
 
     console.warn(`[SUSPICIOUS_ACTIVITY] User: ${userId}, Activity: ${activity}`, details);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
 
         // Track as high-severity metric
@@ -184,7 +184,7 @@ function trackJwtValidationFailure(reason, details = {}) {
 
     console.log(`[JWT_FAILURE] Reason: ${reason}`, details);
 
-    if (appInsights) {
+    if (appInsights && appInsights.defaultClient) {
         appInsights.defaultClient.trackEvent(event);
 
         // Track metric for alerting
@@ -217,7 +217,7 @@ function checkFailureRate() {
     if (failureTracker.failures.length > failureTracker.threshold) {
         console.error(`[ALERT] High failure rate detected: ${failureTracker.failures.length} failures in last 5 minutes`);
 
-        if (appInsights) {
+        if (appInsights && appInsights.defaultClient) {
             appInsights.defaultClient.trackException({
                 exception: new Error('High authentication failure rate detected'),
                 properties: {
@@ -243,5 +243,5 @@ module.exports = {
     trackSuspiciousActivity,
     trackJwtValidationFailure,
     checkFailureRate,
-    appInsights: appInsights ? appInsights.defaultClient : null
+    appInsights: appInsights && appInsights.defaultClient ? appInsights.defaultClient : null
 };

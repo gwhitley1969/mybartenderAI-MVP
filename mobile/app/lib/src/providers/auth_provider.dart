@@ -205,6 +205,52 @@ class AuthNotifier extends StateNotifier<AuthState> {
     state = const AuthState.unauthenticated();
   }
 
+  /// Delete account: removes all server-side data, then signs out.
+  /// Apple guideline 5.1.1(v) requires apps to offer account deletion.
+  Future<void> deleteAccount() async {
+    try {
+      // NOTE: Do NOT set state = AuthState.loading() here.
+      // The profile screen shows its own loading dialog, and changing
+      // auth state triggers RouterRefreshNotifier which can interfere
+      // with the in-flight DELETE request.
+
+      // Step 1: Delete all server-side data
+      await _backendService.deleteAccount();
+      developer.log('Account data deleted from backend', name: 'AuthNotifier');
+
+      // Step 2: Sign out (clear tokens, MSAL session)
+      try {
+        await _authService.signOut();
+      } catch (e) {
+        developer.log('Auth signOut during account deletion (non-fatal): $e', name: 'AuthNotifier');
+      }
+
+      // Step 3: Log out from RevenueCat
+      try {
+        await _subscriptionService.logout();
+      } catch (e) {
+        developer.log('RevenueCat logout during account deletion (non-fatal): $e', name: 'AuthNotifier');
+      }
+
+      developer.log('Account deletion complete', name: 'AuthNotifier');
+      state = const AuthState.unauthenticated();
+    } catch (e) {
+      developer.log('Account deletion failed: $e', name: 'AuthNotifier', error: e);
+      // Try to restore authenticated state if deletion fails
+      try {
+        final user = await _authService.getCurrentUser();
+        if (user != null) {
+          state = AuthState.authenticated(user);
+        } else {
+          state = const AuthState.unauthenticated();
+        }
+      } catch (_) {
+        state = const AuthState.unauthenticated();
+      }
+      rethrow;
+    }
+  }
+
   /// Clear error state and return to unauthenticated
   /// Call this when user dismisses an error or wants to retry
   void clearError() {

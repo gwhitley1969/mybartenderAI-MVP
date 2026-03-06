@@ -287,7 +287,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Start your 3-day free trial to access AI features. After trial, \$7.99/month or \$79.99/year.',
+            'Start your 3-day free trial to access AI features. After trial, \$4.99/month or \$49.99/year.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 16),
@@ -363,7 +363,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           style: TextStyle(color: Colors.white),
         ),
         content: const Text(
-          '+60 minutes for \$4.99',
+          '+60 minutes for \$3.99',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -452,7 +452,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Buy 60 Minutes — \$4.99'),
+              child: const Text('Buy 60 Minutes — \$3.99'),
             ),
         ],
       ),

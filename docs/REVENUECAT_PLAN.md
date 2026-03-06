@@ -78,7 +78,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 - **Product ID**: `pro_monthly`
 - **Base plan ID**: `monthly-id`
 - **Billing period**: 1 Month
-- **Price**: $7.99 USD
+- **Price**: $4.99 USD
 - **Free trial offer**: 3-day free trial (added Feb 25, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
 
 ### 1B. Create `pro_annual` Subscription ✅
@@ -86,7 +86,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 - **Product ID**: `pro_annual`
 - **Base plan ID**: `annual-id`
 - **Billing period**: 1 Year
-- **Price**: $79.99 USD
+- **Price**: $49.99 USD
 
 ### 1C. Create `voice_minutes_60` Consumable
 
@@ -97,7 +97,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 2. **Product ID**: `voice_minutes_60`
 3. **Name**: `60 Voice Minutes`
 4. **Description**: `Add 60 minutes of AI voice bartender conversation`
-5. Set **price**: $4.99 USD
+5. Set **price**: $3.99 USD
 6. **Status**: Active
 
 ### 1D. Verify All Three Products Exist ✅
@@ -116,7 +116,7 @@ Subscription (pro_monthly)
   └── Base Plan (monthly-id)
         └── Offer (free-trial)
               └── Phase 1: Free trial (3 days, $0)
-              └── Auto-renews at base plan price ($7.99/mo)
+              └── Auto-renews at base plan price ($4.99/mo)
 ```
 
 **Steps to create the offer:**
@@ -152,7 +152,7 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 3. **Reference Name**: `Voice Minutes 60`
 4. **Product ID**: `voice_minutes_60` (must match Google Play exactly)
 5. Click **Create**
-6. Set **price**: $4.99 (Price Schedule > "+")
+6. Set **price**: $3.99 (Price Schedule > "+")
 7. Add **localization**: English (US) — Display Name: "60 Voice Minutes", Description: "Add 60 minutes of AI voice bartender conversation"
 8. Reviewer screenshot can be added later during app submission
 

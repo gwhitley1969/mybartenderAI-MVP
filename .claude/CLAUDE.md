@@ -1,4 +1,4 @@
-# CLAUDE.md - MyBartenderAI Project Context
+# CLAUDE.md - My AI Bartender Project Context
 
 ## Project Instructions
 
@@ -26,7 +26,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 ### Business Model
 
 - **3-Day Free Trial**: Reduced AI access (20,000 tokens / 3 days, 5 scans / 3 days, 10 voice minutes / 3 days), unlimited access to local cocktail database
-- **Pro**: $7.99 / month or $79.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $4.99 for 60 additional minutes
+- **Pro**: $4.99 / month or $49.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $3.99 for 60 additional minutes
 
 ## Tech Stack
 
@@ -208,7 +208,7 @@ Located in `kv-mybartenderai-prod`:
 - **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
 - **Quotas** (enforced by backend, single binary entitlement model):
   - **Trial** (3-day free trial): 20,000 tokens, 5 scans, 10 voice minutes
-  - **Pro** (paid subscribers): 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days (+ $4.99/60 min top-up)
+  - **Pro** (paid subscribers): 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days (+ $3.99/60 min top-up)
   - **Free** (non-subscribers): Local cocktail database only, paywall for AI features
 
 ## Development Environment
@@ -256,7 +256,7 @@ Located in `kv-mybartenderai-prod`:
 - `sync-cocktaildb`, `sync-cocktaildb-mi`: Database sync (TIMERS DISABLED)
 - `social-inbox`, `social-invite`, `social-outbox`, `social-share-internal`: Social features
 - `auth-exchange`, `auth-rotate`: Token management
-- `users-me`: User profile endpoint
+- `users-me`: User profile (GET/PATCH) + account deletion (DELETE) for Apple Guideline 5.1.1(v)
 - `validate-age`: Age verification for Entra External ID
 - `cocktail-preview`: Public cocktail preview for sharing
 - `well-known-assetlinks`: Android App Links verification
@@ -307,6 +307,7 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Social sharing (Instagram/Facebook)
 - ✅ Friends via Code sharing
 - ✅ User profile with settings
+- ✅ Account deletion (Apple Guideline 5.1.1(v)) — double-confirm UI, transactional DB wipe, audit trail preserved
 - ✅ In-App Review with win moment triggers
 
 **Subscription System (Feb 2026):**
@@ -317,7 +318,7 @@ Located in `kv-mybartenderai-prod`:
 - ✅ 4-layer paywall defense (pre-nav gate, per-screen handler, dual-source check, backend enforcement)
 - ✅ Dual-source `isPaidProvider` (RevenueCat + PostgreSQL authoritative)
 - ✅ 3-day free trial with reduced quotas
-- ✅ Voice minute add-on purchases ($4.99/60 min)
+- ✅ Voice minute add-on purchases ($3.99/60 min)
 - ✅ Backend security hardening (fail-closed webhook auth, input validation, no stack traces)
 
 **Backend:**
@@ -379,6 +380,7 @@ Refer to these files in the repository:
 - `docs/ARCHITECTURE.md`: Detailed architecture documentation (authoritative)
 - `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog
 - `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
+- `docs/DELETE_USER.md`: Account deletion implementation (Apple Guideline 5.1.1(v))
 - `docs/REVENUECAT_PLAN.md`: RevenueCat setup checklist (Google Play + App Store)
 - `docs/USER_SUBSCRIPTION_MANAGEMENT.md`: PostgreSQL admin guide for user/subscription management
 - `README.md`: Project overview and setup instructions (may be outdated)

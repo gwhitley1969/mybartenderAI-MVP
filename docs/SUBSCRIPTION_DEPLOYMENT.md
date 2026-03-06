@@ -2,9 +2,9 @@
 
 ## Overview
 
-MyBartenderAI uses a **single binary entitlement model**: users are either `paid` (subscribers) or `none` (non-subscribers). Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
+My AI Bartender uses a **single binary entitlement model**: users are either `paid` (subscribers) or `none` (non-subscribers). Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
 
-Voice minute consumables ($4.99 for 60 minutes) are handled per-platform:
+Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 - **Android**: Google Play Billing with server-side verification through the `voice-purchase` function
 - **iOS**: RevenueCat SDK handles StoreKit purchase; the `subscription-webhook` function credits minutes via webhook event
 
@@ -32,8 +32,8 @@ Voice minute consumables ($4.99 for 60 minutes) are handled per-platform:
 
 | Option | Price | Trial |
 |--------|-------|-------|
-| Monthly | $7.99/month | 3-day free trial (auto-converts unless canceled) |
-| Annual | $79.99/year | No trial |
+| Monthly | $4.99/month | 3-day free trial (auto-converts unless canceled) |
+| Annual | $49.99/year | No trial |
 
 ### Voice Minutes System
 
@@ -41,7 +41,7 @@ Voice minute consumables ($4.99 for 60 minutes) are handled per-platform:
 - Metered on **active talk time** (user + AI audio; idle time excluded)
 - **Deduction order**: included minutes consumed first, then purchased balance
 - Included minutes reset on subscription renewal; **purchased minutes carry over** indefinitely
-- **Add-on packs**: +60 minutes for $4.99, consumable, repeatable, requires `paid` entitlement
+- **Add-on packs**: +60 minutes for $3.99, consumable, repeatable, requires `paid` entitlement
 
 ### Backward Compatibility
 
@@ -62,6 +62,11 @@ Mobile App (Flutter)
     |
     | 1. On login, fetch RevenueCat API key from backend
     |    GET /v1/subscription/config
+    v
+Azure Front Door (share.mybartenderai.com)
+    | - Custom domain entry point for all mobile traffic
+    | - DDoS protection, TLS termination
+    | - route-api: /api/* → APIM
     v
 Azure API Management (apim-mba-002)
     | - JWT validation via validate-jwt policy
@@ -84,7 +89,11 @@ Mobile App selects key via Platform.isIOS
 RevenueCat (handles platform billing)
     |
     | 3. Webhook notification on subscription events
-    |    POST /v1/subscription/webhook
+    |    POST /v1/subscription/webhook (directly to APIM)
+    v
+Azure API Management (apim-mba-002)
+    | - Webhook bypasses Front Door (RevenueCat → APIM direct)
+    | - Bearer token auth verified by backend
     v
 Azure Functions (func-mba-fresh)
     |
@@ -452,16 +461,16 @@ Email is NOT required for initialization. The `$email` subscriber attribute is s
 
 ### 2. Google Play Console
 
-- Create subscription `pro_monthly` ($7.99/mo, base plan `monthly-id`)
-- Create subscription `pro_annual` ($79.99/yr, base plan `annual-id`)
-- Create consumable product `voice_minutes_60` at $4.99
+- Create subscription `pro_monthly` ($4.99/mo, base plan `monthly-id`)
+- Create subscription `pro_annual` ($49.99/yr, base plan `annual-id`)
+- Create consumable product `voice_minutes_60` at $3.99
 - See `REVENUECAT_PLAN.md` Phase 1 for step-by-step
 
 ### 3. App Store Connect
 
 - ✅ Subscription `pro_monthly` created
 - ✅ Subscription `pro_annual` created
-- Create consumable `voice_minutes_60` at $4.99
+- Create consumable `voice_minutes_60` at $3.99
 - See `REVENUECAT_PLAN.md` Phase 2 for step-by-step
 
 ### 4. Configure Webhook

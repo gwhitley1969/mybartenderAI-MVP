@@ -21,7 +21,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 1. **Offline-First Design**: Full cocktail database (~621 drinks) available without internet
 2. **Cost-Optimized AI**: GPT-4.1-mini for text, Claude Haiku for vision, Azure OpenAI Realtime for voice
-3. **Single Subscription**: $7.99/mo or $79.99/yr with 3-day free trial
+3. **Single Subscription**: $4.99/mo or $49.99/yr with 3-day free trial
 4. **Voice Guidance**: Real-time voice conversation with AI bartender via WebRTC (subscribers)
 5. **Privacy-Focused**: JWT-only authentication, minimal PII collection
 
@@ -51,16 +51,16 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 **Monthly Revenue Projections (1,000 users):**
 
-- Subscribers (100 @ $7.99): $999
+- Subscribers (100 @ $4.99): $499
 - Voice add-on purchases: ~$50
-- **Total Revenue**: ~$1,049/month
+- **Total Revenue**: ~$549/month
 
 **Monthly Costs:**
 
 - Infrastructure (APIM Basic V2 + Functions + DB): ~$200
 - AI Services (GPT-4.1-mini + Claude Haiku + Realtime API): ~$80
 - **Total Costs**: ~$280/month
-- **Profit**: ~$769/month (73% margin)
+- **Profit**: ~$269/month (49% margin)
 
 **At Scale (10,000 users):**
 
@@ -187,7 +187,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - All 621 drink images stored locally
 - Filters work instantly without network
 
-### Subscriber Features ($7.99/month or $79.99/year)
+### Subscriber Features ($4.99/month or $49.99/year)
 
 All features below require an active subscription (3-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
 
@@ -272,7 +272,7 @@ All features below require an active subscription (3-day free trial available on
 - FR8.3: Real-time responses via WebRTC
 - FR8.4: Hands-free cocktail guidance
 - FR8.5: Track usage against 60-minute monthly limit (active speech time only)
-- FR8.6: Option to purchase additional voice minutes (60 min for $4.99)
+- FR8.6: Option to purchase additional voice minutes (60 min for $3.99)
 
 **User Stories**:
 
@@ -293,13 +293,13 @@ All features below require an active subscription (3-day free trial available on
 - Ephemeral session tokens from `voice-session` function
 - Cost: ~$0.06/min input, ~$0.24/min output
 
-#### 6. Voice Add-On Purchase ($4.99 for 60 minutes)
+#### 6. Voice Add-On Purchase ($3.99 for 60 minutes)
 
 **Description**: Subscribers can purchase additional voice minutes.
 
 **Functional Requirements**:
 
-- FR6.1: Purchase 60 minutes of voice AI for $4.99
+- FR6.1: Purchase 60 minutes of voice AI for $3.99
 - FR6.2: Minutes never expire (carry over indefinitely)
 - FR6.3: Platform-native consumable purchase (Google Play Billing on Android, RevenueCat/StoreKit on iOS)
 - FR6.4: Included minutes consumed first, then purchased balance
@@ -490,7 +490,7 @@ All features below require an active subscription (3-day free trial available on
    - From settings/profile menu
 2. **Subscribe Screen**:
    - Feature list (voice, AI, scanner, custom recipes)
-   - Monthly ($7.99) and Annual ($79.99) options
+   - Monthly ($4.99) and Annual ($49.99) options
    - "Start 3-Day Free Trial" CTA (monthly)
    - Compliance text about trial auto-conversion
 3. **Payment**:
@@ -620,8 +620,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 - **Free (No Subscription)**: Full offline database only
 - **3-Day Free Trial**: All AI features with reduced quotas — 20,000 chat tokens, 5 scanner scans, 10 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
-- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($7.99/mo or $79.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
-- **Voice Add-On**: +60 minutes for $4.99 (subscribers only)
+- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($4.99/mo or $49.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
+- **Voice Add-On**: +60 minutes for $3.99 (subscribers only)
 
 #### Revenue Streams
 
@@ -640,13 +640,13 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | Cocktail Flow       | $4.99/mo        | AI recommendations, no voice      |
 | Mixel               | Free + $7.99/mo | Large database, basic AI          |
 | Highball            | $2.99/mo        | Simple recipes, no AI             |
-| **My AI Bartender** | **$7.99/mo**    | **AI + Voice AI + Smart Scanner** |
+| **My AI Bartender** | **$4.99/mo**    | **AI + Voice AI + Smart Scanner** |
 
 #### Value Proposition
 
 - **vs. Cocktail Flow**: Same price, adds voice guidance
-- **vs. Mixel**: Half the price, more AI features
-- **vs. Highball**: 66% more expensive, but 10x more features
+- **vs. Mixel**: 37% cheaper, more AI features
+- **vs. Highball**: 67% more expensive, but 10x more features
 - **vs. Going to bars**: Save $15/drink, pays for itself in 1 drink
 
 ### Customer Acquisition
@@ -715,8 +715,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 #### Cocktail Flow
 
 - **Strengths**: Clean UI, AI recommendations, large user base
-- **Weaknesses**: No voice, expensive ($7.99/mo), limited offline
-- **Our Advantage**: Voice guidance, lower price, better offline
+- **Weaknesses**: No voice, expensive ($4.99/mo), limited offline
+- **Our Advantage**: Voice guidance, same price with more features, better offline
 
 #### Mixel
 
@@ -1016,7 +1016,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 ### Phase 2: Voice Features (Q4 2025) ✅ COMPLETE
 
 - ✅ Azure OpenAI Realtime API integration
-- ✅ Voice AI Bartender via WebRTC (Subscribers: 60 min/month + $4.99/60 min add-ons)
+- ✅ Voice AI Bartender via WebRTC (Subscribers: 60 min/month + $3.99/60 min add-ons)
 - ✅ Real-time conversational voice interface
 - ✅ Ephemeral session token architecture
 - ✅ Voice UI implementation
@@ -1118,7 +1118,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - `POST /api/v1/vision/analyze` - Smart Scanner (Paid: 100 scans/month, Trial: 5)
 - `POST /api/v1/voice/session` - Voice AI session token (Paid: 60 min/month, Trial: 10 min)
 - `GET /api/v1/voice/quota` - Voice minutes remaining
-- `POST /api/v1/voice/purchase` - Purchase voice minutes ($4.99/60 min add-on)
+- `POST /api/v1/voice/purchase` - Purchase voice minutes ($3.99/60 min add-on)
 
 **Subscription Management**:
 
@@ -1158,8 +1158,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - **Subtotal**: ~$75/month
 
 **Total Cost**: ~$283/month
-**Revenue** (100 Subscribers @ $7.99, voice add-on purchases): ~$1,050/month
-**Profit**: ~$767/month (73% margin)
+**Revenue** (100 Subscribers @ $4.99, voice add-on purchases): ~$549/month
+**Profit**: ~$266/month (48% margin)
 
 **Note**: Margins improve significantly at scale as infrastructure costs are largely fixed.
 

@@ -133,7 +133,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
               label: Text(
                 productDetails != null
                     ? '${styling.buttonText} - ${productDetails.price}'
-                    : '${styling.buttonText} - \$4.99',
+                    : '${styling.buttonText} - \$3.99',
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -149,7 +149,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
             error: (_, __) => ElevatedButton.icon(
               onPressed: onPurchase,
               icon: const Icon(Icons.add, size: 18),
-              label: Text('${styling.buttonText} - \$4.99'),
+              label: Text('${styling.buttonText} - \$3.99'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
@@ -208,7 +208,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                productDetails != null ? productDetails.price : '\$4.99',
+                productDetails != null ? productDetails.price : '\$3.99',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.green,
@@ -223,7 +223,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
             error: (_, __) => TextButton(
               onPressed: onPurchase,
               child: const Text(
-                '\$4.99',
+                '\$3.99',
                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
               ),
             ),

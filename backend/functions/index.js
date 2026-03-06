@@ -3416,9 +3416,9 @@ app.http('voice-purchase', {
 
         // Configuration
         const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
-        const PRODUCT_ID = 'voice_minutes_20';
-        const SECONDS_PER_PURCHASE = 1200; // 20 minutes ($4.99 for double the value!)
-        const PRICE_CENTS = 499;
+        const PRODUCT_ID = 'voice_minutes_60';
+        const SECONDS_PER_PURCHASE = 3600; // 60 minutes ($3.99)
+        const PRICE_CENTS = 399;
 
         try {
             const db = require('./shared/database');

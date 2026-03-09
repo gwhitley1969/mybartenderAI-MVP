@@ -3994,10 +3994,10 @@ app.http('subscription-webhook', {
                     [
                         internalUserId,
                         isTrial ? 'trialing' : 'active',
-                        isTrial ? 10 : 60
+                        isTrial ? 30 : 60
                     ]
                 );
-                context.log(`Entitlement set to paid, status=${isTrial ? 'trialing' : 'active'}, voice_mins=${isTrial ? 10 : 60}`);
+                context.log(`Entitlement set to paid, status=${isTrial ? 'trialing' : 'active'}, voice_mins=${isTrial ? 30 : 60}`);
             }
 
             if (eventType === 'RENEWAL') {

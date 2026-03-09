@@ -1007,7 +1007,7 @@ Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pr
 **Sandbox subscription timing:**
 | Real Duration | Sandbox Duration |
 |--------------|-----------------|
-| 3-day trial | 3 minutes |
+| 5-day trial | 3 minutes |
 | 1 month | 5 minutes |
 | 1 year | 1 hour |
 

@@ -48,7 +48,7 @@ const TIER_QUOTAS = {
 const ENTITLEMENT_QUOTAS = {
     none: { tokensPerMonth: 0, scansPerMonth: 0, voiceEnabled: false, aiEnabled: false },
     paid: { tokensPerMonth: 1000000, scansPerMonth: 100, voiceEnabled: true, aiEnabled: true },
-    trialing: { tokensPerMonth: 20000, scansPerMonth: 5, voiceEnabled: true, aiEnabled: true }
+    trialing: { tokensPerMonth: 50000, scansPerMonth: 10, voiceEnabled: true, aiEnabled: true }
 };
 
 /**

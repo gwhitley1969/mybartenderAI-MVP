@@ -35,7 +35,7 @@
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
 - ✅ **Subscription System** - RevenueCat webhook integration with idempotency, cross-platform (Google Play + App Store)
 - ✅ **Platform-Aware IAP** - Separate RevenueCat API keys per store, iOS voice purchases via RevenueCat SDK (webhook-based), Android via Google Play Billing (direct verification)
-- ✅ **Free Trial Guardrails** - Reduced quotas for 3-day trial (10 voice min, 20K tokens, 5 scans) with automatic upgrade on conversion
+- ✅ **Free Trial Guardrails** - Reduced quotas for 5-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
 - ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
@@ -274,16 +274,16 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 ## Entitlement Quotas (Monthly)
 
-| Feature            | Free (none) | Trial (3 days)     | Subscriber (paid)                     |
+| Feature            | Free (none) | Trial (5 days)     | Subscriber (paid)                     |
 | ------------------ | ----------- | ------------------ | ------------------------------------- |
-| AI Tokens          | 0           | 20,000             | 1,000,000                             |
-| Scanner (Vision)   | 0           | 5 scans            | 100 scans                             |
-| Voice Assistant    | 0           | 10 min             | 60 min included + $3.99/60 min add-on |
+| AI Tokens          | 0           | 50,000             | 1,000,000                             |
+| Scanner (Vision)   | 0           | 10 scans           | 100 scans                             |
+| Voice Assistant    | 0           | 30 min             | 60 min included + $3.99/60 min add-on |
 | Custom Recipes     | Unlimited   | Unlimited          | Unlimited                             |
 | Snapshot Downloads | Unlimited   | Unlimited          | Unlimited                             |
-| Price              | Free        | Free (3 days)      | $4.99/mo or $49.99/yr                 |
+| Price              | Free        | Free (5 days)      | $4.99/mo or $49.99/yr                 |
 
-**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 3-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
+**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 5-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
 
 **Trial Limit Enforcement**: Trial limits are enforced entirely server-side. The subscription webhook detects `period_type === 'TRIAL'` from RevenueCat and sets `subscription_status = 'trialing'` with reduced quotas. On trial→paid conversion (`RENEWAL` event), limits automatically upgrade to full paid quotas. No DB migration needed — reuses existing `subscription_status` column and `'trialing'` constraint from migration 011.
 
@@ -341,7 +341,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 
 - Features: AI recommendations (1,000,000 tokens/30 days), Scanner (100 scans/30 days), Voice AI (60 minutes/30 days)
 - Voice add-on: $3.99 for 60 additional minutes (non-expiring)
-- Price: $4.99/month (3-day free trial) or $49.99/year
+- Price: $4.99/month (5-day free trial) or $49.99/year
 - Managed via RevenueCat with single `paid` entitlement
 
 ### Backend Integration
@@ -551,7 +551,7 @@ Both lookup paths use **case-insensitive** comparison. This is critical because 
 
 | Event Type | Action |
 |------------|--------|
-| `INITIAL_PURCHASE` | Activate subscription, set entitlement to `paid`. Detects `period_type === 'TRIAL'` → sets `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans) |
+| `INITIAL_PURCHASE` | Activate subscription, set entitlement to `paid`. Detects `period_type === 'TRIAL'` → sets `subscription_status = 'trialing'` with reduced quotas (30 voice min, 50K tokens, 10 scans) |
 | `RENEWAL` | Extend subscription, update expiry. On trial→paid conversion, upgrades to full paid limits (60 voice min, 1M tokens, 100 scans) |
 | `CANCELLATION` | Keep active until expiry, set autoRenewing=false |
 | `EXPIRATION` | Deactivate subscription, set entitlement to `none` |

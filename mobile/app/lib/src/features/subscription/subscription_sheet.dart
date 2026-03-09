@@ -358,7 +358,7 @@ class _SubscriptionSheetState extends ConsumerState<SubscriptionSheet> {
           child: Column(
             children: [
               const Text(
-                'Start 3-Day Free Trial',
+                'Start 5-Day Free Trial',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,

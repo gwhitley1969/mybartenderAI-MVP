@@ -54,7 +54,7 @@ class VisionQuotaExceededException implements Exception {
 
   VisionQuotaExceededException({required this.used, required this.limit});
 
-  bool get isTrial => limit <= 5;
+  bool get isTrial => limit < 100;
 
   @override
   String toString() => 'Scan limit reached ($used/$limit)';

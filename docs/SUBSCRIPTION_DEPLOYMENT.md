@@ -23,7 +23,7 @@ Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 
 | Status | Description |
 |--------|-------------|
-| `trialing` | In 3-day free trial (reduced quotas: 20K tokens, 5 scans, 10 voice min) |
+| `trialing` | In 5-day free trial (reduced quotas: 50K tokens, 10 scans, 30 voice min) |
 | `active` | Paying subscriber |
 | `expired` | Subscription lapsed or canceled |
 | `none` | Never subscribed |
@@ -32,7 +32,7 @@ Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 
 | Option | Price | Trial |
 |--------|-------|-------|
-| Monthly | $4.99/month | 3-day free trial (auto-converts unless canceled) |
+| Monthly | $4.99/month | 5-day free trial (auto-converts unless canceled) |
 | Annual | $49.99/year | No trial |
 
 ### Voice Minutes System

@@ -79,7 +79,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 - **Base plan ID**: `monthly-id`
 - **Billing period**: 1 Month
 - **Price**: $4.99 USD
-- **Free trial offer**: 3-day free trial (added Feb 25, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
+- **Free trial offer**: 5-day free trial (added Feb 25, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
 
 ### 1B. Create `pro_annual` Subscription ✅
 
@@ -115,7 +115,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 Subscription (pro_monthly)
   └── Base Plan (monthly-id)
         └── Offer (free-trial)
-              └── Phase 1: Free trial (3 days, $0)
+              └── Phase 1: Free trial (5 days, $0)
               └── Auto-renews at base plan price ($4.99/mo)
 ```
 
@@ -124,17 +124,17 @@ Subscription (pro_monthly)
 2. Click **"Add offer"** (near the base plan, not inside it)
 3. Select the base plan this offer applies to
 4. Configure:
-   - **Offer ID**: Choose a permanent ID (e.g., `free-trial-3day`)
+   - **Offer ID**: Choose a permanent ID (e.g., `free-trial-5day`)
    - **Eligibility**: **"New customer acquisition"** > **"Never had this subscription"**
    - **Tags**: Leave empty (RevenueCat auto-detects trials)
 5. Under **"Phases"**, click **"Add phase"**:
    - **Type**: Free trial
-   - **Duration**: 3 days
+   - **Duration**: 5 days
 6. **Activate** the offer
 
 **RevenueCat handles this automatically** — no additional RevenueCat dashboard configuration needed. The SDK detects the free trial offer and presents it to eligible users.
 
-**Backend handling**: Already implemented. When `period_type === 'TRIAL'`, the webhook sets `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans). On `RENEWAL` (trial→paid conversion), it upgrades to full paid limits.
+**Backend handling**: Already implemented. When `period_type === 'TRIAL'`, the webhook sets `subscription_status = 'trialing'` with reduced quotas (30 voice min, 50K tokens, 10 scans). On `RENEWAL` (trial→paid conversion), it upgrades to full paid limits.
 
 ---
 
@@ -410,7 +410,7 @@ Verified: app launches and subscription init logs "Android API key retrieved".
 - Reviewer screenshots needed for App Store IAP review — can be added later before submission
 - ~~CLAUDE.md references old pricing "$4.99 for 20 minutes"~~ — **RESOLVED**: Updated to "$4.99 for 60 minutes"
 - ~~Webhook returning 401~~ — **RESOLVED** (Feb 25, 2026): Key Vault reference for `REVENUECAT_WEBHOOK_SECRET` was not resolving. Fixed by restarting Function App; secret now uses `@Microsoft.KeyVault(SecretUri=...)` reference pattern.
-- ~~No free trial on `pro_monthly`~~ — **RESOLVED** (Feb 25, 2026): Free trial is a Google Play **Offer** (not a base plan setting). Created 3-day free trial offer on `pro_monthly` base plan. Backend already handles `period_type === 'TRIAL'`.
+- ~~No free trial on `pro_monthly`~~ — **RESOLVED** (Feb 25, 2026): Free trial is a Google Play **Offer** (not a base plan setting). Created 5-day free trial offer on `pro_monthly` base plan. Backend already handles `period_type === 'TRIAL'`.
 - ~~Webhook race condition — user not found~~ — **RESOLVED** (Feb 27, 2026): Webhook auto-creates user record if not found. See `BUG_FIXES.md` SUB-005.
 - **RevenueCat Customers list shows 0**: Known dashboard propagation delay for new projects. Overview page and API correctly report 2 active subscribers. Not a data issue.
 - **App Store products "Ready to Submit"**: Normal for pre-submission apps. Sandbox purchases work correctly. Status resolves when app binary is submitted to App Store Connect.

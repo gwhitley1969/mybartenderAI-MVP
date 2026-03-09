@@ -287,7 +287,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Start your 3-day free trial to access AI features. After trial, \$4.99/month or \$49.99/year.',
+            'Start your 5-day free trial to access AI features. After trial, \$4.99/month or \$49.99/year.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 16),
@@ -388,7 +388,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
   }
 
   Widget _buildQuotaExhaustedPrompt(VoiceQuota? quota) {
-    final isTrial = quota != null && quota.monthlyIncluded <= 10;
+    final isTrial = quota != null && quota.monthlyIncluded < 60;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),

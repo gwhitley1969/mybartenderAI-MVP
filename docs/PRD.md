@@ -21,7 +21,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 1. **Offline-First Design**: Full cocktail database (~621 drinks) available without internet
 2. **Cost-Optimized AI**: GPT-4.1-mini for text, Claude Haiku for vision, Azure OpenAI Realtime for voice
-3. **Single Subscription**: $4.99/mo or $49.99/yr with 3-day free trial
+3. **Single Subscription**: $4.99/mo or $49.99/yr with 5-day free trial
 4. **Voice Guidance**: Real-time voice conversation with AI bartender via WebRTC (subscribers)
 5. **Privacy-Focused**: JWT-only authentication, minimal PII collection
 
@@ -189,9 +189,9 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 ### Subscriber Features ($4.99/month or $49.99/year)
 
-All features below require an active subscription (3-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
+All features below require an active subscription (5-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
 
-#### 2. AI Bartender Chat (1,000,000 tokens/month; Trial: 20,000)
+#### 2. AI Bartender Chat (1,000,000 tokens/month; Trial: 50,000)
 
 **Description**: Conversational AI assistant for cocktail guidance and recommendations.
 
@@ -215,7 +215,7 @@ All features below require an active subscription (3-day free trial available on
 - Conversation history saved for session
 - Preferences learned and applied
 
-#### 3. Smart Scanner (100 scans/month; Trial: 5)
+#### 3. Smart Scanner (100 scans/month; Trial: 10)
 
 **Description**: AI-powered bar inventory scanning using Claude Haiku vision model.
 
@@ -261,7 +261,7 @@ All features below require an active subscription (3-day free trial available on
 - As Emma, I want to organize recipes by season or occasion
 - As Sarah, I want AI to help improve my recipe ratios
 
-#### 5. Voice AI Bartender (60 minutes/month; Trial: 10 minutes)
+#### 5. Voice AI Bartender (60 minutes/month; Trial: 30 minutes)
 
 **Description**: Real-time voice conversation with AI bartender using Azure OpenAI Realtime API.
 
@@ -477,7 +477,7 @@ All features below require an active subscription (3-day free trial available on
    - "Why offline?" explanation
 4. **Subscription Prompt**
    - Feature overview for subscribers
-   - "Start 3-day free trial" CTA
+   - "Start 5-day free trial" CTA
 5. **Optional Sign-In**
    - Sign in required for subscription features
    - Local features work without sign-in
@@ -491,7 +491,7 @@ All features below require an active subscription (3-day free trial available on
 2. **Subscribe Screen**:
    - Feature list (voice, AI, scanner, custom recipes)
    - Monthly ($4.99) and Annual ($49.99) options
-   - "Start 3-Day Free Trial" CTA (monthly)
+   - "Start 5-Day Free Trial" CTA (monthly)
    - Compliance text about trial auto-conversion
 3. **Payment**:
    - Google Play / App Store via RevenueCat
@@ -619,7 +619,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 #### Subscription Model
 
 - **Free (No Subscription)**: Full offline database only
-- **3-Day Free Trial**: All AI features with reduced quotas — 20,000 chat tokens, 5 scanner scans, 10 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
+- **5-Day Free Trial**: All AI features with reduced quotas — 50,000 chat tokens, 10 scanner scans, 30 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
 - **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($4.99/mo or $49.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
 - **Voice Add-On**: +60 minutes for $3.99 (subscribers only)
 
@@ -951,7 +951,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - **Impact**: High
 - **Mitigation**:
   - A/B test subscribe prompts
-  - Offer 3-day free trial
+  - Offer 5-day free trial
   - Implement referral program
   - Focus on subscriber feature value
 
@@ -1115,8 +1115,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 **Subscriber Features (paid entitlement required)**:
 
-- `POST /api/v1/vision/analyze` - Smart Scanner (Paid: 100 scans/month, Trial: 5)
-- `POST /api/v1/voice/session` - Voice AI session token (Paid: 60 min/month, Trial: 10 min)
+- `POST /api/v1/vision/analyze` - Smart Scanner (Paid: 100 scans/month, Trial: 10)
+- `POST /api/v1/voice/session` - Voice AI session token (Paid: 60 min/month, Trial: 30 min)
 - `GET /api/v1/voice/quota` - Voice minutes remaining
 - `POST /api/v1/voice/purchase` - Purchase voice minutes ($3.99/60 min add-on)
 
@@ -1174,7 +1174,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | 3.0     | Feb 13, 2026 | Gene Whitley | Subscription model migration: replaced Free/Premium/Pro tiers with binary paid/none entitlement model, updated pricing ($7.99/mo, $79.99/yr), voice add-on ($4.99/60 min), updated quotas to match RevenueCat implementation |
 | 2.1     | Dec 23, 2025 | Gene Whitley | Added subscription system (RevenueCat integration): Key Vault secrets, subscription management endpoints, voice-purchase endpoint                                                                                            |
 | 2.2     | Jan 1, 2026  | Gene Whitley | Added Today's Special feature with push notifications, deep linking, and idempotent scheduling                                                                                                                               |
-| 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 3-day trial with 20K tokens, 5 scans, 10 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
+| 3.1     | Feb 16, 2026 | Gene Whitley | Added guardrailed free trial limits: 5-day trial with 50K tokens, 10 scans, 30 voice minutes. Server-side enforcement via subscription_status='trialing'. Updated feature quotas and subscription model                       |
 | 3.2     | Feb 19, 2026 | Gene Whitley | Cross-platform subscription support: platform-aware RevenueCat API keys, iOS voice purchases via RevenueCat SDK, Apple API key in Key Vault, updated Phase 4 iOS status |
 | 3.3     | Feb 23, 2026 | Gene Whitley | Added `assetlinks.json` public endpoint for Android App Links domain verification |
 | 3.4     | Feb 25, 2026 | Gene Whitley | Added pre-navigation paywall gates: 9 AI feature buttons gated with `navigateOrGate` helper across 5 screens. Updated Subscription Upgrade Flow with pre-nav trigger and post-purchase UX |

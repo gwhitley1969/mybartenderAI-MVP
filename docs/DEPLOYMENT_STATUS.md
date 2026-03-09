@@ -107,9 +107,9 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   - Cleanup: Removed temporary diagnostic logging from `index.js`, switched `REVENUECAT_WEBHOOK_SECRET` from hardcoded raw value back to Key Vault reference
 
   **2. Google Play Free Trial Offer:**
-  - Root cause: Flutter UI hardcodes "Start 3-Day Free Trial" button text, but no free trial offer existed on the `pro_monthly` base plan in Google Play Console. Google Play charged $7.99 immediately with `period_type: "NORMAL"`
-  - Fix: Created a free trial **Offer** on the `pro_monthly` base plan (3-day free trial, new customer eligibility). In Google Play's model, trials are Offers attached to base plans — not settings on the base plan itself
-  - Backend already handles trials: `period_type === 'TRIAL'` → `subscription_status = 'trialing'` with reduced quotas (10 voice min, 20K tokens, 5 scans)
+  - Root cause: Flutter UI hardcodes "Start 5-Day Free Trial" button text, but no free trial offer existed on the `pro_monthly` base plan in Google Play Console. Google Play charged $7.99 immediately with `period_type: "NORMAL"`
+  - Fix: Created a free trial **Offer** on the `pro_monthly` base plan (5-day free trial, new customer eligibility). In Google Play's model, trials are Offers attached to base plans — not settings on the base plan itself
+  - Backend already handles trials: `period_type === 'TRIAL'` → `subscription_status = 'trialing'` with reduced quotas (30 voice min, 50K tokens, 10 scans)
 
   **3. Subscription Verification Results:**
   - Two INITIAL_PURCHASE events processed: `pro_annual` ($79.99, Wild Heels) and `pro_monthly` ($7.99, Xtend-AI)
@@ -122,7 +122,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
   **Azure changes:**
   - `REVENUECAT_WEBHOOK_SECRET`: Restored to `@Microsoft.KeyVault(SecretUri=https://kv-mybartenderai-prod.vault.azure.net/secrets/REVENUECAT-WEBHOOK-SECRET/)` reference
-  - Google Play Console: Created 3-day free trial offer on `pro_monthly` base plan
+  - Google Play Console: Created 5-day free trial offer on `pro_monthly` base plan
   - Deployed to `func-mba-fresh` (clean code, no diagnostic logging)
 
   **Docs updated:**
@@ -417,12 +417,12 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
   **Spec:** See `docs/Review.md` for the full codebase-grounded implementation spec.
 
-- **Free Trial Guardrailed Limits** (Feb 16): Implemented server-side enforcement of reduced quotas for 3-day free trial users to prevent API abuse during trials. Trial users now get 10 voice minutes (vs 60), 20,000 chat tokens (vs 1,000,000), and 5 scanner scans (vs 100). Changes:
-  1. **Subscription webhook** (`index.js`): `INITIAL_PURCHASE` handler now detects `period_type === 'TRIAL'` from RevenueCat payload and sets `subscription_status = 'trialing'` with `monthly_voice_minutes_included = 10`. `RENEWAL` handler explicitly sets full paid limits (60 min, 1M tokens, 100 scans)
+- **Free Trial Guardrailed Limits** (Feb 16): Implemented server-side enforcement of reduced quotas for 5-day free trial users to prevent API abuse during trials. Trial users now get 30 voice minutes (vs 60), 50,000 chat tokens (vs 1,000,000), and 10 scanner scans (vs 100). Changes:
+  1. **Subscription webhook** (`index.js`): `INITIAL_PURCHASE` handler now detects `period_type === 'TRIAL'` from RevenueCat payload and sets `subscription_status = 'trialing'` with `monthly_voice_minutes_included = 30`. `RENEWAL` handler explicitly sets full paid limits (60 min, 1M tokens, 100 scans)
   2. **Centralized quotas** (`userService.js`): Added `trialing` entry to `ENTITLEMENT_QUOTAS` with reduced limits. `getEntitlementQuotas()` now accepts optional `subscriptionStatus` parameter for trial-aware lookup
-  3. **Scan enforcement** (`vision-analyze/index.js`): Passes `user.subscriptionStatus` to get trial-aware 5-scan limit
-  4. **Chat token enforcement** (`pgTokenQuotaService.js`): Both `getMonthlyCap()` and `getCurrentUsage()` query `subscription_status` and apply 20K token cap for trial users
-  5. **Voice enforcement**: No code changes needed — webhook sets `monthly_voice_minutes_included = 10` in DB, existing `get_remaining_voice_minutes()` reads from DB
+  3. **Scan enforcement** (`vision-analyze/index.js`): Passes `user.subscriptionStatus` to get trial-aware 10-scan limit
+  4. **Chat token enforcement** (`pgTokenQuotaService.js`): Both `getMonthlyCap()` and `getCurrentUsage()` query `subscription_status` and apply 50K token cap for trial users
+  5. **Voice enforcement**: No code changes needed — webhook sets `monthly_voice_minutes_included = 30` in DB, existing `get_remaining_voice_minutes()` reads from DB
   6. **Mobile UX**: Trial-specific "limit reached" messages for Smart Scanner (`VisionQuotaExceededException`), Chat (updated 429 message), and Voice AI (trial-aware quota exhausted prompt)
   7. **No DB migration needed**: Reuses existing `subscription_status` column and `'trialing'` constraint from migration 011
 
@@ -837,12 +837,12 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 | Entitlement    | Monthly | Annual | AI Tokens | Scans | Voice                                 |
 | -------------- | ------- | ------ | --------- | ----- | ------------------------------------- |
 | Free (none)    | $0      | -      | 0         | 0     | -                                     |
-| Trial (3 days) | Free    | -      | 20,000    | 5     | 10 min                                |
+| Trial (5 days) | Free    | -      | 50,000    | 10    | 30 min                                |
 | Paid           | $7.99   | $79.99 | 1,000,000 | 100   | 60 min included + $4.99/60 min add-on |
 
 Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
-**Free Trial:** 3-day trial available on the monthly plan. Trial users get reduced quotas (20,000 tokens, 5 scans, 10 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
+**Free Trial:** 5-day trial available on the monthly plan. Trial users get reduced quotas (50,000 tokens, 10 scans, 30 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
 
 **Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $4.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 

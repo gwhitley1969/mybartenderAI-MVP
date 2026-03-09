@@ -105,7 +105,7 @@ The `users` table contains these identity and subscription columns:
 | `tier` | VARCHAR(20) | `free`, `premium`, `pro` | Legacy tier (still used for quota limits) |
 | `entitlement` | TEXT | `paid`, `none` | **Primary access gate** — all Azure Functions check this |
 | `subscription_status` | TEXT | `trialing`, `active`, `expired`, `none` | Subscription lifecycle state |
-| `monthly_voice_minutes_included` | INTEGER | `10` (trial), `60` (pro) | Voice AI quota per billing cycle |
+| `monthly_voice_minutes_included` | INTEGER | `30` (trial), `60` (pro) | Voice AI quota per billing cycle |
 | `voice_minutes_used_this_cycle` | NUMERIC(8,2) | 0+ | Consumed voice minutes this cycle |
 | `voice_minutes_purchased_balance` | NUMERIC(8,2) | 0+ | Top-up voice minutes remaining |
 | `voice_cycle_started_at` | TIMESTAMPTZ | timestamp or NULL | When current voice cycle began |

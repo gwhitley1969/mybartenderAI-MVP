@@ -8,6 +8,23 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (March 2026)
 
+- **Fix: Store URLs — Correct Package ID & App Store ID** (Mar 11): Fixed 5 broken store URLs across backend code and mobile app that used stale placeholder values. The Android Play Store URL used `com.mybartenderai.app` instead of `ai.mybartender.mybartenderai`, and the Apple App Store URL used `YOUR_APP_STORE_ID` instead of `id6758023541`. These URLs appear in the cocktail preview page (served to social media crawlers and users without the app) and the social config module.
+
+  **Correct URLs:**
+  - Apple: `https://apps.apple.com/us/app/my-ai-bartender-scan-create/id6758023541`
+  - Google Play: `https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai`
+
+  **Files modified (code — deployed to `func-mba-fresh`):**
+  - `backend/functions/cocktail-preview/index.js`: Fixed `al:android:package` meta tag, Play Store fallback URL, and Apple App Store fallback URL
+  - `backend/functions/config/social.js`: Fixed `ANDROID_STORE_URL` and `IOS_STORE_URL` constants
+  - `mobile/app/lib/src/services/recipe_card_share_service.dart`: Fixed Play Store and App Store URLs in share card footer
+
+  **Files modified (docs):**
+  - `docs/SOCIAL_SHARING_IMPLEMENTATION_PLAN.md`: Fixed 8 placeholder URLs in code examples
+  - `docs/SOCIAL_SHARING_IMPLEMENTATION_COMPLETE.md`: Fixed adb commands and marked App Store ID TODO as done
+  - `docs/FRIENDS-VIA-CODE-HTML-TEMPLATES.md`: Fixed ~10 store URLs across recipe share, invite, and landing page templates
+  - `docs/VOICE_MINUTE_PURCHASE_IMPLEMENTATION.md`: Fixed PACKAGE_NAME constant in code example
+
 - **Feature: Account Deletion — Apple Guideline 5.1.1(v)** (Mar 4): Implemented full account deletion across all layers. `DELETE /v1/users/me` removes all user data from PostgreSQL in a single transaction using database cascades (user_profile, users, and all dependent tables). Subscription audit trail (`subscription_events`) preserved with `user_id = NULL`. Flutter UI presents double-confirmation dialogs. Fixed `users-me/index.js` — was the last remaining v3-style function doing its own JWT validation with wrong audience. Rewrote to v4 pattern (reads `x-user-id` from APIM header). Also fixed APIM JWT policies on all three `users-me` operations (`users-me-get`, `users-me-update`, `users-me-delete`) — they had wrong audience (`04551003...` instead of `f9f7f159...`), wrong issuer format, and wrong OpenID config URL. Bug was hidden because mobile app never called GET/PATCH on `/v1/users/me` through APIM until DELETE was added.
 
   **Files modified:**

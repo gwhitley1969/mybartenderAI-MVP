@@ -146,7 +146,7 @@ npm install googleapis
 const { google } = require('googleapis');
 const { Pool } = require('pg');
 
-const PACKAGE_NAME = 'com.mybartenderai.app';
+const PACKAGE_NAME = 'ai.mybartender.mybartenderai';
 const PRODUCT_ID = 'voice_minutes_10';
 const MINUTES_PER_PURCHASE = 10;
 

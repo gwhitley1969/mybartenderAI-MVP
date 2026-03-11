@@ -13,6 +13,7 @@ import '../../providers/providers.dart';
 import '../../providers/settings_provider.dart';
 import '../../services/cocktail_photo_service.dart';
 import '../../services/measurement_service.dart';
+import '../../services/recipe_card_share_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/cached_cocktail_image.dart';
 
@@ -696,107 +697,32 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
 
   // ── Share ────────────────────────────────────────────────────
 
-  /// Share the cocktail recipe using native OS share sheet.
-  /// For custom cocktails with a local photo, shares the image as a file.
+  /// Share the cocktail recipe as a visual recipe card image.
   Future<void> _shareRecipe(BuildContext context, Cocktail cocktail) async {
-    // Build share text
-    String description = '';
-    if (cocktail.instructions != null && cocktail.instructions!.isNotEmpty) {
-      description = cocktail.instructions!.length > 100
-          ? '${cocktail.instructions!.substring(0, 100)}...'
-          : cocktail.instructions!;
-    } else if (cocktail.category != null) {
-      description =
-          'A delicious ${cocktail.category?.toLowerCase()} cocktail you have to try.';
-    } else {
-      description = 'A delicious cocktail you have to try.';
+    // Calculate iOS share position origin before any async gap
+    Rect? sharePositionOrigin;
+    if (Platform.isIOS) {
+      final renderBox = context.findRenderObject() as RenderBox?;
+      if (renderBox != null) {
+        final position = renderBox.localToGlobal(Offset.zero);
+        sharePositionOrigin = position & renderBox.size;
+      }
     }
 
-    final subject = '${cocktail.name} - My AI Bartender Recipe';
+    final result = await RecipeCardShareService.instance.shareRecipeCard(
+      context,
+      cocktail,
+      sharePositionOrigin: sharePositionOrigin,
+    );
 
-    // For custom cocktails, skip the share URL (they aren't on the server)
-    final shareUrl = cocktail.isCustom
-        ? ''
-        : '\nhttps://share.mybartenderai.com/api/cocktail/${cocktail.id}';
-
-    final shareText = '''
-${cocktail.name}
-
-Check out this amazing cocktail recipe I found on My AI Bartender!
-
-$description$shareUrl
-''';
-
-    try {
-      // Calculate share position origin for iOS
-      Rect? sharePositionOrigin;
-      if (Platform.isIOS) {
-        final renderBox = context.findRenderObject() as RenderBox?;
-        if (renderBox != null) {
-          final position = renderBox.localToGlobal(Offset.zero);
-          sharePositionOrigin = position & renderBox.size;
-        }
-      }
-
-      // Determine if we have a local photo to share as a file
-      final bool hasLocalPhoto = cocktail.isCustom &&
-          cocktail.imageUrl != null &&
-          (cocktail.imageUrl!.startsWith('/') ||
-              cocktail.imageUrl!.startsWith('file://'));
-
-      ShareResult result;
-      if (hasLocalPhoto) {
-        final photoPath = cocktail.imageUrl!.startsWith('file://')
-            ? cocktail.imageUrl!.substring(7)
-            : cocktail.imageUrl!;
-        final file = File(photoPath);
-        if (await file.exists()) {
-          result = await Share.shareXFiles(
-            [XFile(photoPath)],
-            text: shareText.trim(),
-            subject: subject,
-            sharePositionOrigin: sharePositionOrigin,
-          );
-        } else {
-          debugPrint('[SHARE] Local photo file not found: $photoPath');
-          result = await Share.shareWithResult(
-            shareText.trim(),
-            subject: subject,
-            sharePositionOrigin: sharePositionOrigin,
-          );
-        }
-      } else {
-        result = await Share.shareWithResult(
-          shareText.trim(),
-          subject: subject,
-          sharePositionOrigin: sharePositionOrigin,
-        );
-      }
-
-      // Show success feedback if shared successfully
-      if (result.status == ShareResultStatus.success) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Recipe shared successfully!'),
-              backgroundColor: AppColors.cardBackground,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
-    } catch (e, stackTrace) {
-      // Log the actual error for debugging
-      debugPrint('[SHARE] Share failed: $e');
-      debugPrint('[SHARE] Stack trace: $stackTrace');
-
-      // Handle share errors gracefully
+    // Show success feedback if shared successfully
+    if (result?.status == ShareResultStatus.success) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Unable to share recipe. Please try again.'),
-            backgroundColor: AppColors.accentRed.withOpacity(0.9),
-            duration: Duration(seconds: 3),
+            content: Text('Recipe shared successfully!'),
+            backgroundColor: AppColors.cardBackground,
+            duration: Duration(seconds: 2),
           ),
         );
       }

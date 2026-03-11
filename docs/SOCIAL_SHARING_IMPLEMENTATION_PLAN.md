@@ -120,10 +120,10 @@ function generatePreviewPage(cocktail) {
 
     <!-- Deep Linking for Mobile Apps -->
     <meta property="al:android:url" content="mybartender://cocktail/${cocktail.id}">
-    <meta property="al:android:package" content="com.mybartenderai.app">
+    <meta property="al:android:package" content="ai.mybartender.mybartenderai">
     <meta property="al:android:app_name" content="My AI Bartender">
     <meta property="al:ios:url" content="mybartender://cocktail/${cocktail.id}">
-    <meta property="al:ios:app_store_id" content="YOUR_APP_STORE_ID">
+    <meta property="al:ios:app_store_id" content="6758023541">
     <meta property="al:ios:app_name" content="My AI Bartender">
 
     <!-- Fallback redirect -->
@@ -135,9 +135,9 @@ function generatePreviewPage(cocktail) {
         setTimeout(function() {
             const userAgent = navigator.userAgent || navigator.vendor;
             if (/android/i.test(userAgent)) {
-                window.location.href = "https://play.google.com/store/apps/details?id=com.mybartenderai.app";
+                window.location.href = "https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai";
             } else if (/iPad|iPhone|iPod/.test(userAgent)) {
-                window.location.href = "https://apps.apple.com/app/idYOUR_APP_STORE_ID";
+                window.location.href = "https://apps.apple.com/us/app/my-ai-bartender-scan-create/id6758023541";
             }
         }, 1000);
     </script>
@@ -420,8 +420,8 @@ module.exports = {
   SHARE_BASE_URL: process.env.SHARE_BASE_URL || 'https://fd-mba-share.azurefd.net',
 
   // App Store URLs
-  ANDROID_STORE_URL: 'https://play.google.com/store/apps/details?id=com.mybartenderai.app',
-  IOS_STORE_URL: 'https://apps.apple.com/app/idYOUR_APP_STORE_ID',
+  ANDROID_STORE_URL: 'https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai',
+  IOS_STORE_URL: 'https://apps.apple.com/us/app/my-ai-bartender-scan-create/id6758023541',
 
   // Future: Direct API posting credentials
   // META_FACEBOOK_APP_ID: process.env['META-FACEBOOK-APP-ID'],
@@ -485,7 +485,7 @@ flutter install
 
 ```bash
 # Android
-adb shell am start -W -a android.intent.action.VIEW -d "mybartender://cocktail/margarita" com.mybartenderai.app
+adb shell am start -W -a android.intent.action.VIEW -d "mybartender://cocktail/margarita" ai.mybartender.mybartenderai
 
 # iOS (Simulator)
 xcrun simctl openurl booted "mybartender://cocktail/margarita"
@@ -521,8 +521,8 @@ xcrun simctl openurl booted "mybartender://cocktail/margarita"
 
 ### Pre-Launch
 
-- [ ] Replace YOUR_APP_STORE_ID with actual iOS app ID
-- [ ] Update Android package name if different
+- [x] Replace YOUR_APP_STORE_ID with actual iOS app ID (6758023541)
+- [x] Update Android package name (ai.mybartender.mybartenderai)
 - [ ] Test with production URLs
 - [ ] Verify all images are accessible publicly
 - [ ] Monitor for crawler traffic

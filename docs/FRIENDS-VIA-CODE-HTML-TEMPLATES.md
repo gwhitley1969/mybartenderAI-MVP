@@ -63,11 +63,11 @@ az storage blob upload-batch \
     <meta name="twitter:creator" content="@mybartenderai">
 
     <!-- App Links for Deep Linking -->
-    <meta property="al:android:package" content="com.mybartender.ai">
+    <meta property="al:android:package" content="ai.mybartender.mybartenderai">
     <meta property="al:android:url" content="mybartender://recipe/{{recipeId}}">
     <meta property="al:android:app_name" content="My AI Bartender">
     <meta property="al:ios:url" content="mybartender://recipe/{{recipeId}}">
-    <meta property="al:ios:app_store_id" content="1234567890">
+    <meta property="al:ios:app_store_id" content="6758023541">
     <meta property="al:ios:app_name" content="My AI Bartender">
 
     <!-- Favicon -->
@@ -401,11 +401,11 @@ az storage blob upload-batch \
                 <div class="cta-subtitle">Join {{sharerDisplayName}} on My AI Bartender</div>
 
                 <div class="app-buttons">
-                    <a href="https://play.google.com/store/apps/details?id=com.mybartender.ai" class="app-button" onclick="trackClick('google_play')">
+                    <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="app-button" onclick="trackClick('google_play')">
                         <img src="/icons/google-play.svg" alt="Google Play">
                         Google Play
                     </a>
-                    <a href="https://apps.apple.com/app/my-ai-bartender/id1234567890" class="app-button" onclick="trackClick('app_store')">
+                    <a href="https://apps.apple.com/app/my-ai-bartender/id6758023541" class="app-button" onclick="trackClick('app_store')">
                         <img src="/icons/app-store.svg" alt="App Store">
                         App Store
                     </a>
@@ -494,8 +494,8 @@ az storage blob upload-batch \
                 setTimeout(() => {
                     if (document.hasFocus()) {
                         window.location = isAndroid
-                            ? 'https://play.google.com/store/apps/details?id=com.mybartender.ai'
-                            : 'https://apps.apple.com/app/my-ai-bartender/id1234567890';
+                            ? 'https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai'
+                            : 'https://apps.apple.com/app/my-ai-bartender/id6758023541';
                     }
                 }, 2500);
             }
@@ -805,11 +805,11 @@ az storage blob upload-batch \
         </a>
 
         <div class="app-links">
-            <a href="https://play.google.com/store/apps/details?id=com.mybartender.ai" class="app-link">
+            <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="app-link">
                 <img src="/icons/google-play.svg" alt="">
                 Google Play
             </a>
-            <a href="https://apps.apple.com/app/my-ai-bartender/id1234567890" class="app-link">
+            <a href="https://apps.apple.com/app/my-ai-bartender/id6758023541" class="app-link">
                 <img src="/icons/app-store.svg" alt="">
                 App Store
             </a>
@@ -845,8 +845,8 @@ az storage blob upload-batch \
                 if (document.hasFocus()) {
                     const isAndroid = /Android/i.test(navigator.userAgent);
                     window.location = isAndroid
-                        ? 'https://play.google.com/store/apps/details?id=com.mybartender.ai'
-                        : 'https://apps.apple.com/app/my-ai-bartender/id1234567890';
+                        ? 'https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai'
+                        : 'https://apps.apple.com/app/my-ai-bartender/id6758023541';
                 }
             }, 2500);
         }
@@ -1019,10 +1019,10 @@ az storage blob upload-batch \
             </p>
 
             <div class="download-section">
-                <a href="https://play.google.com/store/apps/details?id=com.mybartender.ai" class="store-button">
+                <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="store-button">
                     <img src="/images/google-play-badge.png" alt="Get it on Google Play">
                 </a>
-                <a href="https://apps.apple.com/app/my-ai-bartender/id1234567890" class="store-button">
+                <a href="https://apps.apple.com/app/my-ai-bartender/id6758023541" class="store-button">
                     <img src="/images/app-store-badge.png" alt="Download on the App Store">
                 </a>
             </div>

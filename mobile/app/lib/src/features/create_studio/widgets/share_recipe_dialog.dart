@@ -1,9 +1,9 @@
-import 'dart:io' show File, Platform;
+import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../../../models/models.dart';
+import '../../../services/recipe_card_share_service.dart';
 import '../../../services/review_service.dart';
 import '../../../services/user_settings_service.dart';
 import '../../../theme/theme.dart';
@@ -152,59 +152,12 @@ class _ShareRecipeDialogState extends State<ShareRecipeDialog> {
       }
     }
 
-    // Build share text (same pattern as cocktail_detail_screen)
-    String description = '';
-    if (cocktail.instructions != null && cocktail.instructions!.isNotEmpty) {
-      description = cocktail.instructions!.length > 100
-          ? '${cocktail.instructions!.substring(0, 100)}...'
-          : cocktail.instructions!;
-    } else if (cocktail.category != null) {
-      description =
-          'A delicious ${cocktail.category?.toLowerCase()} cocktail you have to try.';
-    } else {
-      description = 'A delicious cocktail you have to try.';
-    }
-
-    final subject = '${cocktail.name} - My AI Bartender Recipe';
-    final shareText = '''
-${cocktail.name}
-
-Check out this cocktail recipe I created on My AI Bartender!
-
-$description
-''';
-
     try {
-      // Share with photo if available
-      final bool hasLocalPhoto = cocktail.imageUrl != null &&
-          (cocktail.imageUrl!.startsWith('/') ||
-              cocktail.imageUrl!.startsWith('file://'));
-
-      if (hasLocalPhoto) {
-        final photoPath = cocktail.imageUrl!.startsWith('file://')
-            ? cocktail.imageUrl!.substring(7)
-            : cocktail.imageUrl!;
-        if (await File(photoPath).exists()) {
-          await Share.shareXFiles(
-            [XFile(photoPath)],
-            text: shareText.trim(),
-            subject: subject,
-            sharePositionOrigin: sharePositionOrigin,
-          );
-        } else {
-          await Share.shareWithResult(
-            shareText.trim(),
-            subject: subject,
-            sharePositionOrigin: sharePositionOrigin,
-          );
-        }
-      } else {
-        await Share.shareWithResult(
-          shareText.trim(),
-          subject: subject,
-          sharePositionOrigin: sharePositionOrigin,
-        );
-      }
+      await RecipeCardShareService.instance.shareRecipeCard(
+        context,
+        cocktail,
+        sharePositionOrigin: sharePositionOrigin,
+      );
       // Record sharing win moment
       ReviewService.instance.recordWinMoment(WinMomentType.sharingSuccess);
     } catch (e) {

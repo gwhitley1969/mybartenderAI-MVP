@@ -127,7 +127,7 @@ function generatePreviewPage(cocktail) {
     <meta property="al:android:package" content="ai.mybartender.mybartenderai">
     <meta property="al:android:app_name" content="My AI Bartender">
     <meta property="al:ios:url" content="mybartender://cocktail/${cocktail.id}">
-    <meta property="al:ios:app_store_id" content="YOUR_APP_STORE_ID">
+    <meta property="al:ios:app_store_id" content="6758023541">
     <meta property="al:ios:app_name" content="My AI Bartender">
 
     <!-- Smart behavior - show content, attempt deep link only if app installed -->
@@ -341,7 +341,7 @@ function generatePreviewPage(cocktail) {
                 <a href="https://play.google.com/store/apps/details?id=ai.mybartender.mybartenderai" class="store-button">
                     Google Play
                 </a>
-                <a href="https://apps.apple.com/app/idYOUR_APP_STORE_ID" class="store-button">
+                <a href="https://apps.apple.com/us/app/my-ai-bartender-scan-create/id6758023541" class="store-button">
                     App Store
                 </a>
             </div>

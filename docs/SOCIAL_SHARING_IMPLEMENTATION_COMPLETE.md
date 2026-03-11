@@ -146,10 +146,10 @@ flutter run
 **Android:**
 ```bash
 # Test custom scheme deep link
-adb shell am start -W -a android.intent.action.VIEW -d "mybartender://cocktail/margarita" com.mybartenderai.app
+adb shell am start -W -a android.intent.action.VIEW -d "mybartender://cocktail/margarita" ai.mybartender.mybartenderai
 
 # Test web URL deep link
-adb shell am start -W -a android.intent.action.VIEW -d "https://fd-mba-share.azurefd.net/cocktail/margarita" com.mybartenderai.app
+adb shell am start -W -a android.intent.action.VIEW -d "https://fd-mba-share.azurefd.net/cocktail/margarita" ai.mybartender.mybartenderai
 ```
 
 **iOS:**
@@ -268,9 +268,8 @@ The cocktail-preview function queries PostgreSQL:
    - Cocktail detail screen only has additions (share button)
 
 2. **iOS App Store ID**
-   - Replace `YOUR_APP_STORE_ID` in preview page when published
-   - Found in: `cocktail-preview/index.js` line 126
-   - Also update in: `config/social.js` line 15
+   - ~~Replace `YOUR_APP_STORE_ID` in preview page when published~~ **DONE** — App Store ID is `6758023541`
+   - Updated in: `cocktail-preview/index.js` and `config/social.js`
 
 3. **Security**
    - Preview pages are public (no auth) for social crawlers

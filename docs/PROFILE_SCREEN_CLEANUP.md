@@ -56,7 +56,7 @@ After cleanup, the Profile screen contains:
 ├─────────────────────────────────┤
 │       [Sign Out Button]         │
 ├─────────────────────────────────┤
-│     MyBartenderAI v1.0.0        │
+│     MyBartenderAI v1.0.5        │
 └─────────────────────────────────┘
 ```
 

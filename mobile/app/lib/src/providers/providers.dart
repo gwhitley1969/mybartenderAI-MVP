@@ -1,4 +1,5 @@
 /// Providers for MyBartenderAI
+export 'app_info_provider.dart';
 export 'auth_provider.dart';
 export 'backend_provider.dart';
 export 'cocktail_provider.dart';

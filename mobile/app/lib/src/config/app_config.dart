@@ -25,7 +25,6 @@ class AppConfig {
 
   // App Settings
   static const String appName = 'My AI Bartender';
-  static const String appVersion = '1.0.0';
 
   // Feature Flags
   static const bool enableVoiceChat = true;

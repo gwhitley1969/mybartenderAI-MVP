@@ -8,6 +8,15 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 
 ### Recent Updates (March 2026)
 
+- **Version 1.0.5+26 — Dynamic Version Display** (Mar 13): Replaced hardcoded version string on home screen with `package_info_plus` plugin that reads version from platform metadata (auto-generated from `pubspec.yaml`). Version display now stays in sync automatically on every build — no manual updates needed. Also removed dead `appVersion` constant from `app_config.dart`.
+
+  **Files modified:**
+  - `mobile/app/pubspec.yaml`: Version bump `1.0.4+25` → `1.0.5+26`, added `package_info_plus: ^8.3.0`
+  - `mobile/app/lib/src/providers/app_info_provider.dart`: New `FutureProvider<PackageInfo>` (reads version at runtime)
+  - `mobile/app/lib/src/providers/providers.dart`: Added barrel export
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Replaced hardcoded `'Version: 1.0.5'` with `ref.watch(appInfoProvider).when()`
+  - `mobile/app/lib/src/config/app_config.dart`: Removed dead `appVersion = '1.0.0'` constant
+
 - **Fix: Store URLs — Correct Package ID & App Store ID** (Mar 11): Fixed 5 broken store URLs across backend code and mobile app that used stale placeholder values. The Android Play Store URL used `com.mybartenderai.app` instead of `ai.mybartender.mybartenderai`, and the Apple App Store URL used `YOUR_APP_STORE_ID` instead of `id6758023541`. These URLs appear in the cocktail preview page (served to social media crawlers and users without the app) and the social config module.
 
   **Correct URLs:**
@@ -772,7 +781,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
 - **Academy AI Concierge**: Added Chat and Voice CTA at bottom of Academy screen
 - **Pro Tools AI Concierge**: Added Chat and Voice CTA at bottom of Pro Tools screen
 - **Favorites Create Prompt**: Added "Create your own signature cocktails" with Create button in empty state
-- **Home Screen Footer**: Shows "21+ | Drink Responsibly" message and "Version: 1.0.0"
+- **Home Screen Footer**: Shows "21+ | Drink Responsibly" message and dynamic version string via `package_info_plus` (reads from platform metadata, always in sync with `pubspec.yaml`)
 
 ---
 

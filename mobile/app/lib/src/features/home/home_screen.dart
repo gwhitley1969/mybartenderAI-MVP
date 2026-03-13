@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../models/cocktail.dart';
+import '../../providers/app_info_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/backend_provider.dart';
 import '../../services/battery_optimization_service.dart';
@@ -95,7 +96,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       SizedBox(height: AppSpacing.xs),
                       Text(
-                        'Version: 1.0.0',
+                        ref.watch(appInfoProvider).when(
+                          data: (info) => 'Version: ${info.version}',
+                          loading: () => 'Version: ...',
+                          error: (_, __) => 'Version: unknown',
+                        ),
                         style: AppTypography.caption.copyWith(
                           color: AppColors.textSecondary,
                           fontSize: 11,

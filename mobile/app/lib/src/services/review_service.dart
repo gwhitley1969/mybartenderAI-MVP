@@ -260,14 +260,6 @@ class ReviewService with WidgetsBindingObserver {
     return true;
   }
 
-  /// Open the store listing for manual review (user-initiated from Profile).
-  /// Bypasses all eligibility checks — this is a deliberate user action.
-  Future<void> openStoreForReview() async {
-    _log('Manual store review requested from Profile');
-    final inAppReview = InAppReview.instance;
-    await inAppReview.openStoreListing(appStoreId: '6758023541');
-  }
-
   /// The minimum number of favorites required to trigger the win moment.
   int get favoritesThreshold => _favoritesThreshold;
 

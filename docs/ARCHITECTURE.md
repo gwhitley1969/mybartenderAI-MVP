@@ -37,7 +37,7 @@
 - ✅ **Platform-Aware IAP** - Separate RevenueCat API keys per store, iOS voice purchases via RevenueCat SDK (webhook-based), Android via Google Play Billing (direct verification)
 - ✅ **Free Trial Guardrails** - Reduced quotas for 5-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
-- ✅ **In-App Review** - Two-step review prompt with 9 win moment triggers (hybrid direct + deferred prompting), eligibility gate, feedback email fallback, and manual "Rate & Review" button on Profile screen
+- ✅ **In-App Review** - Two-step review prompt with 9 win moment triggers (hybrid direct + deferred prompting), eligibility gate, feedback email fallback
 - ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
 - ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
 - ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`

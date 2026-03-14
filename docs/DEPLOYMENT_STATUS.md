@@ -8,6 +8,12 @@ The My AI Bartender mobile app and Azure backend are fully operational and in pr
 
 ### Recent Updates (March 2026)
 
+- **Version 1.0.8+29 — Remove Rate & Review from Profile** (Mar 14): Removed the manual "Rate My AI Bartender" button from the Profile screen. Google's In-App Review API guidelines explicitly discourage linking `requestReview()` to user-tappable buttons, and `openStoreListing()` takes users out of the app (poor UX). The 9 automated win-moment triggers already prompt users at optimal moments. Also removed the now-unused `openStoreForReview()` method from `ReviewService`.
+
+  **Files modified (2):**
+  - `mobile/app/lib/src/features/profile/profile_screen.dart`: Removed `_buildRateReviewCard()` method, section call, and `review_service.dart` import
+  - `mobile/app/lib/src/services/review_service.dart`: Removed `openStoreForReview()` method
+
 - **Version 1.0.7+28 — Fix Rate & Review Button + Dialog Background** (Mar 14): Two bug fixes for the review system deployed in v1.0.6+27:
 
   1. **Profile "Rate & Review" button did nothing on tap** — `openStoreForReview()` called `InAppReview.requestReview()` first, which silently fails on sideloaded builds and is quota-controlled by Google. Fixed by calling `openStoreListing()` directly, which always opens the correct store listing (Play Store on Android, App Store on iOS via `appStoreId: '6758023541'`).

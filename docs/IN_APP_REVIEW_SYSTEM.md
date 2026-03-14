@@ -1,11 +1,11 @@
 # In-App Review System — My AI Bartender
 
 **Last Updated**: March 14, 2026
-**Version**: 1.0.7+28
+**Version**: 1.0.8+29
 
 ## Overview
 
-The in-app review system prompts users to rate the app on Google Play or the Apple App Store after positive "win moment" interactions. It uses a two-step UX: a pre-prompt dialog ("Are you enjoying My AI Bartender?") routes happy users to the OS review dialog and unhappy users to a feedback email. A manual "Rate & Review" button on the Profile screen allows users to leave a review at any time.
+The in-app review system prompts users to rate the app on Google Play or the Apple App Store after positive "win moment" interactions. It uses a two-step UX: a pre-prompt dialog ("Are you enjoying My AI Bartender?") routes happy users to the OS review dialog and unhappy users to a feedback email. All review prompts are triggered automatically by win moments — there is no manual review button (Google's In-App Review API guidelines discourage linking `requestReview()` to user-tappable UI elements).
 
 ## Architecture
 
@@ -108,14 +108,6 @@ All 6 conditions must pass before a review prompt is shown:
 | Taps "Not really" | Opens feedback email (`support@xtend-ai.com`) + records unhappy signal (60-day cooldown) |
 | Dismisses dialog | No action, but lifetime prompt count still increments |
 
-## Profile Screen: Manual Review Button
-
-A "Rate & Review" card is placed between the Notifications and Verification Status sections on the Profile screen. It:
-
-- Uses `ReviewService.openStoreForReview()` which **bypasses all eligibility checks** (user-initiated)
-- Calls `InAppReview.requestReview()` if available, falls back to `openStoreListing(appStoreId: '6758023541')`
-- Styled consistently with `_buildHelpSupportCard`: amber star icon (`Icons.star_outline_rounded`, `AppColors.iconCircleOrange`), chevron, card background
-
 ## SharedPreferences Keys
 
 | Key | Type | Purpose |
@@ -151,7 +143,6 @@ All keys are cleared by `ReviewService.clearAll()` (used for testing and account
 
 ### Consumer Files
 - `lib/src/features/home/home_screen.dart` — Deferred prompt consumer (WidgetsBindingObserver)
-- `lib/src/features/profile/profile_screen.dart` — Manual "Rate & Review" button
 
 ### Initialization
 - `lib/src/providers/auth_provider.dart` — `ReviewService.instance.initialize()` in `AuthNotifier`
@@ -173,8 +164,6 @@ Key log messages:
 - `[REVIEW] Pre-prompt shown`
 - `[REVIEW] User response: yes / not_really`
 - `[REVIEW] OS review dialog requested`
-- `[REVIEW] Manual store review requested from Profile`
-
 ## Version History
 
 | Version | Date | Changes |
@@ -182,3 +171,4 @@ Key log messages:
 | 1.0.0+12 | Feb 17, 2026 | Initial implementation: ReviewService, 6 win moments, pre-prompt dialog, eligibility gates |
 | 1.0.6+27 | Mar 14, 2026 | Bug fix: 3 root causes fixed (missing prompt calls, race condition, no deferred mechanism). Added 3 new win moments (9 total). Hybrid direct + deferred prompting. Profile "Rate & Review" button. |
 | 1.0.7+28 | Mar 14, 2026 | Bug fix: Profile "Rate & Review" button now uses `openStoreListing()` directly (always works, cross-platform). Review prompt dialog background fixed to `AppColors.cardBackground` (dark purple) for readable text. |
+| 1.0.8+29 | Mar 14, 2026 | Removed manual "Rate & Review" button from Profile screen. Google discourages linking `requestReview()` to tappable buttons; automated win-moment triggers handle review solicitation. Removed `openStoreForReview()` from ReviewService. |

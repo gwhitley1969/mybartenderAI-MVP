@@ -1,7 +1,7 @@
 # In-App Review System — My AI Bartender
 
 **Last Updated**: March 14, 2026
-**Version**: 1.0.6+27
+**Version**: 1.0.7+28
 
 ## Overview
 
@@ -181,3 +181,4 @@ Key log messages:
 |---------|------|---------|
 | 1.0.0+12 | Feb 17, 2026 | Initial implementation: ReviewService, 6 win moments, pre-prompt dialog, eligibility gates |
 | 1.0.6+27 | Mar 14, 2026 | Bug fix: 3 root causes fixed (missing prompt calls, race condition, no deferred mechanism). Added 3 new win moments (9 total). Hybrid direct + deferred prompting. Profile "Rate & Review" button. |
+| 1.0.7+28 | Mar 14, 2026 | Bug fix: Profile "Rate & Review" button now uses `openStoreListing()` directly (always works, cross-platform). Review prompt dialog background fixed to `AppColors.cardBackground` (dark purple) for readable text. |

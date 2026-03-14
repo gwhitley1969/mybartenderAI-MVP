@@ -8,6 +8,16 @@ The My AI Bartender mobile app and Azure backend are fully operational and in pr
 
 ### Recent Updates (March 2026)
 
+- **Version 1.0.7+28 — Fix Rate & Review Button + Dialog Background** (Mar 14): Two bug fixes for the review system deployed in v1.0.6+27:
+
+  1. **Profile "Rate & Review" button did nothing on tap** — `openStoreForReview()` called `InAppReview.requestReview()` first, which silently fails on sideloaded builds and is quota-controlled by Google. Fixed by calling `openStoreListing()` directly, which always opens the correct store listing (Play Store on Android, App Store on iOS via `appStoreId: '6758023541'`).
+  2. **Review prompt dialog had white text on white background** — The `ReviewPromptDialog` didn't set `backgroundColor` on its `AlertDialog`, causing it to use the Material default white surface. `AppColors.textSecondary` and "Not really" button text (designed for dark backgrounds) were invisible. Fixed by adding explicit `backgroundColor: AppColors.cardBackground` (#1E1838 dark purple), matching the pattern used by `share_recipe_dialog.dart` and `refinement_dialog.dart`.
+
+  **Files modified (3):**
+  - `mobile/app/pubspec.yaml`: Version bump `1.0.6+27` → `1.0.7+28`
+  - `mobile/app/lib/src/services/review_service.dart`: `openStoreForReview()` now uses `openStoreListing()` directly instead of `requestReview()` + fallback
+  - `mobile/app/lib/src/widgets/review_prompt_dialog.dart`: Added `backgroundColor: AppColors.cardBackground` to `AlertDialog`
+
 - **Version 1.0.6+27 — Fix In-App Review System + Profile Review Button** (Mar 14): Fixed critical bug where in-app review prompts never appeared despite the review system being implemented in Build 12 (Feb 17). Three root-cause bugs were identified and fixed:
 
   1. **Only 1 of 9 win moment triggers called `maybePromptForReview()`** — Smart Scanner was the only trigger site that attempted to show the review dialog. All other 8 triggers only called `recordWinMoment()` and stopped.

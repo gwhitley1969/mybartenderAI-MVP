@@ -265,11 +265,7 @@ class ReviewService with WidgetsBindingObserver {
   Future<void> openStoreForReview() async {
     _log('Manual store review requested from Profile');
     final inAppReview = InAppReview.instance;
-    if (await inAppReview.isAvailable()) {
-      await inAppReview.requestReview();
-    } else {
-      await inAppReview.openStoreListing(appStoreId: '6758023541');
-    }
+    await inAppReview.openStoreListing(appStoreId: '6758023541');
   }
 
   /// The minimum number of favorites required to trigger the win moment.

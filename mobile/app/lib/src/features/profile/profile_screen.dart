@@ -8,6 +8,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../services/notification_service.dart';
+import '../../services/review_service.dart';
 import '../../services/subscription_service.dart';
 import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
@@ -78,6 +79,12 @@ class ProfileScreen extends ConsumerWidget {
                   _buildSectionTitle('Notifications'),
                   SizedBox(height: AppSpacing.md),
                   _buildNotificationSettingsCard(context, ref),
+                  SizedBox(height: AppSpacing.xl),
+
+                  // Rate & Review Section
+                  _buildSectionTitle('Rate & Review'),
+                  SizedBox(height: AppSpacing.md),
+                  _buildRateReviewCard(context),
                   SizedBox(height: AppSpacing.xl),
 
                   // Age Verification Section
@@ -1223,6 +1230,59 @@ class ProfileScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  Widget _buildRateReviewCard(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        await ReviewService.instance.openStoreForReview();
+      },
+      child: Container(
+        padding: EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: AppColors.cardBackground,
+          borderRadius: BorderRadius.circular(AppSpacing.cardBorderRadius),
+          border: Border.all(
+            color: AppColors.cardBorder,
+            width: AppSpacing.borderWidthThin,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.star_outline_rounded,
+              color: AppColors.iconCircleOrange,
+              size: 24,
+            ),
+            SizedBox(width: AppSpacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Rate My AI Bartender',
+                    style: AppTypography.bodyMedium.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Help us by leaving a review',
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.textSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildHelpSupportCard(BuildContext context) {

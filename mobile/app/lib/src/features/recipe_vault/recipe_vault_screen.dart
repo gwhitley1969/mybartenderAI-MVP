@@ -7,6 +7,7 @@ import '../../providers/cocktail_provider.dart';
 import '../../providers/favorites_provider.dart';
 import '../../providers/inventory_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../services/review_service.dart';
 import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
@@ -398,6 +399,14 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
               setState(() {
                 _showCanMakeOnly = selected;
               });
+              if (selected) {
+                () async {
+                  await ReviewService.instance.recordWinMoment(WinMomentType.canMakeFilterUsed);
+                  if (context.mounted) {
+                    await ReviewService.instance.maybePromptForReview(context);
+                  }
+                }();
+              }
             },
             backgroundColor: AppColors.cardBackground,
             selectedColor: AppColors.iconCircleTeal,

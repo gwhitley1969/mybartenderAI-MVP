@@ -7,6 +7,7 @@ import '../../providers/app_info_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/backend_provider.dart';
 import '../../services/battery_optimization_service.dart';
+import '../../services/review_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 import '../favorites/favorites_screen.dart';
@@ -23,16 +24,46 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
   bool _hasCheckedBatteryOptimization = false;
+  bool _isCheckingReview = false;
 
   @override
   void initState() {
     super.initState();
-    // Schedule battery optimization check after first frame
+    WidgetsBinding.instance.addObserver(this);
+    // Schedule battery optimization and deferred review checks after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkBatteryOptimization();
+      _checkPendingReview();
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkPendingReview();
+    }
+  }
+
+  Future<void> _checkPendingReview() async {
+    if (_isCheckingReview) return;
+    _isCheckingReview = true;
+    try {
+      // Small delay to let screen render and any snackbars appear
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) {
+        await ReviewService.instance.checkPendingPrompt(context);
+      }
+    } finally {
+      _isCheckingReview = false;
+    }
   }
 
   Future<void> _checkBatteryOptimization() async {

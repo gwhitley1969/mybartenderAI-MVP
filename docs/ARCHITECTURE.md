@@ -37,7 +37,7 @@
 - ✅ **Platform-Aware IAP** - Separate RevenueCat API keys per store, iOS voice purchases via RevenueCat SDK (webhook-based), Android via Google Play Billing (direct verification)
 - ✅ **Free Trial Guardrails** - Reduced quotas for 5-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
-- ✅ **In-App Review** - Two-step review prompt with 6 win moment triggers, eligibility gate, and feedback email fallback
+- ✅ **In-App Review** - Two-step review prompt with 9 win moment triggers (hybrid direct + deferred prompting), eligibility gate, feedback email fallback, and manual "Rate & Review" button on Profile screen
 - ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
 - ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
 - ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`
@@ -853,8 +853,8 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: February 26, 2026
-**Architecture Version**: 4.8 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID)
+**Last Updated**: March 14, 2026
+**Architecture Version**: 4.9 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review (Hybrid Direct + Deferred Prompting) + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID + Profile Rate & Review)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage + 4-Layer Paywall Defense

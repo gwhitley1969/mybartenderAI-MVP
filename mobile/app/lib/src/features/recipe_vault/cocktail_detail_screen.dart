@@ -14,6 +14,7 @@ import '../../providers/settings_provider.dart';
 import '../../services/cocktail_photo_service.dart';
 import '../../services/measurement_service.dart';
 import '../../services/recipe_card_share_service.dart';
+import '../../services/review_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/cached_cocktail_image.dart';
 
@@ -32,6 +33,7 @@ class CocktailDetailScreen extends ConsumerStatefulWidget {
 
 class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
   final ImagePicker _picker = ImagePicker();
+  bool _hasRecordedView = false;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +55,17 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
               ),
             ),
           );
+        }
+
+        if (!_hasRecordedView) {
+          _hasRecordedView = true;
+          ReviewService.instance.recordWinMoment(WinMomentType.recipeDetailView).then((_) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ReviewService.instance.maybePromptForReview(context);
+              }
+            });
+          });
         }
 
         return Scaffold(

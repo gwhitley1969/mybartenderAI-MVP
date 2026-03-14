@@ -16,6 +16,9 @@ enum WinMomentType {
   favoritesThreshold,
   aiChatSave,
   voiceSessionComplete,
+  recipeDetailView,
+  canMakeFilterUsed,
+  academyLessonComplete,
 }
 
 /// Types of unhappy signals that delay review prompts.
@@ -43,6 +46,7 @@ class ReviewService with WidgetsBindingObserver {
   static const String _lifetimePromptsKey = 'review_lifetime_prompts';
   static const String _lastUnhappyAtKey = 'review_last_unhappy_at';
   static const String _winMomentsKey = 'review_win_moments';
+  static const String _pendingPromptKey = 'review_pending_prompt';
 
   // Thresholds
   static const int _minSessions = 2;
@@ -127,6 +131,31 @@ class ReviewService with WidgetsBindingObserver {
       await prefs.setString(_winMomentsKey, jsonEncode(moments));
       _log('Win moment recorded: type=${type.name}');
     }
+  }
+
+  /// Mark that a review prompt should be shown at the next safe opportunity.
+  /// Used by triggers in providers/dispose where no BuildContext is available,
+  /// or by triggers that navigate away (Navigator.pop) immediately after.
+  Future<void> setPendingPrompt() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_pendingPromptKey, true);
+    _log('Pending prompt flag set');
+  }
+
+  /// Check and consume the pending prompt flag.
+  /// Call from a screen with a stable BuildContext (e.g., HomeScreen).
+  /// Returns true if a prompt was shown.
+  Future<bool> checkPendingPrompt(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final pending = prefs.getBool(_pendingPromptKey) ?? false;
+    if (!pending) return false;
+
+    // Clear the flag first (even if prompt doesn't show, don't retry endlessly)
+    await prefs.setBool(_pendingPromptKey, false);
+    _log('Pending prompt flag consumed');
+
+    if (!context.mounted) return false;
+    return maybePromptForReview(context, reason: 'deferred');
   }
 
   /// Record an unhappy signal (delays future review prompts by 60 days).
@@ -231,6 +260,18 @@ class ReviewService with WidgetsBindingObserver {
     return true;
   }
 
+  /// Open the store listing for manual review (user-initiated from Profile).
+  /// Bypasses all eligibility checks — this is a deliberate user action.
+  Future<void> openStoreForReview() async {
+    _log('Manual store review requested from Profile');
+    final inAppReview = InAppReview.instance;
+    if (await inAppReview.isAvailable()) {
+      await inAppReview.requestReview();
+    } else {
+      await inAppReview.openStoreListing(appStoreId: '6758023541');
+    }
+  }
+
   /// The minimum number of favorites required to trigger the win moment.
   int get favoritesThreshold => _favoritesThreshold;
 
@@ -256,7 +297,7 @@ class ReviewService with WidgetsBindingObserver {
     } else {
       // Fall back to opening the store listing
       await inAppReview.openStoreListing(
-        appStoreId: '', // Add iOS App Store ID when available
+        appStoreId: '6758023541',
       );
     }
   }
@@ -289,5 +330,6 @@ class ReviewService with WidgetsBindingObserver {
     await prefs.remove(_lifetimePromptsKey);
     await prefs.remove(_lastUnhappyAtKey);
     await prefs.remove(_winMomentsKey);
+    await prefs.remove(_pendingPromptKey);
   }
 }

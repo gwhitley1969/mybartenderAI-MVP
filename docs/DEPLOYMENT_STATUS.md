@@ -1,12 +1,46 @@
-# MyBartenderAI Deployment Status
+# My AI Bartender Deployment Status
 
-## Current Status: Release Candidate
+## Current Status: Released Product
 
-**Last Updated**: March 4, 2026
+**Last Updated**: March 14, 2026
 
-The My AI Bartender mobile app and Azure backend are fully operational and in release candidate status. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
+The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (March 2026)
+
+- **Version 1.0.6+27 — Fix In-App Review System + Profile Review Button** (Mar 14): Fixed critical bug where in-app review prompts never appeared despite the review system being implemented in Build 12 (Feb 17). Three root-cause bugs were identified and fixed:
+
+  1. **Only 1 of 9 win moment triggers called `maybePromptForReview()`** — Smart Scanner was the only trigger site that attempted to show the review dialog. All other 8 triggers only called `recordWinMoment()` and stopped.
+  2. **Smart Scanner trigger had a race condition** — `maybePromptForReview(context)` was async but not awaited, and `Navigator.pop()` fired immediately, destroying the BuildContext before the dialog could appear.
+  3. **"Deferred prompt on next resume" was never implemented** — Comments in code referenced this mechanism, but `didChangeAppLifecycleState(resumed)` only called `recordSessionStart()`, never the prompt.
+
+  **Fix — Hybrid Direct + Deferred Prompting:**
+  - **Direct prompting** for triggers where the user stays on screen (AI Chat, Recipe Detail View, Can Make filter): `maybePromptForReview()` is called directly after recording the win moment with proper `await` and `mounted` checks.
+  - **Deferred prompting** for triggers that navigate away or lack BuildContext (Smart Scanner, Create Studio, Share, Favorites, Voice, Academy): A new `setPendingPrompt()` method sets a persistent flag in SharedPreferences. HomeScreen checks and consumes this flag on every init and app resume via a new `WidgetsBindingObserver` mixin.
+  - **3 new win moment triggers** added: `recipeDetailView` (viewing any recipe), `canMakeFilterUsed` (toggling "Can Make" filter), `academyLessonComplete` (watching a lesson >= 30s). Total win moments: 6 → 9.
+
+  **New Feature — "Rate & Review" button on Profile screen:**
+  - Added a manual "Rate & Review" card between the Notifications and Verification Status sections.
+  - Uses amber star icon (`Icons.star_outline_rounded`) with `AppColors.iconCircleOrange`, matching the `_buildHelpSupportCard` styling pattern.
+  - Calls `ReviewService.openStoreForReview()` which bypasses all eligibility checks (user-initiated).
+  - Uses `InAppReview.requestReview()` with fallback to `openStoreListing()` (platform-adaptive: Google Play on Android, App Store on iOS).
+
+  **Files modified (12):**
+  - `mobile/app/pubspec.yaml`: Version bump `1.0.5+26` → `1.0.6+27`
+  - `mobile/app/lib/src/services/review_service.dart`: Added `setPendingPrompt()`, `checkPendingPrompt()`, `openStoreForReview()`, `_pendingPromptKey` constant, `context.mounted` check after async gap, pending key in `clearAll()`
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Added `WidgetsBindingObserver` mixin, deferred review check on init and app resume (800ms delay, guard flag)
+  - `mobile/app/lib/src/features/profile/profile_screen.dart`: Added "Rate & Review" section + `_buildRateReviewCard()` method
+  - `mobile/app/lib/src/features/smart_scanner/smart_scanner_screen.dart`: Fixed race condition — replaced non-awaited `maybePromptForReview` with `await setPendingPrompt()` before `Navigator.pop()`
+  - `mobile/app/lib/src/features/ask_bartender/chat_screen.dart`: Added `await maybePromptForReview(context)` with `mounted` check after AI chat win moment
+  - `mobile/app/lib/src/features/recipe_vault/cocktail_detail_screen.dart`: Added `maybePromptForReview()` via `.then()` + `addPostFrameCallback` chain (runs inside `build()`)
+  - `mobile/app/lib/src/features/recipe_vault/recipe_vault_screen.dart`: Added `maybePromptForReview()` via async IIFE with `context.mounted` check
+  - `mobile/app/lib/src/features/create_studio/edit_cocktail_screen.dart`: Added `await setPendingPrompt()` before `Navigator.pop()`
+  - `mobile/app/lib/src/features/create_studio/widgets/share_recipe_dialog.dart`: Added `await setPendingPrompt()` before `nav.pop()`
+  - `mobile/app/lib/src/providers/favorites_provider.dart`: Added `await setPendingPrompt()` after favorites threshold check
+  - `mobile/app/lib/src/providers/voice_ai_provider.dart`: Added `await setPendingPrompt()` after voice duration check
+  - `mobile/app/lib/src/features/academy/academy_lesson_screen.dart`: Added `setPendingPrompt()` fire-and-forget in `dispose()`
+
+  **Spec:** See `docs/IN_APP_REVIEW_SYSTEM.md` for the full review system architecture and implementation details.
 
 - **Version 1.0.5+26 — Dynamic Version Display** (Mar 13): Replaced hardcoded version string on home screen with `package_info_plus` plugin that reads version from platform metadata (auto-generated from `pubspec.yaml`). Version display now stays in sync automatically on every build — no manual updates needed. Also removed dead `appVersion` constant from `app_config.dart`.
 
@@ -441,7 +475,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in re
   - `lib/src/providers/voice_ai_provider.dart`: `voiceSessionComplete` win moment when duration >= 45s
   - `lib/src/features/ask_bartender/chat_screen.dart`: `aiChatSave` win moment after 3 successful exchanges
 
-  **Spec:** See `docs/Review.md` for the full codebase-grounded implementation spec.
+  **Spec:** See `docs/IN_APP_REVIEW_SYSTEM.md` for the full review system architecture (updated in v1.0.6+27).
 
 - **Free Trial Guardrailed Limits** (Feb 16): Implemented server-side enforcement of reduced quotas for 5-day free trial users to prevent API abuse during trials. Trial users now get 30 voice minutes (vs 60), 50,000 chat tokens (vs 1,000,000), and 10 scanner scans (vs 100). Changes:
   1. **Subscription webhook** (`index.js`): `INITIAL_PURCHASE` handler now detects `period_type === 'TRIAL'` from RevenueCat payload and sets `subscription_status = 'trialing'` with `monthly_voice_minutes_included = 30`. `RENEWAL` handler explicitly sets full paid limits (60 min, 1M tokens, 100 scans)
@@ -1023,10 +1057,13 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
   - Battery optimization exemption for reliable delivery
   - Configurable notification time (default 5 PM)
 - **In-App Review**: `in_app_review` for OS-native review prompts
-  - Two-step UX with pre-prompt dialog
-  - 6 win moment triggers across Smart Scanner, Create Studio, sharing, favorites, chat, voice
+  - Two-step UX with pre-prompt dialog ("Are you enjoying My AI Bartender?")
+  - 9 win moment triggers: Smart Scanner, Create Studio, sharing, favorites, chat, voice, recipe detail view, "Can Make" filter, Academy lesson
+  - Hybrid prompting: direct (user stays on screen) + deferred via pending flag (user navigates away or no BuildContext)
+  - HomeScreen as deferred prompt consumer (`WidgetsBindingObserver`, checks on init + app resume)
   - Eligibility gate with session, cooldown, and lifetime caps
   - Unhappy users routed to feedback email instead of store review
+  - Manual "Rate & Review" button on Profile screen (bypasses eligibility)
 - **Background Token Refresh**: Invisible alarm-based token refresh every 6 hours
   - Notification is immediately canceled after scheduling (invisible to users)
   - AlarmManager callback still fires - only the visible notification is suppressed

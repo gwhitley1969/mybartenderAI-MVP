@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
+import '../../services/review_service.dart';
 import '../../theme/theme.dart';
 import 'models/academy_models.dart';
 import 'widgets/difficulty_badge.dart';
@@ -23,10 +24,12 @@ class AcademyLessonScreen extends StatefulWidget {
 
 class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
   late final YoutubePlayerController _controller;
+  late final DateTime _openedAt;
 
   @override
   void initState() {
     super.initState();
+    _openedAt = DateTime.now();
     _controller = YoutubePlayerController.fromVideoId(
       videoId: widget.lesson.youtubeVideoId,
       autoPlay: false,
@@ -43,6 +46,10 @@ class _AcademyLessonScreenState extends State<AcademyLessonScreen> {
 
   @override
   void dispose() {
+    if (DateTime.now().difference(_openedAt).inSeconds >= 30) {
+      ReviewService.instance.recordWinMoment(WinMomentType.academyLessonComplete);
+      ReviewService.instance.setPendingPrompt(); // fire-and-forget in dispose()
+    }
     _controller.close();
     super.dispose();
   }

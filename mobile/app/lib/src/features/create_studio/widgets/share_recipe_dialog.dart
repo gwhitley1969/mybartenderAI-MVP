@@ -158,8 +158,9 @@ class _ShareRecipeDialogState extends State<ShareRecipeDialog> {
         cocktail,
         sharePositionOrigin: sharePositionOrigin,
       );
-      // Record sharing win moment
-      ReviewService.instance.recordWinMoment(WinMomentType.sharingSuccess);
+      // Record sharing win moment and defer prompt
+      await ReviewService.instance.recordWinMoment(WinMomentType.sharingSuccess);
+      await ReviewService.instance.setPendingPrompt();
     } catch (e) {
       debugPrint('[SHARE] Share from dialog failed: $e');
     }

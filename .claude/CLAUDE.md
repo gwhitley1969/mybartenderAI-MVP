@@ -19,7 +19,7 @@ You have both the Microsoft Documentation and Azure MCP Servers installed.  Use 
 - **Phase 1**: Android (initial launch)
 - **Phase 2**: iOS (simultaneous launch with Android)
 
-## Current Status: Release Candidate
+## Current Status: Released Product
 
 All core features implemented and tested. Ready for Play Store deployment.
 
@@ -329,8 +329,8 @@ Located in `kv-mybartenderai-prod`:
 ### In Progress
 
 - 🔄 Taste Profile feature (UI design)
-- 🔄 iOS TestFlight testing
-- 🔄 Android Play Store deployment beta testing
+- 🔄 iOS TestFlight testing (we're in production now)
+- 🔄 Android Play Store deployment beta testing (we're in production now)
 
 ### Upcoming
 

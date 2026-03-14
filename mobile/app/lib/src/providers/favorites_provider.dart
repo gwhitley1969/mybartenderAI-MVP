@@ -82,7 +82,8 @@ class FavoritesNotifier extends StateNotifier<FavoritesState> {
       // Check if favorites count hit the review threshold
       final count = await db.getFavoritesCount();
       if (count >= ReviewService.instance.favoritesThreshold) {
-        ReviewService.instance.recordWinMoment(WinMomentType.favoritesThreshold);
+        await ReviewService.instance.recordWinMoment(WinMomentType.favoritesThreshold);
+        await ReviewService.instance.setPendingPrompt();
       }
 
       state = state.copyWith(status: FavoritesStatus.success);

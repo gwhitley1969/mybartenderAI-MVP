@@ -854,8 +854,9 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         await db.insertCocktail(cocktail);
       }
 
-      // Record win moment (prompt deferred to next foreground resume)
-      ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.createStudioSave);
+      // Record win moment and defer prompt to HomeScreen
+      await ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.createStudioSave);
+      await ref.read(reviewServiceProvider).setPendingPrompt();
 
       if (mounted) {
         Navigator.pop(context, cocktailId); // Return cocktail ID for share prompt

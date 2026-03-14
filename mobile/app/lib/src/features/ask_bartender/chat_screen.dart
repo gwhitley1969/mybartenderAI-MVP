@@ -131,7 +131,10 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
 
       // Record win moment after 3 meaningful chat exchanges
       if (_successfulResponses >= 3) {
-        ReviewService.instance.recordWinMoment(WinMomentType.aiChatSave);
+        await ReviewService.instance.recordWinMoment(WinMomentType.aiChatSave);
+        if (mounted) {
+          await ReviewService.instance.maybePromptForReview(context);
+        }
       }
 
       _scrollToBottom();

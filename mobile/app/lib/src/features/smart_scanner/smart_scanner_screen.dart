@@ -123,11 +123,11 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
           ),
         );
 
-        // Record win moment and maybe prompt for review
-        ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.scannerSuccess);
-        ref.read(reviewServiceProvider).maybePromptForReview(context);
+        // Record win moment and defer prompt to HomeScreen
+        await ref.read(reviewServiceProvider).recordWinMoment(WinMomentType.scannerSuccess);
+        await ref.read(reviewServiceProvider).setPendingPrompt();
 
-        // Navigate back
+        // Navigate back (prompt will appear on HomeScreen)
         Navigator.of(context).pop();
       }
     } catch (e) {

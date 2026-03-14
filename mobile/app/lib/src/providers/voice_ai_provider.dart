@@ -97,7 +97,8 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
 
     // Record voice win moment if session was long enough (>= 45s)
     if (duration >= 45) {
-      ReviewService.instance.recordWinMoment(WinMomentType.voiceSessionComplete);
+      await ReviewService.instance.recordWinMoment(WinMomentType.voiceSessionComplete);
+      await ReviewService.instance.setPendingPrompt();
     }
 
     // Refresh quota after session ends

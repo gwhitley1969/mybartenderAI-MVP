@@ -914,13 +914,13 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 | -------------- | ------- | ------ | --------- | ----- | ------------------------------------- |
 | Free (none)    | $0      | -      | 0         | 0     | -                                     |
 | Trial (5 days) | Free    | -      | 50,000    | 10    | 30 min                                |
-| Paid           | $7.99   | $79.99 | 1,000,000 | 100   | 60 min included + $4.99/60 min add-on |
+| Paid           | $4.99   | $49.99 | 1,000,000 | 100   | 60 min included + $3.99/60 min add-on |
 
 Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
 **Free Trial:** 5-day trial available on the monthly plan. Trial users get reduced quotas (50,000 tokens, 10 scans, 30 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
 
-**Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $4.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
+**Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $3.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 
 **Subscription Management:** RevenueCat handles subscription lifecycle (purchase, renewal, cancellation). Webhook events update `user_subscriptions` table, which triggers automatic `users.entitlement` updates via PostgreSQL trigger.
 

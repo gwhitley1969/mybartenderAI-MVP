@@ -354,7 +354,7 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - My Bar inventory management
 - Favorites/Bookmarks
 
-### Paid Subscription ($7.99/month or $79.99/year)
+### Paid Subscription ($4.99/month or $49.99/year)
 
 - Everything above, plus:
 - AI Bartender Chat: 1,000,000 tokens/month
@@ -363,9 +363,9 @@ curl https://apim-mba-002.azure-api.net/api/v1/subscription/status \
 - Create Studio with AI Refine
 - Social sharing features
 - Unlimited custom recipes
-- 3-day free trial on monthly plan
+- 5-day free trial on monthly plan
 
-### Voice Add-On ($4.99)
+### Voice Add-On ($3.99)
 
 - +60 voice minutes (consumable, repeatable)
 - Requires active subscription
@@ -460,12 +460,12 @@ See [SUBSCRIPTION_DEPLOYMENT.md](docs/SUBSCRIPTION_DEPLOYMENT.md) for full detai
 
 ### Revenue Model
 
-- 1,000 subscribers @ $7.99 = $9,990/month
+- 1,000 subscribers @ $4.99 = $4,990/month
 - Voice add-on purchases: ~$500/month (estimated)
-- **Total Revenue**: ~$10,490/month
+- **Total Revenue**: ~$5,490/month
 - AI costs: ~$750/month
 - Infrastructure: ~$400/month
-- **Net Profit**: ~$9,340/month (~89% margin)
+- **Net Profit**: ~$4,340/month (~79% margin)
 
 ## 🔐 Security
 

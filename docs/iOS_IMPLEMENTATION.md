@@ -984,9 +984,9 @@ if (Platform.isIOS) {
 
 | Product | Product ID | Type | Price | Status |
 |---------|-----------|------|-------|--------|
-| Pro Monthly | `pro_monthly` | Auto-renewable subscription | $7.99/mo | Created |
-| Pro Annual | `pro_annual` | Auto-renewable subscription | $79.99/yr | Created |
-| Voice Minutes | `voice_minutes_60` | Consumable | $4.99 | Created |
+| Pro Monthly | `pro_monthly` | Auto-renewable subscription | $4.99/mo | Created |
+| Pro Annual | `pro_annual` | Auto-renewable subscription | $49.99/yr | Created |
+| Voice Minutes | `voice_minutes_60` | Consumable | $3.99 | Created |
 
 Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pre-submission. Sandbox purchases work correctly.
 

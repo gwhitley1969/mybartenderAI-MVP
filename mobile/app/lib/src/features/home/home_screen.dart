@@ -155,16 +155,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
 
     return Row(
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          clipBehavior: Clip.antiAlias,
+        SizedBox(
+          width: 80,
+          height: 80,
           child: Image.asset(
             'assets/icon/icon.png',
-            fit: BoxFit.cover,
+            fit: BoxFit.contain,
           ),
         ),
         SizedBox(width: AppSpacing.lg),

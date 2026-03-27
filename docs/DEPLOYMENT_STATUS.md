@@ -2,11 +2,31 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: March 14, 2026
+**Last Updated**: March 27, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
 ### Recent Updates (March 2026)
+
+- **Version 1.1.0+31 — New App Logo & Icon Rebrand** (Mar 27): Replaced the flat, programmatically-generated martini glass icon with a professionally-designed 3D logo featuring a glowing martini glass with sparkles and "MY AI BARTENDER" text on a deep purple gradient. This is a full rebrand of all visual assets across both platforms.
+
+  **Changes:**
+  - Replaced app icon source (`assets/icon/icon.png`) with new 1024x1024 professional logo (`My AI Bartender Logo 2.png`)
+  - Updated adaptive icon foreground (`assets/icon/icon_foreground.png`) with full logo
+  - Created text-free variant (`assets/icon/icon_small.png`) — martini glass crop for small displays
+  - Updated adaptive icon and splash background color from `#7C3AED` to `#2F098A` (darker purple matching new logo edges)
+  - Home screen header: enlarged logo from 56x56 rounded rect to 80x80 unclipped, using full logo with `BoxFit.contain`
+  - Regenerated all platform-specific icons (31 Android + iOS launcher icons) and splash screens (18 files) via `flutter_launcher_icons` and `flutter_native_splash`
+
+  **Files modified (5 manual + 49 auto-generated):**
+  - `mobile/app/assets/icon/icon.png`: Replaced with new logo (1024x1024)
+  - `mobile/app/assets/icon/icon_foreground.png`: Replaced with new logo (adaptive foreground)
+  - `mobile/app/assets/icon/icon_small.png`: New file — text-free martini glass crop (480x480)
+  - `mobile/app/pubspec.yaml`: Version bump `1.0.9+30` → `1.1.0+31`, background color `#7C3AED` → `#2F098A` (3 locations), added `icon_small.png` to assets
+  - `mobile/app/lib/src/features/home/home_screen.dart`: Changed logo container from 56x56 `Container` with `BorderRadius.circular(16)` and `Clip.antiAlias` to 80x80 `SizedBox` with `BoxFit.contain`, switched to full logo (`icon.png`)
+  - Auto-regenerated: 5 `mipmap-*/ic_launcher.png`, 5 `drawable-*/ic_launcher_foreground.png`, 21 iOS `AppIcon.appiconset/*.png`, 5 `drawable-*/splash.png`, 5+5 `drawable-*/android12splash.png` (light+night), 3 iOS `LaunchImage*.png`, `values/colors.xml`
+
+- **Version 1.0.9+30 — Version Bump + Pricing Doc Updates** (Mar 15): Bumped version number and updated stale pricing references throughout documentation to current $4.99/$49.99/$3.99 pricing.
 
 - **Version 1.0.8+29 — Remove Rate & Review from Profile** (Mar 14): Removed the manual "Rate My AI Bartender" button from the Profile screen. Google's In-App Review API guidelines explicitly discourage linking `requestReview()` to user-tappable buttons, and `openStoreListing()` takes users out of the app (poor UX). The 9 automated win-moment triggers already prompt users at optimal moments. Also removed the now-unused `openStoreForReview()` method from `ReviewService`.
 

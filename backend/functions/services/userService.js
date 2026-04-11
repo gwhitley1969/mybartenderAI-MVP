@@ -35,7 +35,7 @@ const TIER_QUOTAS = {
     pro: {
         tokensPerMonth: 1000000,
         scansPerMonth: 100,
-        voiceMinutesPerMonth: 60,  // Pro tier: 60 min/month at $4.99/mo
+        voiceMinutesPerMonth: 60,  // Pro tier: 60 min/month at $3.99/mo
         aiEnabled: true,
         voiceEnabled: true
     }

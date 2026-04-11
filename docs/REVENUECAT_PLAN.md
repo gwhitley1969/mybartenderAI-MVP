@@ -78,15 +78,15 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 - **Product ID**: `pro_monthly`
 - **Base plan ID**: `monthly-id`
 - **Billing period**: 1 Month
-- **Price**: $4.99 USD
-- **Free trial offer**: 5-day free trial (added Feb 25, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
+- **Price**: $3.99 USD
+- **Free trial offer**: 7-day (1 week) free trial (originally 5-day, harmonized to 7-day on Apr 11, 2026 — see [Phase 1E](#1e-add-free-trial-offer-to-pro_monthly))
 
 ### 1B. Create `pro_annual` Subscription ✅
 
 - **Product ID**: `pro_annual`
 - **Base plan ID**: `annual-id`
 - **Billing period**: 1 Year
-- **Price**: $49.99 USD
+- **Price**: $39.99 USD
 
 ### 1C. Create `voice_minutes_60` Consumable
 
@@ -115,8 +115,8 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 Subscription (pro_monthly)
   └── Base Plan (monthly-id)
         └── Offer (free-trial)
-              └── Phase 1: Free trial (5 days, $0)
-              └── Auto-renews at base plan price ($4.99/mo)
+              └── Phase 1: Free trial (7 days, $0)
+              └── Auto-renews at base plan price ($3.99/mo)
 ```
 
 **Steps to create the offer:**
@@ -124,12 +124,12 @@ Subscription (pro_monthly)
 2. Click **"Add offer"** (near the base plan, not inside it)
 3. Select the base plan this offer applies to
 4. Configure:
-   - **Offer ID**: Choose a permanent ID (e.g., `free-trial-5day`)
+   - **Offer ID**: Choose a permanent ID (e.g., `free-trial-1week`). Note: the original offer was named `free-trial-5day`; on Apr 11, 2026 the phase duration was changed from 5 days to 7 days. Google Play offer IDs are permanent — if recreating, use a new ID; if keeping the existing offer, the legacy name no longer matches the phase duration.
    - **Eligibility**: **"New customer acquisition"** > **"Never had this subscription"**
    - **Tags**: Leave empty (RevenueCat auto-detects trials)
 5. Under **"Phases"**, click **"Add phase"**:
    - **Type**: Free trial
-   - **Duration**: 5 days
+   - **Duration**: 7 days (1 week)
 6. **Activate** the offer
 
 **RevenueCat handles this automatically** — no additional RevenueCat dashboard configuration needed. The SDK detects the free trial offer and presents it to eligible users.

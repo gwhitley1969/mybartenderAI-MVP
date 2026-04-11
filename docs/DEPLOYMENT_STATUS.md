@@ -2,11 +2,29 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: March 27, 2026
+**Last Updated**: April 11, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
 
-### Recent Updates (March 2026)
+### Recent Updates (April 2026)
+
+- **Version 1.1.1+32 — Pricing Reduction + Trial Harmonization (1 Week)** (Apr 11): Reduced Pro subscription price from **$4.99/mo → $3.99/mo** and **$49.99/yr → $39.99/yr**. Also harmonized the free trial duration to **1 week (7 days)** across both iOS and Android, correcting two bugs at once: iOS was mis-configured at 3 days, and Android was at 5 days (which is not an Apple-allowed duration). Voice minute add-on ($3.99/60 min) and trial quotas (50K tokens, 10 scans, 30 voice min) unchanged. No backend deployment required — backend reads trial expiration from the RevenueCat webhook payload and never hardcoded subscription prices or trial duration.
+
+  **Changes:**
+  - `mobile/app/lib/src/features/voice_ai/voice_ai_screen.dart`: Updated upgrade-prompt copy from "$4.99/month or $49.99/year" to "$3.99/month or $39.99/year" and "5-day free trial" to "7-day free trial"
+  - `mobile/app/lib/src/features/subscription/subscription_sheet.dart`: Updated compliance text from "$4.99/month" to "$3.99/month" and CTA from "Start 5-Day Free Trial" to "Start 7-Day Free Trial"
+  - `mobile/app/pubspec.yaml`: Version bump `1.1.0+31` → `1.1.1+32`
+  - **App Store Connect** (manual): Fixed `pro_monthly` introductory offer from "Free 3 days" → "Free 1 week"; reduced `pro_monthly` price to $3.99 tier; reduced `pro_annual` price to $39.99 tier
+  - **Google Play Console** (manual): Reduced `pro_monthly`/`monthly-id` price to $3.99; reduced `pro_annual`/`annual-id` price to $39.99; updated the free-trial offer phase duration from 5 days → 7 days (legacy offer ID `free-trial-5day` is now a misnomer — either edit in place or recreate as `free-trial-1week`)
+  - **Documentation** (13 files updated): CLAUDE.md, README.md, ARCHITECTURE.md (incl. 1,000-sub revenue target), PRD.md (incl. financial-model recalculation), SUBSCRIPTION_DEPLOYMENT.md, REVENUECAT_PLAN.md, SMART_SCANNER_IMPLEMENTATION_PLAN.md, iOS_IMPLEMENTATION.md (incl. sandbox timing table correction), VOICE_AI_DEPLOYED.md (incl. per-subscriber margin recalc $1.69 → $0.99), DEPLOYMENT_STATUS.md subscription-model table
+
+  **Business impact:**
+  - At 100-subscriber early stage: margin drops **49% → ~38%** (infrastructure costs fixed at ~$280/mo dominate)
+  - At 10K-user scale: margin barely moves **92% → ~90%** (fixed costs are a small fraction)
+  - Voice AI margin per subscriber: **$1.69 → $0.99** after 30% store cut (voice cost unchanged at ~$1.80/60 min)
+  - Trial generosity: **+2 days** over previous Android config (5→7), **+4 days** over previous iOS config (3→7) — longer trial is widely considered to improve free→paid conversion up to ~1 week
+
+  **Root cause & Apple's duration constraint:** RevenueCat API confirmed iOS `pro_monthly` (`prod5408307dfa`) had `trial_duration: P3D` while Android's `monthly-id` offer had a 5-day free phase. The iOS 3-day value was originally meant to be "5 days" (to match Android and the app's UI copy "5-day free trial"), but when correcting it we discovered **Apple's allowed introductory-offer durations are a fixed list** (3 days, 1 week, 2 weeks, 1 month, 2 months, 3 months, 6 months, 1 year) — **there is no 4/5/6-day option**. We therefore harmonized both platforms at 1 week for cross-platform consistency. The previous Android 5-day offer was technically valid on Play Store but inconsistent with Apple's bucketing. Backend required no changes — it reads `expiration_at_ms` from the webhook payload directly and has no trial-duration assumption. Backend quota is still hardcoded at 30 voice minutes / 50K tokens / 10 scans per trial cycle; with a 7-day trial the same quota is simply spread across 2 extra days, a small net generosity bump without any backend code change.
 
 - **Version 1.1.0+31 — New App Logo & Icon Rebrand** (Mar 27): Replaced the flat, programmatically-generated martini glass icon with a professionally-designed 3D logo featuring a glowing martini glass with sparkles and "MY AI BARTENDER" text on a deep purple gradient. This is a full rebrand of all visual assets across both platforms.
 
@@ -933,12 +951,12 @@ All sensitive configuration stored in `kv-mybartenderai-prod`:
 | Entitlement    | Monthly | Annual | AI Tokens | Scans | Voice                                 |
 | -------------- | ------- | ------ | --------- | ----- | ------------------------------------- |
 | Free (none)    | $0      | -      | 0         | 0     | -                                     |
-| Trial (5 days) | Free    | -      | 50,000    | 10    | 30 min                                |
-| Paid           | $4.99   | $49.99 | 1,000,000 | 100   | 60 min included + $3.99/60 min add-on |
+| Trial (7 days) | Free    | -      | 50,000    | 10    | 30 min                                |
+| Paid           | $3.99   | $39.99 | 1,000,000 | 100   | 60 min included + $3.99/60 min add-on |
 
 Entitlement validation occurs in backend functions via PostgreSQL user lookup (not APIM products).
 
-**Free Trial:** 5-day trial available on the monthly plan. Trial users get reduced quotas (50,000 tokens, 10 scans, 30 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
+**Free Trial:** 7-day (1 week) trial available on the monthly plan. Trial users get reduced quotas (50,000 tokens, 10 scans, 30 voice minutes) enforced server-side via `subscription_status = 'trialing'`. On trial→paid conversion (RENEWAL event), limits automatically upgrade to full paid quotas. No new DB migration needed — reuses existing column from migration 011.
 
 **Voice Minutes:** Subscribers get 60 minutes included per month. Add-on packs of 60 minutes for $3.99 are available (non-expiring, repeatable). Included minutes consumed first, then purchased. Voice time is metered by active speech time (only user + AI talking counts, not idle time).
 

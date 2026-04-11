@@ -984,8 +984,8 @@ if (Platform.isIOS) {
 
 | Product | Product ID | Type | Price | Status |
 |---------|-----------|------|-------|--------|
-| Pro Monthly | `pro_monthly` | Auto-renewable subscription | $4.99/mo | Created |
-| Pro Annual | `pro_annual` | Auto-renewable subscription | $49.99/yr | Created |
+| Pro Monthly | `pro_monthly` | Auto-renewable subscription | $3.99/mo | Created |
+| Pro Annual | `pro_annual` | Auto-renewable subscription | $39.99/yr | Created |
 | Voice Minutes | `voice_minutes_60` | Consumable | $3.99 | Created |
 
 Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pre-submission. Sandbox purchases work correctly.
@@ -1007,7 +1007,7 @@ Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pr
 **Sandbox subscription timing:**
 | Real Duration | Sandbox Duration |
 |--------------|-----------------|
-| 5-day trial | 3 minutes |
+| 1-week trial (7 days) | 3 minutes |
 | 1 month | 5 minutes |
 | 1 year | 1 hour |
 

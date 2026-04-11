@@ -35,7 +35,7 @@
 - ✅ **Managed Identity** - Full implementation for Key Vault and Storage access
 - ✅ **Subscription System** - RevenueCat webhook integration with idempotency, cross-platform (Google Play + App Store)
 - ✅ **Platform-Aware IAP** - Separate RevenueCat API keys per store, iOS voice purchases via RevenueCat SDK (webhook-based), Android via Google Play Billing (direct verification)
-- ✅ **Free Trial Guardrails** - Reduced quotas for 5-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
+- ✅ **Free Trial Guardrails** - Reduced quotas for 7-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 9 win moment triggers (hybrid direct + deferred prompting), eligibility gate, feedback email fallback
 - ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
@@ -274,16 +274,16 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 ## Entitlement Quotas (Monthly)
 
-| Feature            | Free (none) | Trial (5 days)     | Subscriber (paid)                     |
+| Feature            | Free (none) | Trial (7 days)     | Subscriber (paid)                     |
 | ------------------ | ----------- | ------------------ | ------------------------------------- |
 | AI Tokens          | 0           | 50,000             | 1,000,000                             |
 | Scanner (Vision)   | 0           | 10 scans           | 100 scans                             |
 | Voice Assistant    | 0           | 30 min             | 60 min included + $3.99/60 min add-on |
 | Custom Recipes     | Unlimited   | Unlimited          | Unlimited                             |
 | Snapshot Downloads | Unlimited   | Unlimited          | Unlimited                             |
-| Price              | Free        | Free (5 days)      | $4.99/mo or $49.99/yr                 |
+| Price              | Free        | Free (7 days)      | $3.99/mo or $39.99/yr                 |
 
-**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 5-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
+**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 7-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
 
 **Trial Limit Enforcement**: Trial limits are enforced entirely server-side. The subscription webhook detects `period_type === 'TRIAL'` from RevenueCat and sets `subscription_status = 'trialing'` with reduced quotas. On trial→paid conversion (`RENEWAL` event), limits automatically upgrade to full paid quotas. No DB migration needed — reuses existing `subscription_status` column and `'trialing'` constraint from migration 011.
 
@@ -341,7 +341,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 
 - Features: AI recommendations (1,000,000 tokens/30 days), Scanner (100 scans/30 days), Voice AI (60 minutes/30 days)
 - Voice add-on: $3.99 for 60 additional minutes (non-expiring)
-- Price: $4.99/month (5-day free trial) or $49.99/year
+- Price: $3.99/month (7-day free trial) or $39.99/year
 - Managed via RevenueCat with single `paid` entitlement
 
 ### Backend Integration
@@ -847,9 +847,9 @@ flutter build apk --release
 ### Revenue Model
 
 - **Free ($0/month)**: Local cocktail database only, drives conversion
-- **Subscriber ($4.99/month or $49.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
+- **Subscriber ($3.99/month or $39.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
 - **Voice Add-on ($3.99)**: +60 minutes, non-expiring, repeatable
-- **Target**: 1,000 subscribers = $4,990 revenue, ~$500 AI costs = **90% margin**
+- **Target**: 1,000 subscribers = $3,990 revenue, ~$500 AI costs = **87% margin**
 
 ---
 

@@ -21,7 +21,7 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 1. **Offline-First Design**: Full cocktail database (~621 drinks) available without internet
 2. **Cost-Optimized AI**: GPT-4.1-mini for text, Claude Haiku for vision, Azure OpenAI Realtime for voice
-3. **Single Subscription**: $4.99/mo or $49.99/yr with 5-day free trial
+3. **Single Subscription**: $3.99/mo or $39.99/yr with 7-day free trial
 4. **Voice Guidance**: Real-time voice conversation with AI bartender via WebRTC (subscribers)
 5. **Privacy-Focused**: JWT-only authentication, minimal PII collection
 
@@ -51,22 +51,22 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 **Monthly Revenue Projections (1,000 users):**
 
-- Subscribers (100 @ $4.99): $499
+- Subscribers (100 @ $3.99): $399
 - Voice add-on purchases: ~$50
-- **Total Revenue**: ~$549/month
+- **Total Revenue**: ~$449/month
 
 **Monthly Costs:**
 
 - Infrastructure (APIM Basic V2 + Functions + DB): ~$200
 - AI Services (GPT-4.1-mini + Claude Haiku + Realtime API): ~$80
 - **Total Costs**: ~$280/month
-- **Profit**: ~$269/month (49% margin)
+- **Profit**: ~$169/month (~38% margin)
 
 **At Scale (10,000 users):**
 
-- Revenue: ~$10,000/month
+- Revenue: ~$8,000/month
 - Costs: ~$800/month
-- **Profit**: ~$9,200/month (92% margin)
+- **Profit**: ~$7,200/month (~90% margin)
 
 ---
 
@@ -187,9 +187,9 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 - All 621 drink images stored locally
 - Filters work instantly without network
 
-### Subscriber Features ($4.99/month or $49.99/year)
+### Subscriber Features ($3.99/month or $39.99/year)
 
-All features below require an active subscription (5-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
+All features below require an active subscription (7-day free trial available on monthly plan with guardrailed limits — see Business Model section for trial quotas).
 
 #### 2. AI Bartender Chat (1,000,000 tokens/month; Trial: 50,000)
 
@@ -477,7 +477,7 @@ All features below require an active subscription (5-day free trial available on
    - "Why offline?" explanation
 4. **Subscription Prompt**
    - Feature overview for subscribers
-   - "Start 5-day free trial" CTA
+   - "Start 7-day free trial" CTA
 5. **Optional Sign-In**
    - Sign in required for subscription features
    - Local features work without sign-in
@@ -490,8 +490,8 @@ All features below require an active subscription (5-day free trial available on
    - From settings/profile menu
 2. **Subscribe Screen**:
    - Feature list (voice, AI, scanner, custom recipes)
-   - Monthly ($4.99) and Annual ($49.99) options
-   - "Start 5-Day Free Trial" CTA (monthly)
+   - Monthly ($3.99) and Annual ($39.99) options
+   - "Start 7-Day Free Trial" CTA (monthly)
    - Compliance text about trial auto-conversion
 3. **Payment**:
    - Google Play / App Store via RevenueCat
@@ -619,8 +619,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 #### Subscription Model
 
 - **Free (No Subscription)**: Full offline database only
-- **5-Day Free Trial**: All AI features with reduced quotas — 50,000 chat tokens, 10 scanner scans, 30 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
-- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($4.99/mo or $49.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
+- **7-Day Free Trial**: All AI features with reduced quotas — 50,000 chat tokens, 10 scanner scans, 30 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
+- **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($3.99/mo or $39.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
 - **Voice Add-On**: +60 minutes for $3.99 (subscribers only)
 
 #### Revenue Streams
@@ -640,7 +640,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 | Cocktail Flow       | $4.99/mo        | AI recommendations, no voice      |
 | Mixel               | Free + $7.99/mo | Large database, basic AI          |
 | Highball            | $2.99/mo        | Simple recipes, no AI             |
-| **My AI Bartender** | **$4.99/mo**    | **AI + Voice AI + Smart Scanner** |
+| **My AI Bartender** | **$3.99/mo**    | **AI + Voice AI + Smart Scanner** |
 
 #### Value Proposition
 
@@ -951,7 +951,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - **Impact**: High
 - **Mitigation**:
   - A/B test subscribe prompts
-  - Offer 5-day free trial
+  - Offer 7-day free trial
   - Implement referral program
   - Focus on subscriber feature value
 
@@ -1158,8 +1158,8 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - **Subtotal**: ~$75/month
 
 **Total Cost**: ~$283/month
-**Revenue** (100 Subscribers @ $4.99, voice add-on purchases): ~$549/month
-**Profit**: ~$266/month (48% margin)
+**Revenue** (100 Subscribers @ $3.99, voice add-on purchases): ~$449/month
+**Profit**: ~$166/month (~37% margin)
 
 **Note**: Margins improve significantly at scale as infrastructure costs are largely fixed.
 

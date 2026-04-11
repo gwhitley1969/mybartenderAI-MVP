@@ -244,7 +244,7 @@ class _SubscriptionSheetState extends ConsumerState<SubscriptionSheet> {
 
               // Compliance text
               Text(
-                'Trial auto-converts to \$4.99/month unless canceled before trial ends.',
+                'Trial auto-converts to \$3.99/month unless canceled before trial ends.',
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 11),
                 textAlign: TextAlign.center,
               ),
@@ -358,7 +358,7 @@ class _SubscriptionSheetState extends ConsumerState<SubscriptionSheet> {
           child: Column(
             children: [
               const Text(
-                'Start 5-Day Free Trial',
+                'Start 7-Day Free Trial',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 17,

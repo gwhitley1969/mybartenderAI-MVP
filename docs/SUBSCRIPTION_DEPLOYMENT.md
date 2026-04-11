@@ -23,7 +23,7 @@ Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 
 | Status | Description |
 |--------|-------------|
-| `trialing` | In 5-day free trial (reduced quotas: 50K tokens, 10 scans, 30 voice min) |
+| `trialing` | In 7-day free trial (reduced quotas: 50K tokens, 10 scans, 30 voice min) |
 | `active` | Paying subscriber |
 | `expired` | Subscription lapsed or canceled |
 | `none` | Never subscribed |
@@ -32,8 +32,8 @@ Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 
 | Option | Price | Trial |
 |--------|-------|-------|
-| Monthly | $4.99/month | 5-day free trial (auto-converts unless canceled) |
-| Annual | $49.99/year | No trial |
+| Monthly | $3.99/month | 7-day free trial (auto-converts unless canceled) |
+| Annual | $39.99/year | No trial |
 
 ### Voice Minutes System
 
@@ -461,8 +461,8 @@ Email is NOT required for initialization. The `$email` subscriber attribute is s
 
 ### 2. Google Play Console
 
-- Create subscription `pro_monthly` ($4.99/mo, base plan `monthly-id`)
-- Create subscription `pro_annual` ($49.99/yr, base plan `annual-id`)
+- Create subscription `pro_monthly` ($3.99/mo, base plan `monthly-id`)
+- Create subscription `pro_annual` ($39.99/yr, base plan `annual-id`)
 - Create consumable product `voice_minutes_60` at $3.99
 - See `REVENUECAT_PLAN.md` Phase 1 for step-by-step
 

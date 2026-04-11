@@ -287,7 +287,7 @@ class _VoiceAIScreenState extends ConsumerState<VoiceAIScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Start your 5-day free trial to access AI features. After trial, \$4.99/month or \$49.99/year.',
+            'Start your 7-day free trial to access AI features. After trial, \$3.99/month or \$39.99/year.',
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 16),

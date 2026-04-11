@@ -25,8 +25,8 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 ### Business Model
 
-- **5-Day Free Trial**: Reduced AI access (50,000 tokens / 5 days, 10 scans / 5 days, 30 voice minutes / 5 days), unlimited access to local cocktail database
-- **Pro**: $4.99 / month or $49.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $3.99 for 60 additional minutes
+- **7-Day Free Trial**: Reduced AI access (50,000 tokens / 7 days, 10 scans / 7 days, 30 voice minutes / 7 days), unlimited access to local cocktail database
+- **Pro**: $3.99 / month or $39.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $3.99 for 60 additional minutes
 
 ## Tech Stack
 
@@ -207,7 +207,7 @@ Located in `kv-mybartenderai-prod`:
   - Built-in analytics and monitoring
 - **Tier Validation**: Backend functions check user tier in PostgreSQL (not APIM products)
 - **Quotas** (enforced by backend, single binary entitlement model):
-  - **Trial** (5-day free trial): 50,000 tokens, 10 scans, 30 voice minutes
+  - **Trial** (7-day free trial): 50,000 tokens, 10 scans, 30 voice minutes
   - **Pro** (paid subscribers): 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days (+ $3.99/60 min top-up)
   - **Free** (non-subscribers): Local cocktail database only, paywall for AI features
 
@@ -317,7 +317,7 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Webhook-based subscription lifecycle with idempotency
 - ✅ 4-layer paywall defense (pre-nav gate, per-screen handler, dual-source check, backend enforcement)
 - ✅ Dual-source `isPaidProvider` (RevenueCat + PostgreSQL authoritative)
-- ✅ 5-day free trial with reduced quotas
+- ✅ 7-day free trial with reduced quotas
 - ✅ Voice minute add-on purchases ($3.99/60 min)
 - ✅ Backend security hardening (fail-closed webhook auth, input validation, no stack traces)
 

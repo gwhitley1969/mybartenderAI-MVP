@@ -6,7 +6,6 @@ import '../../models/models.dart';
 import '../../providers/inventory_provider.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
-import '../subscription/subscription_sheet.dart';
 import 'add_ingredient_screen.dart';
 
 class MyBarScreen extends ConsumerWidget {
@@ -31,17 +30,11 @@ class MyBarScreen extends ConsumerWidget {
           // Scanner button (pink, matching home screen)
           IconButton(
             icon: Icon(Icons.camera_alt, color: AppColors.iconCirclePink),
-            onPressed: () async {
-              await navigateOrGate(
-                context: context,
-                ref: ref,
-                navigate: () {
-                  context.push('/smart-scanner').then((_) {
-                    // Refresh inventory after scanning
-                    ref.invalidate(inventoryProvider);
-                  });
-                },
-              );
+            onPressed: () {
+              context.push('/smart-scanner').then((_) {
+                // Refresh inventory after scanning
+                ref.invalidate(inventoryProvider);
+              });
             },
           ),
           // Add button (purple, existing)
@@ -260,7 +253,7 @@ class MyBarScreen extends ConsumerWidget {
                     child: Padding(
                       padding: EdgeInsets.only(left: AppSpacing.sm),
                       child: ElevatedButton.icon(
-                        onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.push('/smart-scanner')),
+                        onPressed: () => context.push('/smart-scanner'),
                         icon: Icon(Icons.camera_alt, size: 18),
                         label: Text('Scanner'),
                         style: ElevatedButton.styleFrom(

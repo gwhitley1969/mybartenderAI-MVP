@@ -451,9 +451,16 @@ class SubscriptionConfig {
   final String revenueCatApiKey;
   final String? revenueCatAppleApiKey;
 
+  /// Server-side kill switch for the router-level paywall gate. Defaults to
+  /// `true` when missing so older backends that don't return this field are
+  /// treated as paywall-enabled (safe default). Setting `PAYWALL_ENABLED=false`
+  /// on the Function App disables the gate globally without a new binary.
+  final bool paywallEnabled;
+
   SubscriptionConfig({
     required this.revenueCatApiKey,
     this.revenueCatAppleApiKey,
+    this.paywallEnabled = true,
   });
 
   factory SubscriptionConfig.fromJson(Map<String, dynamic> json) {
@@ -461,6 +468,7 @@ class SubscriptionConfig {
     return SubscriptionConfig(
       revenueCatApiKey: config['revenueCatApiKey'],
       revenueCatAppleApiKey: config['revenueCatAppleApiKey'] as String?,
+      paywallEnabled: config['paywallEnabled'] as bool? ?? true,
     );
   }
 }

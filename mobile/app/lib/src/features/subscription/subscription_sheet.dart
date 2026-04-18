@@ -21,76 +21,11 @@ void showSubscriptionSheet(BuildContext context, {VoidCallback? onPurchaseComple
   );
 }
 
-/// Gate a navigation action behind a subscription check.
-/// Checks RevenueCat first (fast, local). Falls back to a fresh SDK check
-/// (bypasses lazy provider init race), then backend entitlement from
-/// PostgreSQL (handles manual DB overrides / webhook timing).
-Future<void> navigateOrGate({
-  required BuildContext context,
-  required WidgetRef ref,
-  required VoidCallback navigate,
-}) async {
-  // Fast path: already resolved as paid (RevenueCat or cached backend)
-  final isPaid = ref.read(isPaidProvider);
-  developer.log('navigateOrGate: isPaid=$isPaid', name: 'Subscription');
-  if (isPaid) {
-    navigate();
-    return;
-  }
-
-  // ── Fresh RevenueCat SDK check ──
-  // The stream provider may still be in AsyncLoading if this is the first
-  // tap (lazy provider init race). Ask the SDK directly — getStatus() reads
-  // from the local cache populated during auth init, so it's fast (~1-5ms).
-  final service = ref.read(subscriptionServiceProvider);
-  if (service.isInitialized) {
-    try {
-      developer.log('navigateOrGate: doing fresh RevenueCat check',
-          name: 'Subscription');
-      final freshStatus = await service.getStatus();
-      if (freshStatus.isPaid) {
-        developer.log('navigateOrGate: fresh RC check = PAID, navigating',
-            name: 'Subscription');
-        // Force the stream provider to re-run so future taps use fast path
-        ref.invalidate(subscriptionStatusProvider);
-        navigate();
-        return;
-      }
-    } catch (e) {
-      developer.log('navigateOrGate: fresh RC check failed: $e',
-          name: 'Subscription');
-    }
-  }
-
-  // If backend entitlement is still loading, wait for it before deciding
-  final backendAsync = ref.read(backendEntitlementProvider);
-  developer.log('navigateOrGate: backendAsync=$backendAsync',
-      name: 'Subscription');
-  if (backendAsync.isLoading) {
-    try {
-      final entitlement = await ref.read(backendEntitlementProvider.future);
-      developer.log('navigateOrGate: awaited entitlement=$entitlement',
-          name: 'Subscription');
-      if (entitlement == 'paid') {
-        navigate();
-        return;
-      }
-    } catch (e) {
-      developer.log('navigateOrGate: backend await ERROR=$e',
-          name: 'Subscription');
-      // Backend unreachable — fall through to paywall
-    }
-  }
-
-  // Not paid in either system — show paywall
-  developer.log('navigateOrGate: showing paywall', name: 'Subscription');
-  if (context.mounted) {
-    showSubscriptionSheet(context, onPurchaseComplete: () {
-      ref.invalidate(subscriptionStatusProvider);
-      ref.invalidate(backendEntitlementProvider);
-    });
-  }
-}
+// Historical note: `navigateOrGate` was removed in v1.2.0+33 when the paywall
+// moved from per-button gating to a router-level redirect in `main.dart`.
+// For voluntary upgrades (e.g., Profile "change plan") use
+// `showSubscriptionSheet` above. For the forced paywall flow see
+// `PaywallScreen` at `lib/src/features/subscription/paywall_screen.dart`.
 
 /// Bottom sheet for subscription options (shared across screens).
 ///

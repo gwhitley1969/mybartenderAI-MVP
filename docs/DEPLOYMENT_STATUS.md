@@ -2,11 +2,40 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: April 11, 2026
+**Last Updated**: April 18, 2026
 
-The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system and Today's Special daily notifications.
+The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
 
 ### Recent Updates (April 2026)
+
+- **Version 1.2.0+33 — Hard Paywall Across Entire App** (Apr 18): Removed the freemium tier entirely. Every in-app feature (Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social, Chat, Voice, Smart Scanner) now requires an active 7-day free trial or paid subscription ($3.99/mo or $39.99/yr). Users without an entitlement are redirected to a dedicated `/paywall` route after sign-in and cannot reach any other screen. This is a business-model pivot, not a feature addition — users were downloading and using free features indefinitely without converting.
+
+  **Implementation (client-side only, zero schema changes):**
+  - `mobile/app/lib/src/providers/subscription_gate_provider.dart` (NEW): tri-state `SubscriptionGateState { checking, paid, unpaid }` synchronously readable from the GoRouter `redirect` function. Resolution order: server-side kill switch → RevenueCat fast path → wait while either source is loading → backend PostgreSQL authoritative check
+  - `mobile/app/lib/src/features/subscription/paywall_screen.dart` (NEW): full-screen `/paywall` with trial eligibility detection via `Purchases.checkTrialOrIntroductoryPriceEligibility`, monthly + annual CTAs, Restore Purchases, Terms/Privacy/Sign Out/Delete Account footer, analytics `developer.log` events tagged `name: 'Analytics'`
+  - `mobile/app/lib/main.dart`: restructured redirect to insert subscription gate after auth but before initial sync; cocktail deep-link bypass modified so unpaid users tapping Today's Special notifications now land on `/paywall` (the intended conversion hook); `RouterRefreshNotifier` now listens to `subscriptionStatusProvider`, `backendEntitlementProvider`, and `paywallEnabledProvider`
+  - `mobile/app/lib/src/providers/subscription_provider.dart`: `backendEntitlementProvider` and new `paywallEnabledProvider` explicitly `ref.watch(authNotifierProvider)` to defer HTTP calls until authenticated — prevents a cached 401 failure from sticking around forever and breaking beta-tester DB overrides
+  - Removed 11 `navigateOrGate` call sites across `home_screen`, `my_bar_screen`, `recipe_vault_screen`, `academy_screen`, `pro_tools_screen`; deleted `navigateOrGate` helper from `subscription_sheet.dart` (kept `SubscriptionSheet` + `showSubscriptionSheet` for voluntary Profile upgrade flows)
+  - `mobile/app/pubspec.yaml`: Version bump `1.1.1+32` → `1.2.0+33`
+
+  **Backend (server-side kill switch):**
+  - `backend/functions/index.js`: `subscription-config` endpoint returns a new `paywallEnabled` boolean sourced from the `PAYWALL_ENABLED` env var (default `true`). Flipping `PAYWALL_ENABLED=false` on `func-mba-fresh` globally disables the router gate — `subscriptionGateProvider` short-circuits to `paid` for everyone. Takes effect on the next client fetch with no redeploy or restart needed. Emergency rollback mechanism when a paywall bug is breaking users and a new mobile release isn't viable in time.
+  - `az functionapp config appsettings set --name func-mba-fresh --resource-group rg-mba-prod --settings "PAYWALL_ENABLED=true"` applied so the flag is visible in the portal
+  - Backend deployed to `func-mba-fresh` via `func azure functionapp publish`; all 36 functions re-enumerated; health endpoint confirmed live
+
+  **4-layer paywall defense:**
+  1. Router-level `subscriptionGateProvider` tri-state redirect (primary enforcement)
+  2. Profile screen dual-source `isPaidProvider` display
+  3. Per-screen `EntitlementRequiredException` handlers (defense-in-depth)
+  4. Backend 403 `entitlement_required` on all protected endpoints
+
+  **Business rationale and risk mitigation:**
+  - Force paywall on next open for all existing users — no grandfathering tier, no migration script required (PostgreSQL rows are untouched)
+  - Local SQLite data (My Bar, Favorites, Custom Recipes) persists across subscription lapses — users who lapse and later resubscribe get their data back intact
+  - Today's Special notifications keep firing — conversion hook for unpaid users who still remember to open the app
+  - Initial cocktail-database sync runs *after* subscription is acquired, saving bandwidth on non-converts
+  - Staged rollout recommended: Play Console 10% → 50% → 100%; App Store Connect Phased Release enabled
+  - Store listing text + screenshots must be updated before submission to avoid review rejection for misrepresenting a subscription app as free
 
 - **Version 1.1.1+32 — Pricing Reduction + Trial Harmonization (1 Week)** (Apr 11): Reduced Pro subscription price from **$4.99/mo → $3.99/mo** and **$49.99/yr → $39.99/yr**. Also harmonized the free trial duration to **1 week (7 days)** across both iOS and Android, correcting two bugs at once: iOS was mis-configured at 3 days, and Android was at 5 days (which is not an Apple-allowed duration). Voice minute add-on ($3.99/60 min) and trial quotas (50K tokens, 10 scans, 30 voice min) unchanged. No backend deployment required — backend reads trial expiration from the RevenueCat webhook payload and never hardcoded subscription prices or trial duration.
 

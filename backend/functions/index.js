@@ -4195,6 +4195,13 @@ app.http('subscription-config', {
                 context.warn('REVENUECAT_PUBLIC_API_KEY_IOS not configured — iOS users cannot subscribe');
             }
 
+            // Paywall kill switch — defaults ON. Flip PAYWALL_ENABLED=false in
+            // the Function App's environment (or via Key Vault reference) to
+            // globally disable the router-level paywall gate in an emergency,
+            // without shipping a new mobile binary. Mobile clients read this
+            // flag and short-circuit the subscriptionGateProvider to 'paid'.
+            const paywallEnabled = process.env.PAYWALL_ENABLED !== 'false';
+
             return {
                 status: 200,
                 headers,
@@ -4202,7 +4209,8 @@ app.http('subscription-config', {
                     success: true,
                     config: {
                         revenueCatApiKey: revenueCatApiKey,
-                        revenueCatAppleApiKey: revenueCatAppleApiKey || null
+                        revenueCatAppleApiKey: revenueCatAppleApiKey || null,
+                        paywallEnabled: paywallEnabled
                     }
                 }
             };

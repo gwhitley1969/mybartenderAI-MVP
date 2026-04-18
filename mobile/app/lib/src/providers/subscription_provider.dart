@@ -2,7 +2,9 @@ import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../models/auth_state.dart';
 import '../services/subscription_service.dart';
+import 'auth_provider.dart';
 import 'backend_provider.dart';
 
 /// Provider for the subscription service singleton
@@ -52,7 +54,19 @@ final subscriptionOfferingsProvider = FutureProvider<Offerings?>((ref) async {
 /// Backend entitlement check (PostgreSQL authoritative source).
 /// Fetched once per session and cached. Handles manual DB overrides
 /// that RevenueCat doesn't know about (e.g., beta testers).
+///
+/// Watches [authNotifierProvider] so the fetch is deferred until the user
+/// has signed in. Without this guard, the provider would be triggered at
+/// app launch by the router's refresh notifier, fail with 401, and cache
+/// that failure forever — breaking the manual DB override for beta testers.
 final backendEntitlementProvider = FutureProvider<String?>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  if (authState is! AuthStateAuthenticated) {
+    developer.log(
+        'backendEntitlementProvider: not authenticated yet, deferring',
+        name: 'Subscription');
+    return null;
+  }
   final backendService = ref.watch(backendServiceProvider);
   try {
     final entitlement = await backendService.getBackendEntitlement();
@@ -63,6 +77,37 @@ final backendEntitlementProvider = FutureProvider<String?>((ref) async {
     developer.log('backendEntitlementProvider: error=$e',
         name: 'Subscription');
     return null;
+  }
+});
+
+/// Server-side kill switch for the router-level paywall gate.
+///
+/// Returns `true` when the paywall should be enforced (normal operation) and
+/// `false` when operations have globally disabled it in an emergency. The
+/// value is sourced from [BackendService.getSubscriptionConfig] which reads
+/// the `PAYWALL_ENABLED` env var on the Azure Function App.
+///
+/// Defaults to `true` on any fetch error so a backend outage doesn't
+/// accidentally disable the paywall.
+///
+/// Like [backendEntitlementProvider], this waits for the user to authenticate
+/// before attempting the fetch — `subscription-config` requires JWT.
+final paywallEnabledProvider = FutureProvider<bool>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  if (authState is! AuthStateAuthenticated) {
+    return true;
+  }
+  final backendService = ref.watch(backendServiceProvider);
+  try {
+    final config = await backendService.getSubscriptionConfig();
+    developer.log(
+        'paywallEnabledProvider: paywallEnabled=${config.paywallEnabled}',
+        name: 'Subscription');
+    return config.paywallEnabled;
+  } catch (e) {
+    developer.log('paywallEnabledProvider: error=$e (defaulting to enabled)',
+        name: 'Subscription');
+    return true;
   }
 });
 

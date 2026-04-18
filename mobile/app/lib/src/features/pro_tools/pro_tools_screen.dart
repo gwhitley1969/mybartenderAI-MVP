@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
-import '../subscription/subscription_sheet.dart';
 import 'data/pro_tools_repository.dart';
 import 'models/pro_tools_models.dart';
 import 'pro_tools_tier_screen.dart';
@@ -322,7 +321,7 @@ class _ProToolsScreenState extends ConsumerState<ProToolsScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/ask-bartender')),
+                  onPressed: () => context.go('/ask-bartender'),
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
@@ -339,7 +338,7 @@ class _ProToolsScreenState extends ConsumerState<ProToolsScreen> {
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/voice-ai')),
+                  onPressed: () => context.go('/voice-ai'),
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(

@@ -1,6 +1,6 @@
 # User Subscription Management — PostgreSQL
 
-**Last Updated**: March 4, 2026
+**Last Updated**: April 18, 2026 — v1.2.0+33 hard paywall rollout
 
 This guide explains how to view and modify user subscription status directly in the PostgreSQL database (`pg-mybartenderdb`).
 
@@ -113,11 +113,11 @@ The `users` table contains these identity and subscription columns:
 
 ### How Entitlement Checks Work
 
-**4-layer paywall defense (Feb 2026):**
+**4-layer paywall defense (v1.2.0+33 — April 2026):**
 
-1. **Dual-source `isPaidProvider` (Flutter — Riverpod):** Checks RevenueCat SDK cache first (fast, local, no network). If RevenueCat says not-paid, falls back to `backendEntitlementProvider` which fetches `entitlement` from the backend `subscription-status` endpoint (PostgreSQL authoritative source). This handles manual DB overrides (beta testers) and RevenueCat init failures. Result is cached per session. Includes `developer.log` diagnostic logging (filterable via `adb logcat | grep -i Subscription`).
-2. **Pre-navigation gate (Flutter):** `navigateOrGate()` uses a 3-step check: (a) `isPaidProvider` via `ref.read()` (cached state), (b) fresh RevenueCat SDK `getStatus()` call to bypass lazy provider init race (Feb 27 fix — the stream provider may still be `AsyncLoading` on first tap after launch), (c) `backendEntitlementProvider` await for PostgreSQL authoritative check. Free users see the subscription sheet *before* navigating to the AI screen. **11 buttons gated across 6 screens**: Home (Scan My Bar, Chat, Voice), Recipe Vault (Chat, Voice), Academy (Chat CTA, Voice CTA), Pro Tools (Chat CTA, Voice CTA), My Bar (AppBar scanner, empty-state Scanner).
-3. **Per-screen handlers (Flutter):** Each AI screen catches `EntitlementRequiredException` from backend 403 responses and shows a contextual paywall. Profile screen also uses `isPaidProvider` (dual-source) for subscription card display.
+1. **Router-level gate (Flutter — primary enforcement):** `subscriptionGateProvider` is a synchronous tri-state provider (`checking | paid | unpaid`) read inside the GoRouter `redirect` function in `main.dart`. Resolution order: server-side kill switch → RevenueCat fast path → wait while async sources are loading → backend PostgreSQL authoritative check. Unpaid users are redirected to a dedicated `/paywall` full-screen route *before any screen mounts*. The cocktail deep-link redirect was restructured so unpaid users tapping a Today's Special notification also land on `/paywall` instead of the cocktail detail screen.
+2. **Profile dual-source `isPaidProvider` (Flutter — Riverpod):** Checks RevenueCat SDK cache first (fast, local, no network). If RevenueCat says not-paid, falls back to `backendEntitlementProvider` (PostgreSQL authoritative, returns null until the user is authenticated). Displayed in Profile's subscription card.
+3. **Per-screen `EntitlementRequiredException` handlers (Flutter):** Defense-in-depth in AI feature screens (Chat, Voice, Smart Scanner) in case the router gate is bypassed. Each catches 403 responses from the backend and shows a contextual paywall.
 4. **Backend enforcement (Azure Functions):** Every protected function checks entitlement in PostgreSQL:
 
 ```javascript
@@ -126,9 +126,11 @@ if (user.entitlement !== 'paid') {
 }
 ```
 
-This gates access to: Voice AI, Smart Scanner, AI Bartender, and AI Refine. Free features (Recipe Vault browse/search, My Bar manual add/remove, Favorites, Today's Special, Academy content, Pro Tools content, Create Studio manual editing, Social sharing) are never gated.
+**What gets gated:** as of v1.2.0+33, **every in-app feature requires `entitlement = 'paid'`** — Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social, Chat, Voice, Smart Scanner, and AI Refine. The only routes reachable without a paid entitlement are `/login`, `/age-verification`, `/paywall`, Sign Out, and Delete Account.
 
-**Why two sources of truth?** RevenueCat tracks real store purchases (Google Play / App Store). PostgreSQL `users.entitlement` is the authoritative column that backend functions check. They normally stay in sync via the RevenueCat webhook → `subscription_events` → `user_subscriptions` → trigger → `users.entitlement`. But for manual DB overrides (e.g., `UPDATE users SET entitlement = 'paid'` for beta testers), RevenueCat has no purchase record. The `backendEntitlementProvider` bridges this gap on the mobile side.
+**Server-side kill switch:** `subscription-config` returns a `paywallEnabled` boolean controlled by the `PAYWALL_ENABLED` env var on the Function App (default `true`). Flipping it to `false` globally disables the router gate — `subscriptionGateProvider` short-circuits to `paid` for everyone. Use in an emergency rollback scenario when a paywall bug is breaking users and a new mobile release isn't viable in time.
+
+**Why two sources of truth?** RevenueCat tracks real store purchases (Google Play / App Store). PostgreSQL `users.entitlement` is the authoritative column that backend functions check. They normally stay in sync via the RevenueCat webhook → `subscription_events` → `user_subscriptions` → trigger → `users.entitlement`. But for manual DB overrides (e.g., `UPDATE users SET entitlement = 'paid'` for beta testers and reviewer demo accounts), RevenueCat has no purchase record. `backendEntitlementProvider` bridges this gap on the mobile side — and since v1.2.0+33 it explicitly `ref.watch`es `authNotifierProvider` so the fetch is deferred until after sign-in (prevents a cached 401 failure from sticking around forever and breaking the override path).
 
 ---
 

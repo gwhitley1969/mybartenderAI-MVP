@@ -4,6 +4,49 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## PAYWALL-001: Router Refresh Notifier Fires `backendEntitlementProvider` Before Auth (Would Break Beta Testers & Kill Switch)
+
+**Date Fixed**: April 18, 2026
+**Severity**: High (would have silently broken the manual PostgreSQL override path used by beta testers and the emergency `PAYWALL_ENABLED` kill switch)
+**Component**: Mobile (Flutter — `subscription_provider.dart`)
+**Files Modified**: `mobile/app/lib/src/providers/subscription_provider.dart`
+**Backend Deployment**: No
+**Database Migration**: No
+
+### Problem
+
+When the v1.2.0+33 hard paywall was being built, the `RouterRefreshNotifier` in `main.dart` was updated to listen for changes on `subscriptionStatusProvider`, `backendEntitlementProvider`, and `paywallEnabledProvider` so that a successful purchase would automatically dismiss the `/paywall` route.
+
+`ref.listen` on a `FutureProvider` triggers initial evaluation of that provider. The `RouterRefreshNotifier` is created during app bootstrap — **before the user has authenticated**. Both `backendEntitlementProvider` and `paywallEnabledProvider` issue authenticated HTTP calls that require a JWT. Called pre-auth, they got 401, returned `null` / `true` in the catch block, and Riverpod cached that error. When the user later signed in, the providers never re-evaluated because their cached result was already present.
+
+**Consequences that would have shipped:**
+- **Beta testers** with `UPDATE users SET entitlement = 'paid'` in PostgreSQL but no RevenueCat record would hit the paywall because `backendEntitlementProvider` was stuck at `null`.
+- **Emergency kill switch** (`PAYWALL_ENABLED=false` on the Function App) couldn't take effect because `paywallEnabledProvider` was stuck at its default `true`.
+
+### Fix
+
+Made both providers explicitly `ref.watch(authNotifierProvider)` and return early when `authState is! AuthStateAuthenticated`. Riverpod automatically re-evaluates the provider when the watched dependency changes, so once the user signs in, the HTTP call fires correctly.
+
+```dart
+final backendEntitlementProvider = FutureProvider<String?>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  if (authState is! AuthStateAuthenticated) return null;
+  // … auth'd → make the call
+});
+
+final paywallEnabledProvider = FutureProvider<bool>((ref) async {
+  final authState = ref.watch(authNotifierProvider);
+  if (authState is! AuthStateAuthenticated) return true; // fail-safe
+  // … auth'd → make the call
+});
+```
+
+### Verification
+
+Caught pre-ship. Would have manifested as: manual `entitlement = 'paid'` DB overrides produce a paywall loop for the affected user, and `PAYWALL_ENABLED=false` has no visible effect.
+
+---
+
 ## SUB-005: iOS Subscriber Paywall — Webhook Race Condition (User Record Not Yet Created)
 
 **Date Fixed**: February 27, 2026

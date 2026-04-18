@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../theme/theme.dart';
-import '../subscription/subscription_sheet.dart';
 import 'academy_category_screen.dart';
 import 'data/academy_repository.dart';
 import 'models/academy_models.dart';
@@ -311,7 +310,7 @@ class _AcademyScreenState extends ConsumerState<AcademyScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/ask-bartender')),
+                  onPressed: () => context.go('/ask-bartender'),
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
@@ -328,7 +327,7 @@ class _AcademyScreenState extends ConsumerState<AcademyScreen> {
               SizedBox(width: AppSpacing.md),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () async => navigateOrGate(context: context, ref: ref, navigate: () => context.go('/voice-ai')),
+                  onPressed: () => context.go('/voice-ai'),
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(

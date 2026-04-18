@@ -11,7 +11,6 @@ import '../../services/review_service.dart';
 import '../../services/user_settings_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
-import '../subscription/subscription_sheet.dart';
 import 'cocktail_detail_screen.dart';
 
 class RecipeVaultScreen extends ConsumerStatefulWidget {
@@ -292,11 +291,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
               // Chat button
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => navigateOrGate(
-                    context: context,
-                    ref: ref,
-                    navigate: () => context.push('/ask-bartender'),
-                  ),
+                  onPressed: () => context.push('/ask-bartender'),
                   icon: Icon(Icons.chat_bubble_outline, size: 18),
                   label: Text('Chat'),
                   style: ElevatedButton.styleFrom(
@@ -313,11 +308,7 @@ class _RecipeVaultScreenState extends ConsumerState<RecipeVaultScreen> {
               // Voice button
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => navigateOrGate(
-                    context: context,
-                    ref: ref,
-                    navigate: () => context.push('/voice-ai'),
-                  ),
+                  onPressed: () => context.push('/voice-ai'),
                   icon: Icon(Icons.mic, size: 18),
                   label: Text('Voice'),
                   style: ElevatedButton.styleFrom(

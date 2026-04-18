@@ -20,8 +20,11 @@ import 'src/features/profile/profile_screen.dart';
 import 'src/features/recipe_vault/cocktail_detail_screen.dart';
 import 'src/features/smart_scanner/smart_scanner_screen.dart';
 import 'src/models/auth_state.dart';
+import 'src/features/subscription/paywall_screen.dart';
 import 'src/providers/auth_provider.dart';
 import 'src/providers/cocktail_provider.dart';
+import 'src/providers/subscription_gate_provider.dart';
+import 'src/providers/subscription_provider.dart';
 import 'src/services/notification_service.dart';
 
 /// Global navigator key for navigation from notification taps
@@ -60,6 +63,28 @@ class RouterRefreshNotifier extends ChangeNotifier {
     // Listen to initial sync status changes
     ref.listen(initialSyncStatusProvider, (_, __) {
       debugPrint('[ROUTER] Initial sync status changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+
+    // Listen to subscription state changes — fires when RevenueCat stream
+    // yields a new status (purchase complete, restore, expiration) so the
+    // paywall route auto-dismisses once the gate flips to paid.
+    ref.listen(subscriptionStatusProvider, (_, __) {
+      debugPrint('[ROUTER] Subscription status changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+
+    // Listen to backend PostgreSQL entitlement — fires when the authoritative
+    // entitlement fetch resolves (handles manual DB overrides for beta testers).
+    ref.listen(backendEntitlementProvider, (_, __) {
+      debugPrint('[ROUTER] Backend entitlement changed - triggering redirect re-evaluation');
+      notifyListeners();
+    });
+
+    // Listen to the kill-switch flag — flipping this server-side globally
+    // enables/disables the paywall without a new mobile release.
+    ref.listen(paywallEnabledProvider, (_, __) {
+      debugPrint('[ROUTER] Paywall kill switch changed - triggering redirect re-evaluation');
       notifyListeners();
     });
   }
@@ -335,50 +360,63 @@ final routerProvider = Provider<GoRouter>((ref) {
       final authState = ref.read(authNotifierProvider);
       final isAgeVerified = ref.read(ageVerificationProvider);
       final initialSyncStatus = ref.read(initialSyncStatusProvider);
+      final gateState = ref.read(subscriptionGateProvider);
 
       // Get authentication status
       final isAuthenticated = authState is AuthStateAuthenticated;
       final isAuthenticating = authState is AuthStateLoading || authState is AuthStateInitial;
-      final isLoginRoute = state.matchedLocation == '/login';
-      final isAgeRoute = state.matchedLocation == '/age-verification';
-      final isInitialSyncRoute = state.matchedLocation == '/initial-sync';
-      // FIX: Allow cocktail detail route to bypass redirects (for notification deep linking)
-      final isCocktailRoute = state.matchedLocation.startsWith('/cocktail/');
+      final loc = state.matchedLocation;
+      final isLoginRoute = loc == '/login';
+      final isAgeRoute = loc == '/age-verification';
+      final isInitialSyncRoute = loc == '/initial-sync';
+      final isPaywallRoute = loc == '/paywall';
+      // Cocktail deep link bypasses age/auth (for notification taps) but is
+      // STILL subject to the subscription gate — unpaid users must not be
+      // able to sidestep the paywall via a cached notification tap.
+      final isCocktailRoute = loc.startsWith('/cocktail/');
 
-      // Don't redirect while checking authentication status
+      // 1. Don't redirect while checking authentication status
       if (isAuthenticating) {
         return null;
       }
 
-      // FIX: Allow cocktail routes through without age/auth checks
-      // This ensures notification deep links work properly
-      if (isCocktailRoute) {
-        return null;
-      }
-
-      // Check age verification first (unless already on age verification page)
-      if (!isAgeVerified && !isAgeRoute) {
+      // 2. Age verification — cocktail deep link bypass preserved
+      if (!isAgeVerified && !isAgeRoute && !isCocktailRoute) {
         return '/age-verification';
       }
-
-      // Skip these checks if on age verification page
       if (isAgeRoute) {
         return null;
       }
 
-      // Redirect to login if not authenticated and trying to access protected routes
-      if (!isAuthenticated && !isLoginRoute) {
+      // 3. Auth — cocktail deep link bypass preserved
+      if (!isAuthenticated && !isLoginRoute && !isCocktailRoute) {
         return '/login';
       }
-
-      // Redirect to home if authenticated and on login page
       if (isAuthenticated && isLoginRoute) {
         return '/';
       }
 
-      // Check if initial sync is needed (only for authenticated users)
-      // Don't redirect if already on initial-sync page, cocktail route (deep link), or still checking
-      if (isAuthenticated && !isInitialSyncRoute && !isCocktailRoute && !initialSyncStatus.isChecking) {
+      // 4. Subscription gate — applies to EVERY authenticated route, including
+      //    cocktail deep links. The paywall route is exempt (otherwise the
+      //    user can never reach the purchase UI).
+      if (isAuthenticated && !isPaywallRoute) {
+        if (gateState == SubscriptionGateState.checking) {
+          // Async sources still resolving — don't commit to a verdict yet.
+          return null;
+        }
+        if (gateState == SubscriptionGateState.unpaid) {
+          return '/paywall';
+        }
+      }
+      // If a paid user lands on /paywall (stale nav, notification race), kick
+      // them back to home.
+      if (gateState == SubscriptionGateState.paid && isPaywallRoute) {
+        return '/';
+      }
+
+      // 5. Initial sync — only paid users reach this branch (gate handled above)
+      if (isAuthenticated && !isInitialSyncRoute && !isCocktailRoute && !isPaywallRoute
+          && !initialSyncStatus.isChecking) {
         if (initialSyncStatus.needsSync) {
           return '/initial-sync';
         }
@@ -407,6 +445,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/initial-sync',
         builder: (BuildContext context, GoRouterState state) {
           return const InitialSyncScreen();
+        },
+      ),
+      // Paywall route (forced full-screen, non-dismissible for unpaid users)
+      GoRoute(
+        path: '/paywall',
+        builder: (BuildContext context, GoRouterState state) {
+          return const PaywallScreen();
         },
       ),
       // Cocktail detail route (for deep linking from notifications)

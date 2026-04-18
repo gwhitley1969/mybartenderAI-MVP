@@ -2,7 +2,7 @@
 
 ## Overview
 
-My AI Bartender uses a **single binary entitlement model**: users are either `paid` (subscribers) or `none` (non-subscribers). Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
+My AI Bartender uses a **single binary entitlement model**: users are either `paid` (active subscribers or trialing) or `none` (non-subscribers). As of v1.2.0+33 (April 2026), the app is fully paywalled — **every feature requires an active subscription**. Non-subscribers see a dedicated `/paywall` route after sign-in and cannot reach any other screen until they start a 7-day free trial or subscribe. Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
 
 Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 - **Android**: Google Play Billing with server-side verification through the `voice-purchase` function
@@ -16,8 +16,8 @@ Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
 
 | Entitlement | Access Level |
 |-------------|-------------|
-| `paid` | Full access: AI concierge (1M tokens/mo), Smart Scanner (100 scans/mo), Voice AI (60 min/mo), unlimited custom recipes |
-| `none` | Local cocktail database only. Paywall shown for gated features |
+| `paid` | Full access: Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social, AI concierge (1M tokens/mo), Smart Scanner (100 scans/mo), Voice AI (60 min/mo), unlimited custom recipes |
+| `none` | **No in-app access.** Router redirects to `/paywall` after sign-in. Only `/login`, `/age-verification`, `/paywall`, Sign Out, and Delete Account are reachable. |
 
 ### Subscription States
 
@@ -284,60 +284,16 @@ The subscription sheet includes `_attemptLazyInit()` for cases where RevenueCat 
 - Google-federated users can now reach subscription offerings (previously blocked)
 - On success, invalidates `subscriptionOfferingsProvider` and `subscriptionStatusProvider`
 
-### Pre-Navigation Paywall Gate (`subscription_sheet.dart`)
+### Router-Level Paywall Gate (v1.2.0+33)
 
-The `navigateOrGate()` helper gates AI feature buttons at the UI layer. It uses a 3-step check with increasing latency:
+Replaced the v1.1.x `navigateOrGate` per-button pattern. The whole app is now gated by a tri-state `subscriptionGateProvider` read inside the GoRouter `redirect` function at `main.dart`. See the **Hard Paywall Architecture** section below for full detail.
 
-1. **`isPaidProvider` via `ref.read()`** — cached Riverpod state (instant, no network)
-2. **Fresh RevenueCat SDK `getStatus()`** — reads SDK local cache directly, bypasses lazy stream provider init race (~1-5ms). Only runs if step 1 returned `false`. On success, invalidates `subscriptionStatusProvider` so future taps use the fast path
-3. **`backendEntitlementProvider` await** — PostgreSQL authoritative source, handles manual DB overrides and webhook timing. Only runs if steps 1-2 both returned not-paid
-
-```dart
-Future<void> navigateOrGate({
-  required BuildContext context,
-  required WidgetRef ref,
-  required VoidCallback navigate,
-}) async {
-  // Step 1: Cached provider (instant)
-  final isPaid = ref.read(isPaidProvider);
-  if (isPaid) { navigate(); return; }
-
-  // Step 2: Fresh SDK check (bypasses lazy provider init race)
-  final service = ref.read(subscriptionServiceProvider);
-  if (service.isInitialized) {
-    final freshStatus = await service.getStatus();
-    if (freshStatus.isPaid) {
-      ref.invalidate(subscriptionStatusProvider);
-      navigate(); return;
-    }
-  }
-
-  // Step 3: Backend entitlement (PostgreSQL authoritative)
-  // ... await backendEntitlementProvider if loading ...
-
-  // All checks failed → show paywall
-  showSubscriptionSheet(context, ...);
-}
-```
-
-**Gated buttons (11 total):**
-- Home screen: Scan My Bar, Chat, Voice (NOT Create — Create Studio is free)
-- Recipe Vault screen: Chat, Voice
-- Academy screen: Chat CTA, Voice CTA
-- Pro Tools screen: Chat CTA, Voice CTA
-- My Bar screen: AppBar scanner icon, empty-state Scanner button
-
-**4-layer paywall defense:**
-1. **Pre-navigation gate** (`navigateOrGate`): Prevents navigation to AI screens for free users. Includes fresh SDK check to handle lazy provider init race (Feb 27 fix)
-2. **Profile screen dual-source check**: `isPaidProvider` (RevenueCat + backend) displayed in subscription card
-3. **Per-screen handlers**: `EntitlementRequiredException` catch blocks show paywall if user reaches screen
-4. **Backend enforcement**: 403 `entitlement_required` response from Azure Functions
-
-**Diagnostic logging** (`developer.log` with `name: 'Subscription'`):
+**Diagnostic logging** (`developer.log` with `name: 'Subscription'` / `name: 'Analytics'`):
 - `isPaidProvider`: Logs RevenueCat result, backend entitlement value, loading/error states
-- `navigateOrGate`: Logs `isPaid` value, backend async state, paywall trigger
+- `subscriptionGateProvider`: Logs `checking` / `paid` / `unpaid` verdict with reason (RevenueCat vs backend vs kill-switch)
 - `backendEntitlementProvider`: Logs fetched entitlement or error
-- On-device: `adb logcat | grep -i Subscription`
+- `PaywallShown` / `PaywallPurchaseStarted` / `PaywallPurchaseCompleted` / `PaywallPurchaseCancelled` / `PaywallPurchaseError` / `PaywallRestoreAttempted` / `PaywallRestoreSucceeded` / `PaywallRestoreFailed` / `PaywallExitedViaSignOut` / `PaywallExitedViaDeleteAccount` — funnel events under `name: 'Analytics'`
+- On-device: `adb logcat | grep -iE 'Subscription|Analytics'`
 
 ### Purchase Service (`purchase_service.dart`)
 
@@ -589,6 +545,49 @@ See `docs/DELETE_USER.md` for full implementation details including database cas
 
 ---
 
+## Hard Paywall Architecture (v1.2.0+33 — April 2026)
+
+### Router-Level Gate
+
+The client-side paywall moved from per-button `navigateOrGate` wrappers to a single chokepoint inside the GoRouter `redirect` function (`lib/main.dart`).
+
+**New files:**
+- `lib/src/providers/subscription_gate_provider.dart` — tri-state `SubscriptionGateState { checking, paid, unpaid }` synchronously usable inside the router redirect. Resolution order: RevenueCat fast path → wait while loading → backend PostgreSQL authoritative check.
+- `lib/src/features/subscription/paywall_screen.dart` — full-screen `/paywall` route with trial eligibility detection (`Purchases.checkTrialOrIntroductoryPriceEligibility`), monthly + annual CTAs, Restore Purchases, Terms / Privacy / Sign Out / Delete Account footer, analytics `developer.log` events tagged `name: 'Analytics'`.
+
+**Redirect order in `main.dart`:**
+1. Age verification (bypassed by `/cocktail/:id` deep links — existing behavior)
+2. Authentication (bypassed by `/cocktail/:id` deep links — existing behavior)
+3. **Subscription gate (NEW)** — applies to every authenticated route *including* `/cocktail/:id`, so unpaid users who tap Today's Special notifications land on `/paywall`, not on the cocktail screen
+4. Initial sync (only paid users reach this branch — skips expensive DB download for non-subscribers)
+
+The `RouterRefreshNotifier` listens to `subscriptionStatusProvider`, `backendEntitlementProvider`, and `paywallEnabledProvider`; any of these changing re-fires the redirect without recreating the router.
+
+### Server-Side Kill Switch
+
+`subscription-config` returns a `paywallEnabled` boolean sourced from the `PAYWALL_ENABLED` env var on the Function App. Default is `true`. To globally disable the router-level paywall (emergency rollback without a new mobile release):
+
+```bash
+az functionapp config appsettings set --name func-mba-fresh \
+  --resource-group rg-mba-prod \
+  --settings "PAYWALL_ENABLED=false"
+```
+
+Takes effect on the next client fetch — no redeploy or restart needed. Re-enable with `PAYWALL_ENABLED=true`.
+
+### Auth-Guarded Async Providers
+
+`backendEntitlementProvider` and `paywallEnabledProvider` both `ref.watch(authNotifierProvider)` and return early (returning `null` / `true` respectively) when `authState is! AuthStateAuthenticated`. This prevents the router's refresh notifier from firing them before sign-in, failing with 401, and caching the failure — which would break both the kill switch and the manual PostgreSQL override path used by beta testers.
+
+### 4-Layer Paywall Defense
+
+1. **Router gate (primary)** — `subscriptionGateProvider` redirects unpaid users to `/paywall` before any screen mounts
+2. **Profile dual-source check** — `isPaidProvider` displays subscription state (RevenueCat + backend) in the manage-subscription card
+3. **Per-screen `EntitlementRequiredException` handlers** — defense-in-depth in AI feature screens (Chat, Voice, Smart Scanner) in case router gate is bypassed
+4. **Backend 403 `entitlement_required`** — every protected Function endpoint checks `users.entitlement = 'paid'` before executing
+
+---
+
 ## Related Documentation
 
 - [RevenueCat Documentation](https://docs.revenuecat.com/)
@@ -602,5 +601,5 @@ See `docs/DELETE_USER.md` for full implementation details including database cas
 
 ---
 
-*Last Updated: March 4, 2026*
+*Last Updated: April 18, 2026 — v1.2.0+33 hard paywall rollout*
 *Implementation Status: Backend + Mobile code complete for both platforms. iOS sandbox subscription testing verified (annual + trial purchases). Webhook auto-creates user records on race condition (SUB-005 fix). Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix). App Store products show "Ready to Submit" in RevenueCat — normal for pre-submission; sandbox purchases work correctly.*

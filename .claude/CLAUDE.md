@@ -25,8 +25,11 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 ### Business Model
 
-- **7-Day Free Trial**: Reduced AI access (50,000 tokens / 7 days, 10 scans / 7 days, 30 voice minutes / 7 days), unlimited access to local cocktail database
-- **Pro**: $3.99 / month or $39.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $3.99 for 60 additional minutes
+**As of v1.2.0+33 (April 18, 2026), the app is fully paywalled.** There is no freemium tier — every in-app feature requires an active trial or paid subscription. New and returning users without an entitlement are redirected to a dedicated `/paywall` route after sign-in by the GoRouter `redirect` function, and cannot reach any other screen without starting a trial, subscribing, signing out, or deleting their account.
+
+- **7-Day Free Trial**: Reduced quotas (50,000 tokens / 7 days, 10 scans / 7 days, 30 voice minutes / 7 days). Full access to all features during the trial. Auto-converts to Pro unless canceled before the trial ends.
+- **Pro**: $3.99 / month or $39.99 / year — 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days included + $3.99 for 60 additional minutes. Full access to all features.
+- **Emergency kill switch**: the backend `subscription-config` endpoint returns a `paywallEnabled` boolean sourced from the `PAYWALL_ENABLED` env var on `func-mba-fresh`. Flipping it to `false` short-circuits `subscriptionGateProvider` to `paid` for every user, globally disabling the router gate without a new mobile release.
 
 ## Tech Stack
 
@@ -209,7 +212,7 @@ Located in `kv-mybartenderai-prod`:
 - **Quotas** (enforced by backend, single binary entitlement model):
   - **Trial** (7-day free trial): 50,000 tokens, 10 scans, 30 voice minutes
   - **Pro** (paid subscribers): 1,000,000 tokens / 30 days, 100 scans / 30 days, 60 voice minutes / 30 days (+ $3.99/60 min top-up)
-  - **Free** (non-subscribers): Local cocktail database only, paywall for AI features
+  - **No entitlement** (non-subscribers): Zero in-app access. Router redirects to `/paywall` after sign-in. Only `/login`, `/age-verification`, `/paywall`, Sign Out, and Delete Account are reachable.
 
 ## Development Environment
 
@@ -433,7 +436,7 @@ flutter test
 
 ---
 
-**Last Updated**: March 27, 2026
+**Last Updated**: April 18, 2026
 **Project Phase**: Released Product
 **Primary Focus**: Production refinement and App Store submission
-**Recent Changes**: New logo/icon rebrand (v1.1.0+31), in-app review system, profile cleanup, pricing updates
+**Recent Changes**: Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

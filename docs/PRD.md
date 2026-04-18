@@ -135,7 +135,15 @@ To be the definitive mobile bartending companion that makes craft cocktail creat
 
 ## Product Features
 
-### Core Features (No Subscription Required)
+### Paywall Model (v1.2.0+33 — April 2026)
+
+As of v1.2.0+33, **every feature in the app is behind the subscription paywall**. New and existing users who launch the app must either start a 7-day free trial or subscribe ($3.99/mo or $39.99/yr) before they can use any feature other than sign-in, age verification, account deletion, and the paywall itself. This replaces the previous freemium model where Recipe Vault, My Bar, Favorites, and Today's Special were available without a subscription.
+
+The paywall is enforced client-side by a router-level subscription gate (`subscriptionGateProvider`) and server-side by existing entitlement checks on protected API endpoints. A server-side kill switch (`PAYWALL_ENABLED` env var on the Azure Function App) allows operations to globally disable the gate without a new mobile binary if an emergency rollback is needed.
+
+Local user data (My Bar inventory, Favorites, Custom Recipes) stored in SQLite persists across subscription lapses — users who resubscribe after an expired period get their data back intact.
+
+### Core Features (require active subscription)
 
 #### 1. Today's Special
 
@@ -618,7 +626,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 #### Subscription Model
 
-- **Free (No Subscription)**: Full offline database only
+- **Free (No Subscription)**: No in-app access. Users hit the `/paywall` route immediately after sign-in and can only sign out or delete their account — starting the trial or subscribing is the only way to reach any feature.
 - **7-Day Free Trial**: All AI features with reduced quotas — 50,000 chat tokens, 10 scanner scans, 30 voice minutes. Enforced server-side via `subscription_status = 'trialing'`. Automatically upgrades to full paid limits on conversion.
 - **Paid Subscription**: All AI features, voice, scanner, unlimited recipes ($3.99/mo or $39.99/yr) — 1,000,000 tokens, 100 scans, 60 voice minutes
 - **Voice Add-On**: +60 minutes for $3.99 (subscribers only)
@@ -1169,6 +1177,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 | Version | Date         | Author       | Changes                                                                                                                                                                                                                      |
 | ------- | ------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.0     | Apr 18, 2026 | Gene Whitley | **Hard paywall pivot (v1.2.0+33)**: removed freemium tier entirely. All features (Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social) now require an active 7-day trial or paid subscription. Implemented as a router-level `subscriptionGateProvider` with a full-screen `/paywall` route and a server-side `PAYWALL_ENABLED` kill switch. |
 | 1.0     | Oct 22, 2025 | Gene Whitley | Initial PRD creation                                                                                                                                                                                                         |
 | 2.0     | Dec 21, 2025 | Gene Whitley | Updated for Release Candidate status: corrected pricing, tier quotas, technical architecture (JWT-only auth, Claude Haiku for vision, Azure OpenAI Realtime for voice), marked Phases 1-3 complete                           |
 | 3.0     | Feb 13, 2026 | Gene Whitley | Subscription model migration: replaced Free/Premium/Pro tiers with binary paid/none entitlement model, updated pricing ($7.99/mo, $79.99/yr), voice add-on ($4.99/60 min), updated quotas to match RevenueCat implementation |
@@ -1183,5 +1192,5 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 ---
 
 **Document Status**: RELEASE CANDIDATE
-**Last Updated**: February 25, 2026
-**Document Version**: 3.5
+**Last Updated**: April 18, 2026
+**Document Version**: 4.0

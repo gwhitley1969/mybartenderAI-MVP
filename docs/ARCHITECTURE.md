@@ -11,7 +11,7 @@
 - Azure Blob for cocktail images (US-hosted) and JSON snapshots
 - Key Vault for secrets (accessed via Managed Identity); App Insights for telemetry
 - **Managed Identity** for Key Vault and Storage access
-- All free features run locally on device (offline-first)
+- Subscriber features run locally on device where possible (offline-first within the subscription)
 - Mobile → Azure Front Door (`share.mybartenderai.com`) → APIM (`apim-mba-002`) → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
 - Azure Front Door (`fd-mba-share`) provides the custom domain entry point, DDoS protection, serves the public cocktail preview for social sharing, and hosts `assetlinks.json` for Android App Links domain verification
   - Routes: `route-default` (`/*` → static website), `route-api` (`/api/*` → APIM), `route-well-known` (`/.well-known/*` → APIM with `/api` origin path)
@@ -38,7 +38,7 @@
 - ✅ **Free Trial Guardrails** - Reduced quotas for 7-day trial (30 voice min, 50K tokens, 10 scans) with automatic upgrade on conversion
 - ✅ **Today's Special** - Daily cocktail with push notifications and deep linking
 - ✅ **In-App Review** - Two-step review prompt with 9 win moment triggers (hybrid direct + deferred prompting), eligibility gate, feedback email fallback
-- ✅ **Pre-Navigation Paywall Gates** - `navigateOrGate` helper gates 11 AI feature buttons across 6 screens; free users see subscription sheet before navigating. Uses 3-step check: cached provider → fresh SDK call (bypasses lazy init race) → backend entitlement await
+- ✅ **Router-Level Hard Paywall (v1.2.0+33)** - The client-side paywall moved from 11 button-level `navigateOrGate` gates to a single chokepoint inside the GoRouter `redirect` function at `main.dart`. A new `subscriptionGateProvider` returns a tri-state (`checking | paid | unpaid`) synchronously; unpaid users are redirected to a dedicated `/paywall` full-screen route that handles trial-eligibility detection (`Purchases.checkTrialOrIntroductoryPriceEligibility`), subscription purchase, restore, sign-out, and delete-account actions. The gate also honors a server-side `paywallEnabled` kill switch returned by `subscription-config` — flipping `PAYWALL_ENABLED=false` on the Function App globally disables the gate without a new mobile binary. All currently-free features (Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social) are now subscription-gated. The cocktail deep-link redirect was restructured so Today's Special notification taps also honor the gate — tapping a notification while unpaid lands on `/paywall`, which is the intended conversion hook.
 - ✅ **Dual-Source Subscription Check** - `isPaidProvider` checks RevenueCat (fast, local) then falls back to `backendEntitlementProvider` (PostgreSQL authoritative). Handles manual DB overrides for beta testers and RevenueCat init failures. Backend `subscription-status` endpoint returns `entitlement` field from `users` table. Profile screen also uses `isPaidProvider` to display correct subscription state
 - ✅ **Subscription Diagnostic Logging** - `developer.log` with `name: 'Subscription'` in `isPaidProvider`, `backendEntitlementProvider`, and `navigateOrGate` for on-device diagnosis via `adb logcat | grep -i Subscription`
 - ✅ **Entra Sub-Based RevenueCat App User ID** - `Purchases.logIn(userId)` uses opaque Entra `sub` claim (per RevenueCat best practices — email NOT recommended as App User ID). `Purchases.setEmail(email)` sets `$email` subscriber attribute for dashboard search via Ctrl+K. No email dependency for init — ALL users can subscribe (including Google-federated). 6-layer email extraction populates `$email` attribute when available. `logout()` resets `_isInitialized` for clean re-login. Backend webhook uses case-insensitive `LOWER(azure_ad_sub)` lookup (RevenueCat lowercases App User IDs; see SUB-004). Database has `idx_users_email_lower` and `idx_users_azure_ad_sub_lower` indexes
@@ -130,7 +130,7 @@ sequenceDiagram
   M->>APIM: POST /v1/voice/complete (record usage)
 
   Note over M: All images stored locally on device
-  Note over M: All free features run offline
+  Note over M: Subscriber features run offline where possible
 
   Note over M,AI: Subscription Flow (RevenueCat — Both Platforms)
   M->>APIM: GET /v1/subscription/config (JWT)
@@ -274,16 +274,17 @@ const result = await client.getChatCompletions(deployment, messages, options);
 
 ## Entitlement Quotas (Monthly)
 
-| Feature            | Free (none) | Trial (7 days)     | Subscriber (paid)                     |
-| ------------------ | ----------- | ------------------ | ------------------------------------- |
-| AI Tokens          | 0           | 50,000             | 1,000,000                             |
-| Scanner (Vision)   | 0           | 10 scans           | 100 scans                             |
-| Voice Assistant    | 0           | 30 min             | 60 min included + $3.99/60 min add-on |
-| Custom Recipes     | Unlimited   | Unlimited          | Unlimited                             |
-| Snapshot Downloads | Unlimited   | Unlimited          | Unlimited                             |
-| Price              | Free        | Free (7 days)      | $3.99/mo or $39.99/yr                 |
+| Feature            | No entitlement (none)    | Trial (7 days)     | Subscriber (paid)                     |
+| ------------------ | ------------------------ | ------------------ | ------------------------------------- |
+| In-app access      | None — redirect to `/paywall` | Full (reduced quotas) | Full                              |
+| AI Tokens          | 0                        | 50,000             | 1,000,000                             |
+| Scanner (Vision)   | 0                        | 10 scans           | 100 scans                             |
+| Voice Assistant    | 0                        | 30 min             | 60 min included + $3.99/60 min add-on |
+| Custom Recipes     | N/A (no access)          | Unlimited          | Unlimited                             |
+| Snapshot Downloads | N/A (no access)          | Unlimited          | Unlimited                             |
+| Price              | N/A                      | Free (7 days)      | $3.99/mo or $39.99/yr                 |
 
-**Note**: Free users have access to the local cocktail database only. All AI features (chat, scanner, voice) require a paid subscription. 7-day free trial available on monthly plan with guardrailed limits to prevent API abuse.
+**Note**: As of v1.2.0+33, **users without an entitlement have no in-app access**. They are redirected to `/paywall` after sign-in and cannot reach any other screen. To explore the app, a user must start the 7-day free trial (reduced quotas server-enforced) or subscribe. Trial-ineligible users (those who already consumed a trial on the same Apple ID / Google account) see a direct subscribe CTA with no trial option.
 
 **Trial Limit Enforcement**: Trial limits are enforced entirely server-side. The subscription webhook detects `period_type === 'TRIAL'` from RevenueCat and sets `subscription_status = 'trialing'` with reduced quotas. On trial→paid conversion (`RENEWAL` event), limits automatically upgrade to full paid quotas. No DB migration needed — reuses existing `subscription_status` column and `'trialing'` constraint from migration 011.
 
@@ -319,7 +320,7 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 - **Token expiration** - short-lived access tokens (~1 hour)
 - **Silent refresh** - automatic token renewal
 - **Audit trail** - all requests logged with user ID
-- **4-layer paywall defense** - pre-navigation UI gate (`navigateOrGate` with fresh SDK check for lazy init race) → Profile screen dual-source check → per-screen `EntitlementRequiredException` handlers → backend 403 enforcement
+- **4-layer paywall defense** - router-level `subscriptionGateProvider` tri-state redirect → Profile screen dual-source check → per-screen `EntitlementRequiredException` handlers → backend 403 enforcement. With the router gate now covering the whole app, the per-screen handlers are defense-in-depth rather than the primary control.
 
 ## API Management (APIM) Configuration
 
@@ -332,10 +333,9 @@ The mobile app uses JWT-only authentication. APIM validates the JWT token via po
 
 ### Subscription Entitlements
 
-**Free (none):**
+**No entitlement (`entitlement = 'none'`):**
 
-- Features: Local cocktail database, basic search, browse recipes, My Bar (manual), Favorites, Today's Special, Academy content, Pro Tools content, Create Studio (manual editing), Social sharing
-- AI features: None — pre-navigation paywall gate (`navigateOrGate`) shows subscription sheet before navigating to AI screens (Chat, Voice, Scanner). 11 buttons gated across 6 screens (Home, Recipe Vault, Academy, Pro Tools, My Bar). Uses 3-step check (cached → fresh SDK → backend) to avoid false-positive paywalls for trial users. Backend 403 enforcement remains as defense-in-depth.
+- In-app access: **None**. Router redirects to `/paywall` after sign-in. Only `/login`, `/age-verification`, `/paywall`, Sign Out, and Delete Account are reachable. Enforced client-side by `subscriptionGateProvider` (tri-state) inside the GoRouter `redirect` function at `main.dart`. Backend 403 `entitlement_required` remains on every protected endpoint as defense-in-depth.
 
 **Subscriber (paid):**
 
@@ -442,7 +442,7 @@ sequenceDiagram
   M->>BL: Download SQLite snapshot (signed URL)
   M->>BL: Download ALL images during install/update (signed URL)
   M->>M: Store images + data locally
-  M->>M: All free features run offline
+  M->>M: Subscriber features run offline where possible
 ```
 
 ### Snapshot Retention
@@ -738,7 +738,7 @@ sequenceDiagram
 - **Updates**: Download only new/changed images (delta sync via manifest)
 - **Source**: TheCocktailDB images re-hosted in Azure Blob Storage (US region)
 - **Local Storage**: All images stored on device for instant offline access
-- **No Network**: Free features (browse, search, view recipes) work 100% offline
+- **No Network**: Subscribers can browse, search, and view recipes fully offline after the initial sync
 - **Subscriber Features**: AI recommendations, vision, voice require network + JWT authentication + paid entitlement
 
 ## Future Enhancements
@@ -846,15 +846,15 @@ flutter build apk --release
 
 ### Revenue Model
 
-- **Free ($0/month)**: Local cocktail database only, drives conversion
+- **No entitlement ($0/month)**: No in-app access; router redirects to `/paywall` (drives conversion — trial/subscribe is the only way in)
 - **Subscriber ($3.99/month or $39.99/year)**: Full AI access (1M tokens, 100 scans, 60 min voice)
 - **Voice Add-on ($3.99)**: +60 minutes, non-expiring, repeatable
 - **Target**: 1,000 subscribers = $3,990 revenue, ~$500 AI costs = **87% margin**
 
 ---
 
-**Last Updated**: March 14, 2026
-**Architecture Version**: 4.9 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review (Hybrid Direct + Deferred Prompting) + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Pre-Navigation Paywall Gates + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID + Profile Rate & Review)
+**Last Updated**: April 18, 2026 — v1.2.0+33 hard paywall rollout
+**Architecture Version**: 5.0 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review (Hybrid Direct + Deferred Prompting) + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Router-Level Hard Paywall + Server-Side Kill Switch + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID + Profile Rate & Review)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)
 **Security Level**: Production-ready with Managed Identity + Complete APIM JWT Validation + Webhook Fail-Closed Auth + Input Validation + No Stack Trace Leakage + 4-Layer Paywall Defense

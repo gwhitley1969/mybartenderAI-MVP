@@ -1126,7 +1126,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 - `POST /api/v1/vision/analyze` - Smart Scanner (Paid: 100 scans/month, Trial: 10)
 - `POST /api/v1/voice/session` - Voice AI session token (Paid: 60 min/month, Trial: 30 min)
 - `GET /api/v1/voice/quota` - Voice minutes remaining
-- `POST /api/v1/voice/purchase` - Purchase voice minutes ($3.99/60 min add-on)
+- `POST /api/v1/voice/purchase` - **Deprecated (v1.2.1+35)**, still deployed as a rollback path. Voice-minute add-ons ($3.99/60 min) are now purchased via the RevenueCat SDK on both platforms and credited by the `subscription-webhook` `NON_RENEWING_PURCHASE` handler
 
 **Subscription Management**:
 
@@ -1177,6 +1177,7 @@ Home → My Bar → Scan → Capture Photo → Review Detected → Confirm → U
 
 | Version | Date         | Author       | Changes                                                                                                                                                                                                                      |
 | ------- | ------------ | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4.1     | Jul 27, 2026 | Gene Whitley | **Google Play Billing 8 compliance (v1.2.1+35)**: removed the `in_app_purchase` plugin and unified all purchases on RevenueCat 10.4.3, which bundles Play Billing 8.3.0 — clears the Play policy requiring ≥8.0.0 by Aug 30, 2026. Voice-minute add-ons now use one code path on both platforms, credited by the `NON_RENEWING_PURCHASE` webhook; `POST /v1/voice/purchase` is deprecated but still deployed. Zero backend or schema changes. Also fixed a pre-existing bug in which Android voice-minute purchases had never worked (`BUG_FIXES.md` SUB-006) |
 | 4.0     | Apr 18, 2026 | Gene Whitley | **Hard paywall pivot (v1.2.0+33)**: removed freemium tier entirely. All features (Recipe Vault, My Bar, Favorites, Today's Special, Academy, Pro Tools, Create Studio, Social) now require an active 7-day trial or paid subscription. Implemented as a router-level `subscriptionGateProvider` with a full-screen `/paywall` route and a server-side `PAYWALL_ENABLED` kill switch. |
 | 1.0     | Oct 22, 2025 | Gene Whitley | Initial PRD creation                                                                                                                                                                                                         |
 | 2.0     | Dec 21, 2025 | Gene Whitley | Updated for Release Candidate status: corrected pricing, tier quotas, technical architecture (JWT-only auth, Claude Haiku for vision, Azure OpenAI Realtime for voice), marked Phases 1-3 complete                           |

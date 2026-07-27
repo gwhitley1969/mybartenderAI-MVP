@@ -1011,18 +1011,23 @@ Products show "Ready to Submit" (yellow) in RevenueCat — this is normal for pr
 | 1 month | 5 minutes |
 | 1 year | 1 hour |
 
-### Voice Minutes Purchase Path (iOS)
+### Voice Minutes Purchase Path (both platforms as of v1.2.1+35)
 
-iOS uses RevenueCat SDK for voice minutes (not `in_app_purchase` plugin like Android):
+This was iOS-only until July 2026. **Android now uses the identical path** — the `in_app_purchase` plugin was removed for Google Play Billing 8 compliance, so there is no longer a per-platform split:
 
 ```
-User taps "Buy 60 Minutes" → RevenueCat SDK → StoreKit → Apple processes purchase
+User taps "Buy 60 Minutes" → RevenueCat SDK → StoreKit / Google Play → store processes purchase
     → RevenueCat webhook → subscription-webhook function
     → NON_RENEWING_PURCHASE event → credits 60 minutes in PostgreSQL
     → App refreshes voiceQuotaProvider (2-second delay for webhook processing)
 ```
 
-`onVerifyPurchase` callback is `null` on iOS — RevenueCat handles validation.
+Implementation notes:
+- `Purchases.purchase(PurchaseParams.storeProduct(...))` — `purchaseStoreProduct()` is deprecated in purchases_flutter 10.x
+- Product lookup passes `productCategory: ProductCategory.nonSubscription`. This is a **no-op on iOS** but mandatory on Android, where the `subscription` default makes one-time products return an empty list
+- The `onVerifyPurchase` callback no longer exists — there is no direct backend verification on either platform. RevenueCat validates receipts for both stores
+
+**iOS testing status:** the voice-minutes consumable has still never been exercised on iOS (`REVENUECAT_PLAN.md` §7E item 6), and the same code now serves Android. One sandbox session validates the shared design, but each store needs its own run — Android also requires an Internal Testing install, since Play Billing cannot be tested from a local build.
 
 ### Bug Fix: Webhook Race Condition (SUB-005)
 

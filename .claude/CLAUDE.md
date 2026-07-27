@@ -60,6 +60,8 @@ All core features implemented and tested. Ready for Play Store deployment.
 - **Authentication**: Entra External ID (JWT) + Microsoft Graph API for email retrieval
 
 - **Subscriptions**: RevenueCat (Google Play + App Store), Entra sub-based App User ID + $email subscriber attribute
+  - `purchases_flutter` is the **only** billing SDK — it bundles Google Play Billing 8.3.0. `in_app_purchase` was removed in v1.2.1+35 for Play Billing 8 compliance; do not reintroduce it (its Billing 8 releases require Flutter >=3.44 / Dart ^3.12, and a second billing dependency reopens the Gradle version-conflict problem)
+  - Voice-minute consumables use the same RevenueCat path on both platforms. Product lookups **must** pass `productCategory: ProductCategory.nonSubscription` — the default is `subscription` and silently returns nothing for Android INAPPs (no effect on iOS)
 
 - **Load Balancer**: Azure Front Door (`fd-mba-share`) external custom domain `share.mybartenderai.com`. 
 
@@ -436,7 +438,7 @@ flutter test
 
 ---
 
-**Last Updated**: April 18, 2026
+**Last Updated**: July 27, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Production refinement and App Store submission
-**Recent Changes**: Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.
+**Primary Focus**: Google Play Billing 8 compliance (deadline Aug 30, 2026), then App Store submission
+**Recent Changes**: Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

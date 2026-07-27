@@ -33,7 +33,13 @@
 -dontwarn com.revenuecat.purchases.**
 
 # Google Play Billing
+# Legacy AIDL package (pre-Billing-Library) — retained for safety
 -keep class com.android.vending.billing.** { *; }
+# Play Billing Library 8.x — pulled in transitively by purchases_flutter.
+# The AAR ships consumer rules, but R8 runs on release builds here
+# (FlutterPlugin sets isMinifyEnabled=true) so keep these explicit.
+-keep class com.android.billingclient.** { *; }
+-dontwarn com.android.billingclient.**
 
 # WebRTC
 -keep class org.webrtc.** { *; }

@@ -1,6 +1,24 @@
 # Voice Minute Purchase - Implementation Plan
 
-> **Note (February 2026):** This document was written during the original Free/Premium/Pro tier model. The subscription model has since been simplified to a binary `paid`/`none` entitlement with 60 included voice minutes/month and $4.99/60-minute add-on packs. The mobile app now sends product ID `voice_minutes_60`. See `SUBSCRIPTION_DEPLOYMENT.md` for the current architecture. **Known discrepancy:** The backend `voice-purchase/index.js` still references `voice_minutes_20` and credits 20 minutes at $4.99 — this needs a backend code update to align with the mobile app.
+> # ⚠️ HISTORICAL — SUPERSEDED (Jul 27, 2026, v1.2.1+35)
+>
+> **This document describes an architecture that is no longer in use.** It is retained for the database schema, quota-function design, and UI rationale, which remain accurate. Everything about the *purchase mechanism* is obsolete.
+>
+> **What changed:** the `in_app_purchase` plugin was removed for Google Play Billing 8 compliance. Both platforms now purchase through the RevenueCat SDK and are credited by the `subscription-webhook` `NON_RENEWING_PURCHASE` handler.
+>
+> | This document says | Current reality |
+> |---|---|
+> | Phase 1.2-1.4, 2.2: Google Cloud service account, `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY`, `voice-purchase` token verification | Not used. `voice-purchase` is deprecated but still deployed as a rollback path |
+> | Phase 3.1: `in_app_purchase: ^3.1.13` | Removed. `purchases_flutter: ^10.4.3` only |
+> | Phase 3.3: `_inAppPurchase.buyConsumable(...)` | `Purchases.purchase(PurchaseParams.storeProduct(...))` |
+> | Phase 3.5: purchase-stream listener + backend verification callback | Deleted. `PurchaseNotifier.purchaseVoiceMinutes()` refreshes the quota after a 2s webhook settle |
+> | Price $4.99 / 20 minutes | **$3.99 / 60 minutes** |
+>
+> Product lookups now **must** pass `productCategory: ProductCategory.nonSubscription` — the default is `subscription` and silently returns nothing for Android INAPPs.
+>
+> The `voice_minutes_20` vs `voice_minutes_60` discrepancy this note used to flag was resolved in `REVENUECAT_PLAN.md` Phase 5A and is now moot — the webhook handler is the only crediting path and has always credited 60.
+>
+> **Current architecture:** `SUBSCRIPTION_DEPLOYMENT.md`. **Rationale for the change:** `DEPLOYMENT_STATUS.md` v1.2.1+35. **Bug found in the process:** `BUG_FIXES.md` SUB-006.
 
 **Created:** December 22, 2025
 **Status:** Planning (partially superseded)

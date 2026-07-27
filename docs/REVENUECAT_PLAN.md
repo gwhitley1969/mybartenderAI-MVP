@@ -103,7 +103,7 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 ### 1D. Verify All Three Products Exist ✅
 
 - **Subscriptions**: `pro_monthly` (Active), `pro_annual` (Active)
-- **One-time products**: `voice_minutes_60` (status TBD)
+- **One-time products**: `voice_minutes_60` — **confirmed Active** (Jul 27, 2026). Verified via the RevenueCat API: product `prodc086b931c2` on app `appe24e106c66` (My AI Bartender — Play Store), `store_identifier: voice_minutes_60`, `state: active`, `one_time.is_consumable: true`. As of v1.2.1+35 this mapping is load-bearing — it is the only path for Android voice-minute purchases.
 
 ### 1E. Add Free Trial Offer to `pro_monthly`
 
@@ -336,7 +336,9 @@ Added `import 'dart:io' show Platform;`. Uses `config.revenueCatAppleApiKey` on 
 - iOS routes through `_purchaseVoiceMinutesIOS()` using RevenueCat SDK
 - Android flow completely unchanged
 
-**Why iOS is different**: Android voice purchases go through Google Play's `in_app_purchase` plugin with direct backend verification. iOS StoreKit receipts can't be verified by the Google Play API, so iOS uses RevenueCat SDK — the RevenueCat webhook handles crediting 60 minutes.
+**Why iOS was different**: Android voice purchases went through Google Play's `in_app_purchase` plugin with direct backend verification. iOS StoreKit receipts can't be verified by the Google Play API, so iOS used the RevenueCat SDK — the RevenueCat webhook handled crediting 60 minutes.
+
+> **⚠️ Superseded (Jul 27, 2026 — v1.2.1+35):** the platform split described in 6C/6D no longer exists. `in_app_purchase` was removed for Google Play Billing 8 compliance and **Android now uses the same RevenueCat path as iOS**. `_purchaseVoiceMinutesIOS()`, the `onVerifyPurchase` callback, and the `_isAvailable` gate were all deleted; `purchaseStoreProduct()` was replaced with `purchase(PurchaseParams.storeProduct(...))`, and product lookups must pass `productCategory: ProductCategory.nonSubscription` (a no-op on iOS, mandatory on Android). See `DEPLOYMENT_STATUS.md` v1.2.1+35 and `BUG_FIXES.md` SUB-006.
 
 ### 6D. Make onVerifyPurchase optional + iOS quota refresh
 
@@ -417,4 +419,4 @@ Verified: app launches and subscription init logs "Android API key retrieved".
 
 ---
 
-**Last Updated**: February 27, 2026
+**Last Updated**: July 27, 2026 — v1.2.1+35 removed `in_app_purchase`; both platforms now purchase voice-minute consumables through RevenueCat (Phases 6C/6D superseded, §1D verified)

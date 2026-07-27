@@ -196,7 +196,12 @@ class SubscriptionService {
     debugPrint('SubscriptionService: Purchasing package: ${package.identifier}');
 
     try {
-      final customerInfo = await Purchases.purchasePackage(package);
+      // purchasePackage is deprecated in purchases_flutter 10.x in favour of
+      // purchase(PurchaseParams). PurchaseResult wraps CustomerInfo plus the
+      // StoreTransaction; we only need the former, so callers of this wrapper
+      // keep seeing CustomerInfo? and stay unchanged.
+      final result = await Purchases.purchase(PurchaseParams.package(package));
+      final customerInfo = result.customerInfo;
       _cachedCustomerInfo = customerInfo;
       _statusController.add(_parseCustomerInfo(customerInfo));
       debugPrint('SubscriptionService: Purchase successful');

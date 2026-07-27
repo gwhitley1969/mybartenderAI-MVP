@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 import '../services/voice_ai_service.dart';
 import '../providers/purchase_provider.dart';
 
@@ -102,7 +102,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
   Widget _buildFullWarning(
     BuildContext context,
     _WarningStyling styling,
-    AsyncValue<ProductDetails?> product,
+    AsyncValue<rc.StoreProduct?> product,
   ) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -132,7 +132,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
               icon: const Icon(Icons.add, size: 18),
               label: Text(
                 productDetails != null
-                    ? '${styling.buttonText} - ${productDetails.price}'
+                    ? '${styling.buttonText} - ${productDetails.priceString}'
                     : '${styling.buttonText} - \$3.99',
               ),
               style: ElevatedButton.styleFrom(
@@ -174,7 +174,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
   Widget _buildCompactWarning(
     BuildContext context,
     _WarningStyling styling,
-    AsyncValue<ProductDetails?> product,
+    AsyncValue<rc.StoreProduct?> product,
   ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -208,7 +208,7 @@ class VoiceMinutesWarning extends ConsumerWidget {
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
-                productDetails != null ? productDetails.price : '\$3.99',
+                productDetails != null ? productDetails.priceString : '\$3.99',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: Colors.green,

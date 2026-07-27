@@ -4,6 +4,67 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## SUB-006: `PurchaseService` Never Initialized — Android Voice-Minute Purchases Never Worked
+
+**Date Fixed**: July 27, 2026
+**Severity**: High (a paid, advertised feature was unreachable on Android since it shipped)
+**Component**: Mobile (Flutter — `purchase_provider.dart`, `purchase_service.dart`)
+**Files Modified**: `mobile/app/lib/src/providers/purchase_provider.dart`, `mobile/app/lib/src/services/purchase_service.dart`
+**Backend Deployment**: No
+**Database Migration**: No
+
+### Problem
+
+`initializePurchaseService(Ref ref)` was defined at `purchase_provider.dart:39` and **called from nowhere** — a project-wide grep returned exactly one hit, the definition itself. Consequently `PurchaseService.initialize()` never ran, `_isAvailable` was never assigned, and it stayed at its `false` default.
+
+`purchaseVoiceMinutes()` branched on platform:
+
+```dart
+Future<bool> purchaseVoiceMinutes() async {
+  if (Platform.isIOS) return _purchaseVoiceMinutesIOS();   // never reads _isAvailable
+  if (!_isAvailable) {                                      // Android: always true
+    _purchaseController.add(PurchaseResult(
+      state: PurchaseState.error,
+      message: 'In-app purchases not available on this device',
+    ));
+    return false;
+  }
+  // …unreachable on Android
+}
+```
+
+So **every** Android attempt to buy a 60-minute voice pack failed immediately with *"In-app purchases not available on this device."* iOS was unaffected because its branch returns before the gate is consulted.
+
+**Why it went unnoticed:** the failure is indistinguishable from a device that genuinely lacks billing support, and the Android voice add-on purchase is the one item never checked off in `SUBSCRIPTION_DEPLOYMENT.md`'s Android test list. The backend was never at fault — `voice-purchase` and the webhook handler were both correct and simply never received a request.
+
+### Fix
+
+Found while migrating to RevenueCat for Google Play Billing 8 compliance (v1.2.1+35). Rather than wiring the dead initializer into app startup, both the initializer and the gate were **deleted**:
+
+- `PurchaseService` no longer has `initialize()`, `_isAvailable`, or `isInitialized`. There is nothing to sequence, so no ordering dependency on `SubscriptionService.initialize()` (called from `auth_provider.dart:294`) can be introduced later.
+- `initializePurchaseService()` and the unused `purchasesAvailableProvider` were removed.
+- The post-purchase quota refresh moved from the dead initializer's stream listener into `PurchaseNotifier.purchaseVoiceMinutes()` — a path that is actually reached — with a 2s delay for the RevenueCat webhook to settle before invalidating `voiceQuotaProvider`.
+
+Re-pointing `_isAvailable` at `Purchases.isConfigured` was considered and rejected: it preserves a gate that serves no purpose and reintroduces an initialization-order hazard.
+
+### Related Trap (prevented, never shipped)
+
+While rewriting the Android path onto RevenueCat, the obvious move — reuse the working iOS method verbatim — would have shipped a second silent failure. `Purchases.getProducts()` defaults to `ProductCategory.subscription`, and per the SDK's own doc comment:
+
+> *"If the products are Android INAPPs, this needs to be `ProductCategory.nonSubscription` otherwise the products won't be found. This parameter only has effect in Android."*
+
+`voice_minutes_60` is a one-time INAPP. The pre-existing iOS call passed no category and worked only because the parameter is a no-op on iOS. All product lookups now pass `productCategory: rc.ProductCategory.nonSubscription` explicitly.
+
+**Lesson:** working cross-platform code is evidence only for the platform it ran on. A shared-looking SDK call can carry a platform-specific contract.
+
+### Verification
+
+- `flutter analyze --no-pub` clean on all changed files
+- Release AAB builds; R8 mapping confirms `com.android.billingclient:billing@@8.3.0` and no `io.flutter.plugins.inapppurchase` classes
+- ⏳ **Outstanding**: end-to-end purchase on a real device from an Internal Testing install. Two checks matter — that the product is *found* (proves the `nonSubscription` fix), and that a *second* purchase credits another 60 minutes (proves RevenueCat consumes the consumable; "already owned" would be a blocker)
+
+---
+
 ## PAYWALL-001: Router Refresh Notifier Fires `backendEntitlementProvider` Before Auth (Would Break Beta Testers & Kill Switch)
 
 **Date Fixed**: April 18, 2026

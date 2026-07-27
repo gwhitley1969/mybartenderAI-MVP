@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.2.0+34
+version: 1.2.1+35
 
 environment:
   sdk: ^3.9.2
@@ -85,8 +85,10 @@ dependencies:
   package_info_plus: ^8.3.0  # Read version from platform metadata (auto-synced with pubspec.yaml)
 
   # In-app purchases
-  in_app_purchase: ^3.1.13
-  purchases_flutter: ^8.4.2  # RevenueCat SDK for subscription management
+  # RevenueCat is the ONLY billing SDK — it bundles Google Play Billing 8.3.0.
+  # in_app_purchase was removed in v1.2.1+35: its Android impl pinned Billing 7.1.1
+  # and every Billing 8 release of it requires Flutter >=3.44 / Dart ^3.12.
+  purchases_flutter: ^10.4.3  # RevenueCat SDK: subscriptions + voice-minute consumables
   in_app_review: ^2.0.10  # App Store / Play Store review prompts
 
   # Preferences

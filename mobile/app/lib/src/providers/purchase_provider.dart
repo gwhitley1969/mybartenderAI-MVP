@@ -1,8 +1,6 @@
-import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:purchases_flutter/purchases_flutter.dart' as rc;
 import '../services/purchase_service.dart';
-import 'backend_provider.dart';
 import 'voice_ai_provider.dart';
 
 /// Provider for the purchase service singleton
@@ -12,10 +10,10 @@ final purchaseServiceProvider = Provider<PurchaseService>((ref) {
   return service;
 });
 
-/// Provider for the voice minutes product details (price, description)
-final voiceMinutesProductProvider = FutureProvider<ProductDetails?>((ref) async {
+/// Provider for the voice minutes product details (price, title)
+final voiceMinutesProductProvider =
+    FutureProvider<rc.StoreProduct?>((ref) async {
   final service = ref.watch(purchaseServiceProvider);
-  if (!service.isAvailable) return null;
   return service.getVoiceMinutesProduct();
 });
 
@@ -25,75 +23,35 @@ final purchaseStreamProvider = StreamProvider<PurchaseResult>((ref) {
   return service.purchaseStream;
 });
 
-/// Provider for checking if purchases are available
-final purchasesAvailableProvider = Provider<bool>((ref) {
-  final service = ref.watch(purchaseServiceProvider);
-  return service.isAvailable;
-});
-
-/// Initialize the purchase service with backend verification
-///
-/// Call this during app initialization, after authentication is set up.
-/// - Android: Uses Google Play in_app_purchase with direct backend verification
-/// - iOS: Uses RevenueCat SDK; the webhook handles crediting minutes
-Future<void> initializePurchaseService(Ref ref) async {
-  final purchaseService = ref.read(purchaseServiceProvider);
-  final backendService = ref.read(backendServiceProvider);
-
-  await purchaseService.initialize(
-    onVerifyPurchase: Platform.isIOS
-        ? null
-        : (purchaseToken, productId) async {
-            // Call backend to verify and credit minutes (Android only)
-            try {
-              final response = await backendService.dio.post(
-                '/v1/voice/purchase',
-                data: {
-                  'purchaseToken': purchaseToken,
-                  'productId': productId,
-                },
-              );
-
-              // Refresh voice quota after successful purchase
-              if (response.data['success'] == true) {
-                ref.invalidate(voiceQuotaProvider);
-              }
-
-              return Map<String, dynamic>.from(response.data);
-            } catch (e) {
-              return {'success': false, 'error': e.toString()};
-            }
-          },
-  );
-
-  // iOS: RevenueCat webhook credits minutes — refresh quota after purchase completes
-  if (Platform.isIOS) {
-    purchaseService.purchaseStream.listen((result) {
-      if (result.state == PurchaseState.success) {
-        // Small delay to allow webhook to process before we refresh
-        Future.delayed(const Duration(seconds: 2), () {
-          ref.invalidate(voiceQuotaProvider);
-        });
-      }
-    });
-  }
-}
-
 /// State notifier for managing purchase flow
 class PurchaseNotifier extends StateNotifier<PurchaseState> {
   final PurchaseService _service;
+  final Ref _ref;
 
-  PurchaseNotifier(this._service) : super(PurchaseState.idle);
+  PurchaseNotifier(this._service, this._ref) : super(PurchaseState.idle);
 
-  /// Initiate a voice minutes purchase
+  /// Time allowed for the RevenueCat `NON_RENEWING_PURCHASE` webhook to reach
+  /// the backend and credit the minutes before we re-read the quota.
+  static const _webhookSettleDelay = Duration(seconds: 2);
+
+  /// Initiate a voice minutes purchase.
+  ///
+  /// Minutes are credited server-side by the RevenueCat webhook, so on success
+  /// we wait briefly and then invalidate the quota provider to pick up the new
+  /// balance. The server is authoritative — we never write the balance locally.
   Future<bool> purchaseVoiceMinutes() async {
     state = PurchaseState.loading;
     final success = await _service.purchaseVoiceMinutes();
+
     if (!success) {
       state = PurchaseState.error;
+      return false;
     }
-    // State will be updated via the purchase stream
-    return success;
+
+    state = PurchaseState.success;
+    await Future.delayed(_webhookSettleDelay);
+    _ref.invalidate(voiceQuotaProvider);
+    return true;
   }
 
   /// Reset to idle state
@@ -106,7 +64,7 @@ class PurchaseNotifier extends StateNotifier<PurchaseState> {
 final purchaseNotifierProvider =
     StateNotifierProvider<PurchaseNotifier, PurchaseState>((ref) {
   final service = ref.watch(purchaseServiceProvider);
-  return PurchaseNotifier(service);
+  return PurchaseNotifier(service, ref);
 });
 
 /// Convenience provider to check if user can purchase voice minutes

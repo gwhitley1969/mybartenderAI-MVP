@@ -1,17 +1,27 @@
 # Google Play Billing Setup Guide
 
-This guide covers the setup required for server-side verification of voice minute purchases.
+> ## ⚠️ SUPERSEDED as of v1.2.1+35 (Jul 27, 2026)
+>
+> **Steps 1-4, 6 and 7 (service account, Google Play Developer API, Key Vault secret) no longer apply.** The `in_app_purchase` plugin was removed for Google Play Billing 8 compliance, so Android voice-minute purchases no longer use server-side token verification through the `voice-purchase` function. Both platforms now go through the RevenueCat SDK, and the `NON_RENEWING_PURCHASE` webhook credits the minutes.
+>
+> **Still relevant:** [Step 5](#step-5-create-in-app-product) — the `voice_minutes_60` product must exist and be Active in Google Play Console, and be mapped in the RevenueCat Play Store catalog (see `REVENUECAT_PLAN.md` §1C / §3A).
+>
+> The `voice-purchase` function and the `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY` Key Vault secret remain deployed as a rollback path but are unused. Do not delete them without first reverting the billing change.
+>
+> See `SUBSCRIPTION_DEPLOYMENT.md` for the current flow.
+
+This guide covers the setup that *was* required for server-side verification of voice minute purchases.
 
 ## Overview
 
-The voice minute purchase flow:
-1. User purchases `voice_minutes_60` ($4.99) in the app
+The voice minute purchase flow (historical):
+1. User purchases `voice_minutes_60` ($3.99) in the app
 2. Google Play processes payment and returns a `purchaseToken`
 3. App sends token to backend: `POST /v1/voice/purchase`
 4. Backend verifies token with Google Play Developer API
 5. Backend acknowledges purchase and credits 60 minutes
 
-**Note (Discrepancy):** The backend `voice-purchase/index.js` module still references `voice_minutes_20` and credits 1200 seconds (20 minutes). The mobile app sends `voice_minutes_60`. The RevenueCat `NON_RENEWING_PURCHASE` webhook handler in `index.js` correctly credits 60 minutes via the `voice_purchase_transactions` table. This discrepancy should be resolved in a future backend update.
+**Note:** The `voice_minutes_20` / 60-minute mismatch described here was resolved in `REVENUECAT_PLAN.md` Phase 5A — `voice-purchase/index.js` now uses `PRODUCT_ID = 'voice_minutes_60'` and credits 60 minutes. Moot as of v1.2.1+35 since the endpoint is no longer called; the `NON_RENEWING_PURCHASE` webhook handler is the only crediting path and has always credited 60.
 6. Existing `check_voice_quota()` function includes addon minutes automatically
 
 ## Prerequisites
@@ -90,7 +100,7 @@ The voice minute purchase flow:
 | Product ID | `voice_minutes_60` |
 | Name | 60 Voice Minutes |
 | Description | Add 60 minutes to your voice AI balance. Minutes never expire! |
-| Default price | $4.99 USD |
+| Default price | $3.99 USD |
 | Product type | Consumable (one-time purchase) |
 
 5. Click **Save**
@@ -233,7 +243,7 @@ The JSON key file looks like this (keep it secure!):
 |------|-------|
 | Package Name | `ai.mybartender.mybartenderai` |
 | Product ID | `voice_minutes_60` |
-| Price | $4.99 USD |
+| Price | $3.99 USD |
 | Minutes Added | 60 |
 | API Endpoint | `POST /v1/voice/purchase` |
 | Function App Setting | `GOOGLE_PLAY_SERVICE_ACCOUNT_KEY` |

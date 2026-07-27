@@ -4,9 +4,9 @@
 
 My AI Bartender uses a **single binary entitlement model**: users are either `paid` (active subscribers or trialing) or `none` (non-subscribers). As of v1.2.0+33 (April 2026), the app is fully paywalled — **every feature requires an active subscription**. Non-subscribers see a dedicated `/paywall` route after sign-in and cannot reach any other screen until they start a 7-day free trial or subscribe. Subscriptions are managed through **RevenueCat**, which handles Google Play and App Store billing, webhook lifecycle events, and cross-platform purchase restoration.
 
-Voice minute consumables ($3.99 for 60 minutes) are handled per-platform:
-- **Android**: Google Play Billing with server-side verification through the `voice-purchase` function
-- **iOS**: RevenueCat SDK handles StoreKit purchase; the `subscription-webhook` function credits minutes via webhook event
+Voice minute consumables ($3.99 for 60 minutes) are handled **identically on both platforms** as of v1.2.1+35: the RevenueCat SDK performs the store purchase (Google Play / StoreKit) and the `subscription-webhook` function credits 60 minutes on the `NON_RENEWING_PURCHASE` event, idempotent via `voice_purchase_transactions`.
+
+Before v1.2.1+35 Android used the `in_app_purchase` plugin with server-side verification through the `voice-purchase` function. That plugin was removed for Google Play Billing 8 compliance — its Android implementation pinned Billing 7.1.1, and every release carrying Billing 8 requires Flutter >=3.44 / Dart ^3.12. The `voice-purchase` function remains deployed but is no longer called.
 
 ---
 
@@ -298,10 +298,11 @@ Replaced the v1.1.x `navigateOrGate` per-button pattern. The whole app is now ga
 ### Purchase Service (`purchase_service.dart`)
 
 - Product ID: `voice_minutes_60` (hardcoded constant)
-- **Android**: Uses `in_app_purchase` plugin → Google Play Billing → backend verification via `POST /v1/voice/purchase`
-- **iOS**: Uses RevenueCat SDK (`Purchases.purchaseStoreProduct()`) → StoreKit → RevenueCat webhook → `subscription-webhook` credits 60 minutes
-- `onVerifyPurchase` callback is `null` on iOS (RevenueCat handles validation)
-- iOS quota refresh: listens to `purchaseStream` and invalidates `voiceQuotaProvider` 2 seconds after success
+- **Both platforms**: RevenueCat SDK → store (Google Play / StoreKit) → RevenueCat webhook → `subscription-webhook` credits 60 minutes
+- Product lookup **must** pass `productCategory: ProductCategory.nonSubscription`. `Purchases.getProducts()` defaults to `ProductCategory.subscription`, and on Android that default makes one-time (INAPP) products return an empty list. The parameter has no effect on iOS, so omitting it fails on Android only — silently
+- Purchases use `Purchases.purchase(PurchaseParams.storeProduct(...))`; `purchaseStoreProduct()` is deprecated in purchases_flutter 10.x
+- Quota refresh: `PurchaseNotifier.purchaseVoiceMinutes()` waits 2s for the webhook to settle, then invalidates `voiceQuotaProvider`. The server is authoritative — the client never writes a balance
+- Crediting is **asynchronous** on both platforms. A successful purchase means "the store completed it", not "the balance has updated"
 
 ### Voice Quota Model (`voice_ai_service.dart`)
 
@@ -471,8 +472,9 @@ az functionapp restart --name func-mba-fresh --resource-group rg-mba-prod
 - [ ] Cancellation (verify still active until expiry)
 - [ ] Expiration (verify entitlement reverts to `none`)
 - [ ] Restore purchases on new device
-- [ ] Voice add-on purchase via Google Play (+60 minutes credited via `voice-purchase` endpoint)
-- [ ] Duplicate purchase token (idempotent handling)
+- [ ] Voice add-on purchase via RevenueCat (+60 minutes credited via `NON_RENEWING_PURCHASE` webhook) — **never worked before v1.2.1+35**: `initializePurchaseService()` had no call sites, so `_isAvailable` stayed `false` and the Android branch returned early. Gate removed; needs a first real test
+- [ ] Second voice add-on purchase credits another 60 (confirms RevenueCat consumes the first — a repeatable consumable must not report "already owned")
+- [ ] Duplicate webhook delivery of the same `eventId` (idempotent handling — note a *new* purchase is not a duplicate)
 
 ### Test Scenarios — iOS
 
@@ -601,5 +603,5 @@ Takes effect on the next client fetch — no redeploy or restart needed. Re-enab
 
 ---
 
-*Last Updated: April 18, 2026 — v1.2.0+33 hard paywall rollout*
+*Last Updated: July 27, 2026 — v1.2.1+35 Google Play Billing 8 compliance (removed `in_app_purchase`; all purchases now flow through RevenueCat 10.4.3 / Billing 8.3.0)*
 *Implementation Status: Backend + Mobile code complete for both platforms. iOS sandbox subscription testing verified (annual + trial purchases). Webhook auto-creates user records on race condition (SUB-005 fix). Pre-navigation paywall gates implemented on 11 AI feature buttons across 6 screens with fresh SDK check to handle lazy provider init race. Profile screen uses dual-source subscription check. Diagnostic logging enabled for on-device troubleshooting. Entra sub-based RevenueCat App User ID deployed (Graph API + dual-lookup webhook). All `azure_ad_sub` lookups use case-insensitive `LOWER()` comparison (SUB-004 fix). App Store products show "Ready to Submit" in RevenueCat — normal for pre-submission; sandbox purchases work correctly.*

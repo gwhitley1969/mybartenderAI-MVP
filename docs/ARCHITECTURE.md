@@ -45,6 +45,12 @@
 
 ### Recent Backend Improvements
 
+**Google Play Billing 8 Compliance (July 2026 — v1.2.1+35):**
+- ✅ **Single billing SDK**: `in_app_purchase` removed; `purchases_flutter` 10.4.3 is the only billing dependency, bundling `com.android.billingclient:billing:8.3.0` (verified in the release runtime classpath and in the built AAB's R8 mapping). Clears the Play policy requiring Billing ≥8.0.0 by Aug 30, 2026
+- ✅ **Unified voice-minute purchases**: both platforms now use the RevenueCat SDK; the `NON_RENEWING_PURCHASE` webhook handler credits 60 minutes on either store. **Zero backend changes** — the handler never had a store check
+- ⚠️ **`voice-purchase` deprecated**: no longer called, but left deployed as a rollback path along with `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY`
+- 🐛 **Pre-existing bug fixed**: `initializePurchaseService()` had zero call sites, so `PurchaseService.initialize()` never ran and Android voice-minute purchases had never worked. See `BUG_FIXES.md` SUB-006
+
 **Cross-Platform Subscriptions (February 2026):**
 - ✅ **Platform-Aware API Keys**: `subscription-config` returns both Android and iOS RevenueCat keys; Flutter selects via `Platform.isIOS`
 - ✅ **iOS Voice Purchases**: RevenueCat SDK handles StoreKit receipt validation; webhook credits 60 minutes
@@ -202,7 +208,7 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
   - Features: Idempotency via event ID, sandbox filtering, grace period handling
 
 **Voice Purchase (1)**
-- `voice-purchase` - Purchase voice minutes — Android only, validates `voice_minutes_60` product via Google Play API (POST /api/v1/voice/purchase). iOS voice purchases route through RevenueCat SDK → webhook instead
+- `voice-purchase` - **DEPRECATED as of v1.2.1+35, still deployed.** Formerly validated the Android `voice_minutes_60` purchase token via the Google Play Developer API (POST /api/v1/voice/purchase). Both platforms now purchase through the RevenueCat SDK and are credited by the `subscription-webhook` `NON_RENEWING_PURCHASE` handler. Retained as a rollback path — do not delete without first reverting the billing change. `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY` in Key Vault is likewise unused but retained
 
 **Deep Link Verification (1)**
 - `well-known-assetlinks` - Android App Links Digital Asset Links (GET /api/.well-known/assetlinks.json)
@@ -514,8 +520,13 @@ RevenueCat requires a separate API key per store. The `subscription-config` endp
 - **iOS**: `REVENUECAT_PUBLIC_API_KEY_IOS` (`appl_...`) — stored in Key Vault as `REVENUECAT-APPLE-API-KEY`
 
 **Voice minute purchases differ by platform:**
-- **Android**: `in_app_purchase` plugin → Google Play Billing → `voice-purchase` function verifies with Google Play Developer API → credits 60 minutes directly
-- **iOS**: RevenueCat SDK (`Purchases.purchaseStoreProduct()`) → Apple StoreKit → RevenueCat server validates receipt → `subscription-webhook` fires with purchase event → credits 60 minutes via webhook handler
+**Both platforms (v1.2.1+35 onward)**: RevenueCat SDK (`Purchases.purchase(PurchaseParams.storeProduct(...))`) → store (Google Play / Apple StoreKit) → RevenueCat validates the receipt → `subscription-webhook` fires `NON_RENEWING_PURCHASE` → credits 60 minutes via the webhook handler, idempotent on `event.id` through `voice_purchase_transactions`.
+
+Product lookup **must** pass `productCategory: ProductCategory.nonSubscription`. `Purchases.getProducts()` defaults to `ProductCategory.subscription`; on Android that default makes one-time (INAPP) products return an empty list, and the parameter has no effect on iOS — so omitting it fails on Android only, silently.
+
+Crediting is asynchronous on both platforms: a successful purchase means the store completed it, not that the balance has updated. The client waits ~2s and re-reads `voiceQuotaProvider`; the server is authoritative and the client never writes a balance.
+
+**Before v1.2.1+35** Android used the `in_app_purchase` plugin → Google Play Billing → `voice-purchase` function verifying against the Google Play Developer API and crediting inline. That plugin was removed for Google Play Billing 8 compliance (see `DEPLOYMENT_STATUS.md` v1.2.1+35): its Android implementation pinned `com.android.billingclient:billing:7.1.1`, and every release carrying Billing 8 requires Flutter >=3.44 / Dart ^3.12. `purchases_flutter` is now the **only** billing dependency, bundling Billing 8.3.0.
 
 This difference exists because Apple's StoreKit receipts cannot be verified by the Google Play Developer API — they're completely different validation systems.
 
@@ -853,7 +864,7 @@ flutter build apk --release
 
 ---
 
-**Last Updated**: April 18, 2026 — v1.2.0+33 hard paywall rollout
+**Last Updated**: July 27, 2026 — v1.2.1+35 Google Play Billing 8 compliance (removed `in_app_purchase`; all purchases now flow through RevenueCat 10.4.3 / Billing 8.3.0)
 **Architecture Version**: 5.0 (v4 Functions + Managed Identity + Azure OpenAI SDK + Realtime Voice + Server-Authoritative Metering + RevenueCat Cross-Platform Subscriptions + Binary Entitlement Model + Today's Special Notifications + iOS Platform + Full APIM JWT Coverage + Push-to-Talk Interruption Fix + iOS WebRTC Type Fix + Free Trial Guardrails + In-App Review (Hybrid Direct + Deferred Prompting) + Platform-Aware IAP + Android App Links Verification + Backend Security Hardening + Router-Level Hard Paywall + Server-Side Kill Switch + Dual-Source Subscription + Diagnostic Logging + Webhook Verified + Google Play Free Trial Offer + Email-Based RevenueCat App User ID + Profile Rate & Review)
 **Programming Model**: Azure Functions v4
 **Platforms**: Android and iOS (Flutter cross-platform)

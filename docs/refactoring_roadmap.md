@@ -141,7 +141,7 @@ Some handlers use `telemetry.js`, others use `monitoring.js`, some use neither.
 | `voice-session` | 336 | High — WebSocket, realtime audio |
 | `voice-bartender` | 326 | High — Azure Speech Services |
 | `subscription-webhook` | 321 | High — RevenueCat event processing |
-| `voice-purchase` | 257 | Medium — IAP validation |
+| `voice-purchase` | 257 | ~~Medium — IAP validation~~ **Dead code as of v1.2.1+35** — no longer called; retained as a rollback path. Do not invest refactoring effort here; a future cleanup should delete it outright |
 | `ask-bartender-simple` | 233 | Medium — GPT-4.1-mini chat |
 | `refine-cocktail` | 213 | Medium — AI recipe refinement |
 | `ask-bartender` | 207 | Medium — GPT-4.1-mini chat (legacy) |

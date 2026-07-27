@@ -221,7 +221,7 @@ mybartenderAI-MVP/
 
 **Voice Purchase (1)**
 
-- `voice-purchase` - Purchase voice minutes (POST /api/v1/voice/purchase)
+- `voice-purchase` - **Deprecated** (v1.2.1+35). Voice-minute purchases now go through the RevenueCat SDK on both platforms and are credited by the `subscription-webhook` `NON_RENEWING_PURCHASE` handler. Endpoint remains deployed as a rollback path (POST /api/v1/voice/purchase)
 
 **Testing & Utilities (4)**
 

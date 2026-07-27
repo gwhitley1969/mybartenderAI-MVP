@@ -1,5 +1,7 @@
 # Phase 1: Subscription Model Discovery Report
 
+> **Historical snapshot (February 2026).** This is a point-in-time survey of the codebase, not a description of current state. Notably, the `purchases_flutter: ^8.4.2` observation at line 160 is stale — it is `^10.4.3` as of v1.2.1+35, and `in_app_purchase` was removed entirely. See `SUBSCRIPTION_DEPLOYMENT.md` for current architecture.
+
 ## Context
 
 We are replacing the old tier model (Free / Premium / Pro) with a single paid entitlement (Trial + Pro). This report maps the **current** codebase so we can make informed decisions about what to change.

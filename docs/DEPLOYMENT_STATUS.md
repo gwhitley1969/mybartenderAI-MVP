@@ -2,9 +2,33 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: April 18, 2026
+**Last Updated**: July 27, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
+
+### Recent Updates (July 2026)
+
+- **Version 1.2.1+35 — Google Play Billing 8 Compliance** (Jul 27): Google Play Console flagged the app under *"App must use Google Play Billing Library version 8.0.0 or later"* — from **Aug 30, 2026** non-compliant updates are rejected. Resolved by removing the `in_app_purchase` plugin entirely and unifying **all** purchases on RevenueCat, which bundles Billing 8.3.0.
+
+  **Why `in_app_purchase` was removed rather than upgraded:** the app shipped two independent billing dependencies, both on Billing 7 — `purchases_flutter` 8.11.0 (subscriptions) and `in_app_purchase_android` 0.4.0+8, which pinned `com.android.billingclient:billing:7.1.1` for the Android `voice_minutes_60` consumable. Gradle resolves that coordinate to a single highest version, so upgrading only one would leave the other's prebuilt Java running against a Billing it wasn't compiled for (`in_app_purchase_android` 0.4.0+8 references `queryPurchaseHistoryAsync` / `PurchaseHistoryRecord` in 3 Java files — both deleted in Billing 8, i.e. a runtime `NoSuchMethodError` on the purchase path). Every `in_app_purchase_android` release carrying Billing 8 (0.5.0–0.5.2) requires **Dart `^3.12.0` / Flutter `>=3.44.0`**; the project is on Flutter 3.35.5 / Dart 3.9.2, so keeping it would have forced a nine-minor SDK jump. `purchases_flutter` 10.4.3 needs only Dart `>=3.4.0` / Flutter `>=3.22.0`.
+
+  **Zero backend changes.** `subscription-webhook`'s `NON_RENEWING_PURCHASE` handler (`index.js:3933-3955`) keys only on `productId.includes('voice_minutes')` and `eventId` idempotency via `voice_purchase_transactions` — no store check — so Android consumables are credited by the same code path iOS already used. `voice_minutes_60` was already registered in the RevenueCat Play Store catalog (`prodc086b931c2`, `state: active`, `is_consumable: true`).
+
+  **Pre-existing bug fixed in passing:** `initializePurchaseService()` had **zero call sites project-wide**, so `PurchaseService.initialize()` never ran, `_isAvailable` stayed `false`, and the Android branch of `purchaseVoiceMinutes()` returned early with *"In-app purchases not available on this device."* **Android voice-minute purchases had never worked** — matching the one unchecked item in `SUBSCRIPTION_DEPLOYMENT.md`'s Android test list. iOS was unaffected because its branch never consulted `_isAvailable`. The gate and the dead initializer were both removed.
+
+  **Files modified (6):**
+  - `mobile/app/pubspec.yaml`: `purchases_flutter ^8.4.2 → ^10.4.3`; removed `in_app_purchase ^3.1.13`; version `1.2.0+34 → 1.2.1+35`
+  - `mobile/app/lib/src/services/purchase_service.dart`: rewritten onto RevenueCat for both platforms. Removed `InAppPurchase`, the purchase-update stream handling, backend token verification, and the `_isAvailable` gate. **Critical:** `Purchases.getProducts()` defaults to `ProductCategory.subscription` and that default makes Android INAPP lookups return empty — the call now passes `productCategory: ProductCategory.nonSubscription`. The parameter is a no-op on iOS, which is why the pre-existing iOS code looked correct but would have failed on Android
+  - `mobile/app/lib/src/providers/purchase_provider.dart`: `voiceMinutesProductProvider` now `FutureProvider<StoreProduct?>`; deleted the dead `initializePurchaseService` and the unused `purchasesAvailableProvider`; quota refresh moved into `PurchaseNotifier.purchaseVoiceMinutes()` (2s webhook settle delay) so it runs on a path that is actually reached
+  - `mobile/app/lib/src/widgets/voice_minutes_warning.dart`: `ProductDetails` → `StoreProduct`; uses `.priceString` (formatted) — `StoreProduct.price` is a `double` and would render `3.99` instead of `$3.99`
+  - `mobile/app/lib/src/services/subscription_service.dart`: `Purchases.purchasePackage()` and `purchaseStoreProduct()` are `@Deprecated('Use purchase(PurchaseParams)')` in v10 and now return `PurchaseResult` rather than `CustomerInfo`. Migrated to `Purchases.purchase(PurchaseParams.package(...))` and unwrapped `.customerInfo`; the wrapper still returns `CustomerInfo?` so `paywall_screen.dart`, `subscription_sheet.dart`, and `subscription_provider.dart` were untouched
+  - `mobile/app/android/app/proguard-rules.pro`: added `com.android.billingclient.**` keep/dontwarn. The existing rule covered `com.android.vending.billing.**` — the legacy AIDL package, not the Billing Library. R8 **is** active on release builds (Flutter's Gradle plugin sets `isMinifyEnabled = true` and appends this file)
+
+  **Behavior change:** Android voice-minute crediting moves from synchronous (`POST /v1/voice/purchase` verified against the Google Play Developer API, credited inline) to asynchronous webhook-driven, matching iOS. The `voice-purchase` function and `GOOGLE-PLAY-SERVICE-ACCOUNT-KEY` are now unused but left deployed as a rollback path.
+
+  **Verification:** `flutter analyze` clean on all four changed Dart files; `gradlew :app:dependencies --configuration releaseRuntimeClasspath` resolves a single `com.android.billingclient:billing:8.3.0` via `purchases-hybrid-common:18.22.2 → purchases:10.14.1`, with no `in_app_purchase` module and no version-conflict arrow.
+
+  **Note:** Play *recommends* Billing 9; purchases_flutter 10.x ships 8.3.0, which satisfies the Aug 30 mandate (≥8.0.0). Expect a further deadline for 9.
 
 ### Recent Updates (April 2026)
 

@@ -442,5 +442,5 @@ flutter test
 
 **Last Updated**: October 17, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Voice AI outage fix — GA Realtime API migration (v1.2.2+36: backend hotfix + app update, code complete, not yet deployed/released), then `docs/CONVERSION_PLAN.md`
+**Primary Focus**: Voice AI outage fix — GA Realtime API migration (v1.2.2+36: backend hotfix deployed Oct 17, 2026; app update not yet released), then `docs/CONVERSION_PLAN.md`
 **Recent Changes**: Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1, app sends no `session.update` and handles GA event names. Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

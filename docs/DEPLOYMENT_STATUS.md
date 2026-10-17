@@ -6,13 +6,13 @@
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
 
-> **Open incident (Oct 17, 2026): Voice AI is down** until the GA Realtime API fix below is deployed. All other features are unaffected.
+> **Open incident (Oct 17, 2026): Voice AI.** The backend GA fix below was deployed at 23:46 UTC; installed store builds now get compat mode, pending device verification. The app update (v1.2.2+36) is not yet released. All other features are unaffected.
 
 ### Recent Updates (October 2026)
 
 - **Incident — Voice AI down: Azure retired the Preview Realtime API** (Oct 17): starting a voice session showed "Error occurred" / "Failed to initialize voice session" on iOS and Android; text chat was unaffected. `voice-session`'s ephemeral-token request (`POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`) returned `400 realtime_beta_access_required`: *"The Realtime preview API is no longer available for this request. Please migrate from the preview API to the v1 API."* Application Insights: 14 failures from 2 users (22:34–22:38 UTC); last success 2026-09-23 23:36 UTC, with no voice traffic in between, so the cutoff landed somewhere in that window (Microsoft deprecated the Preview on Apr 30, 2026). The `gpt-realtime-mini` deployment (2025-12-15), API key and quota were all fine.
 
-- **Version 1.2.2+36 — Voice AI on the GA Realtime API** (Oct 17) — **code complete and tested; not yet deployed or released.** Two stages: a backend hotfix that also serves the store builds already installed, and an app update.
+- **Version 1.2.2+36 — Voice AI on the GA Realtime API** (Oct 17) — **backend deployed Oct 17, 23:46 UTC; app not yet released.** Two stages: a backend hotfix that also serves the store builds already installed, and an app update.
 
   **Backend (Stage A):**
   - `backend/functions/shared/realtime-ga.js` (NEW): GA URLs (`POST {endpoint}/openai/v1/realtime/client_secrets`, `{endpoint}/openai/v1/realtime/calls`, no `api-version`, no hardcoded region), the GA session request (`type: "realtime"`, settings nested under `audio.input` / `audio.output`, 60-second ephemeral key to match the Preview), and GA response mapping (`value`, `expires_at`, `session.id` / `model` / `audio.output.voice`) with non-null fallbacks (the app force-unwraps the session id and `voice_sessions.session_id` is `NOT NULL`)
@@ -28,8 +28,11 @@ The My AI Bartender mobile app and Azure backend are fully operational and in pr
   - Pre-deploy smoke test against `blueb-midjmnz5-eastus2`: `client_secrets` returns 200 for both client modes with the session echoed back; `/openai/v1/realtime/calls` is routed on the `cognitiveservices.azure.com` endpoint stored in Key Vault (no secret change needed)
   - No-audio WebRTC probe: `session.created` carries the backend's instructions and push-to-talk VAD; a store-build `session.update` on the plain GA URL produces `error: missing_required_parameter`; on the filtered URL nothing reaches the app
   - Tests: backend Jest 31/31 (`shared/realtime-ga.test.js`, `voice-realtime.test.js` — the backend's first tests); Flutter `test/services/voice_ai_service_test.dart` 6/6
+  - Pre-deploy drift check: all 63 backend files live on `func-mba-fresh` matched `main` byte-for-byte (after newline normalization), nothing live was untracked, and all 16 production dependencies matched the local `node_modules`
+  - **Backend deployed** Oct 17, 23:46 UTC from commit `d2972b4` with `az functionapp deployment source config-zip --subscription "My AI Bartender"` (Azure Functions Core Tools isn't installed on the dev PC). Package: the tracked `backend/functions` files plus `node_modules`, without `local.settings.json`; active package `20261017234552.zip` (`WEBSITE_RUN_FROM_PACKAGE=1`). Host restarted with 36 functions loaded
+  - Post-deploy smoke test: `voice-realtime-test` returned 200 in both modes (`clientMode: "ga"` → GA calls URL; `clientMode: "compat"` → `?webrtcfilter=on`); logs show no response body and no client secret; no errors or exceptions since the deploy
 
-  **Remaining:** deploy the backend to `func-mba-fresh`; test a store build on iPhone and Android in compat mode (switch to `update_required` if it tests badly, especially iOS, where muting stops audio frames so the server may not detect the end of a turn); confirm user transcripts with `whisper-1`; build and submit v1.2.2+36 (expedited review on iOS); Step 5 checks in `VOICE_GA_MIGRATION.md`.
+  **Remaining:** test a store build on iPhone and Android in compat mode (switch to `update_required` if it tests badly, especially iOS, where muting stops audio frames so the server may not detect the end of a turn); confirm user transcripts with `whisper-1`; build and submit v1.2.2+36 (expedited review on iOS); Step 5 checks in `VOICE_GA_MIGRATION.md`.
 
   **Android build toolchain on the dev PC (found Oct 17):** a clean `flutter build appbundle --release` fails before compiling: Flutter now runs Gradle on Android Studio's bundled JBR **25.0.3**, which Gradle 8.12 (the project's wrapper) doesn't support. The PC's Flutter is also **3.47.1**, while v1.2.1+35 was built on 3.35.5. No JDK 17/21 is installed. Options: install a JDK 17/21 and point Flutter at it (`flutter config --jdk-dir=...`), or upgrade the project to Gradle 9.1+ (bigger change). Flutter 3.47.1's migrator also edits `analysis_options.yaml`, `pubspec.lock` and `android/gradle.properties` on first use; those edits were reverted to keep this hotfix's diff to the fix itself.
 

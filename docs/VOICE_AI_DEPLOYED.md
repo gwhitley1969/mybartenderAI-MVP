@@ -1603,6 +1603,7 @@ The backend's GA logic lives in `backend/functions/shared/realtime-ga.js` (tests
 
 - Smoke test (2026-10-17): `client_secrets` returns 200 for both configs with the session echoed back; `/openai/v1/realtime/calls` is routed on the `cognitiveservices.azure.com` and `openai.azure.com` hosts
 - No-audio WebRTC probe (2026-10-17): `session.created` carries the token-time config; a store-build `session.update` on the plain GA URL produces `error: missing_required_parameter`; on the filtered URL nothing reaches the app
+- Backend deployed 2026-10-17 23:46 UTC (commit `d2972b4`); `voice-realtime-test` returns 200 in both modes, with no client secret in the logs
 - Still to verify on devices: store builds in compat mode, v1.2.2+36, user transcripts with `whisper-1`, inventory awareness, push-to-talk replies, minute metering
 
 ---

@@ -128,12 +128,12 @@ sequenceDiagram
   M->>APIM: POST /v1/voice/session (JWT only)
   APIM->>F: Forward to voice-session function
   F->>DB: Verify user has paid entitlement
-  F->>AI: Request ephemeral WebRTC token from Realtime API
-  AI-->>F: Return ephemeral token
-  F-->>M: Return WebRTC token + session info
-  M->>AI: Direct WebRTC connection to Azure OpenAI Realtime API
+  F->>AI: POST /openai/v1/realtime/client_secrets (GA) with persona, inventory, push-to-talk VAD
+  AI-->>F: Return 60-second ephemeral key
+  F-->>M: Return ephemeral key, /openai/v1/realtime/calls URL, session info
+  M->>AI: WebRTC SDP offer to /openai/v1/realtime/calls, then direct connection
   AI-->>M: Bidirectional voice streaming
-  M->>APIM: POST /v1/voice/complete (record usage)
+  M->>APIM: POST /v1/voice/usage (record usage)
 
   Note over M: All images stored locally on device
   Note over M: Subscriber features run offline where possible
@@ -466,13 +466,19 @@ Voice AI is implemented using **Azure OpenAI Realtime API** for direct voice-to-
 ### Implementation Flow
 
 ```
-1. User initiates voice session → Backend returns ephemeral WebRTC token
-2. Mobile app establishes WebRTC connection to Azure OpenAI Realtime API
-3. User speaks → Audio streamed directly via WebRTC
-4. Azure OpenAI processes speech and generates voice response
-5. AI voice response streamed back in real-time
-6. Bidirectional voice conversation continues until session ends
+1. User initiates voice session → app POSTs /v1/voice/session with My Bar inventory
+2. voice-session builds the whole realtime session (persona + inventory instructions,
+   push-to-talk turn detection, noise reduction, transcription, voice) and gets a
+   60-second ephemeral key from POST {endpoint}/openai/v1/realtime/client_secrets
+3. Mobile app posts its SDP offer to {endpoint}/openai/v1/realtime/calls with the key
+   and connects directly to Azure OpenAI over WebRTC
+4. User holds push-to-talk → audio streamed via WebRTC; on release the app commits
+   the audio buffer and sends response.create
+5. AI voice response streamed back in real-time; transcripts arrive on the data channel
+6. Session ends → app posts usage to /v1/voice/usage
 ```
+
+**GA Realtime protocol (since v1.2.2, October 2026).** Azure retired the Preview protocol (`/openai/realtimeapi/sessions?api-version=2025-04-01-preview` plus the regional `realtimeapi-preview.ai.azure.com/v1/realtimertc` WebRTC host); Voice AI was down on 2026-10-17 until the migration. On GA the token-time session config applies to the WebRTC call, so the app sends no `session.update`. The backend serves two client modes from `backend/functions/shared/realtime-ga.js`: v1.2.2+ apps send `realtimeProtocol: 'ga'` and get true push-to-talk; store builds ≤ 1.2.1 get a compat session (`?webrtcfilter=on`, server-created replies), or an "update required" message when `VOICE_LEGACY_CLIENT_MODE=update_required`. Details: `VOICE_AI_DEPLOYED.md`.
 
 ### Azure OpenAI Realtime API Features
 

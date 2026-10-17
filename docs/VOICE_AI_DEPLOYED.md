@@ -169,9 +169,12 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
     "spirits": ["vodka", "gin"],
     "mixers": ["tonic", "lime juice"],
     "garnishes": ["lime wedge"]
-  }
+  },
+  "realtimeProtocol": "ga"
 }
 ```
+
+`realtimeProtocol: "ga"` is sent by v1.2.2+ apps. Store builds ≤ 1.2.1 omit it and get a compat session (see [GA Realtime API Migration](#ga-realtime-api-migration-v122-october-17-2026)).
 
 **Success Response** (200):
 ```json
@@ -187,7 +190,7 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
     "value": "ephemeral-token-here",
     "expiresAt": 1733698800
   },
-  "webrtcUrl": "https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc",
+  "webrtcUrl": "https://blueb-midjmnz5-eastus2.cognitiveservices.azure.com/openai/v1/realtime/calls",
   "quota": {
     "remainingSeconds": 1800,
     "monthlyUsedSeconds": 0,
@@ -288,15 +291,16 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
 
 ### 4. Voice Realtime Test - `voice-realtime-test`
 
-**Route**: GET/POST `/api/v1/voice/test`
-**Auth Level**: Function key
-**Purpose**: Validates Realtime API connectivity (for testing)
+**Route**: GET/POST `/api/v1/voice/test` (`?mode=compat` tests the store-build configuration)
+**Auth Level**: Function key (not exposed through APIM)
+**Purpose**: Validates Realtime API connectivity (for testing). Never logs the response body — GA returns the client secret at its top level.
 
 **Success Response** (200):
 ```json
 {
   "success": true,
   "message": "Realtime API connection validated successfully!",
+  "clientMode": "ga",
   "session": {
     "id": "sess_xxx",
     "model": "gpt-realtime-mini",
@@ -304,8 +308,8 @@ All functions added to `backend/functions/index.js` (consolidated Azure Function
     "hasClientSecret": true,
     "expiresAt": 1733698800
   },
-  "webrtcUrl": "https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc",
-  "note": "Ephemeral token generated successfully..."
+  "webrtcUrl": "https://blueb-midjmnz5-eastus2.cognitiveservices.azure.com/openai/v1/realtime/calls",
+  "note": "Ephemeral token generated successfully. The token is valid for 60 seconds..."
 }
 ```
 
@@ -483,18 +487,19 @@ Never provide:
 1. **Start Session**: Flutter calls POST `/v1/voice/session`
 2. **Backend**:
    - Validates paid entitlement
-   - Checks quota via `check_voice_quota()`
+   - Checks quota
+   - Requests a 60-second ephemeral key from Azure OpenAI (GA: `POST {endpoint}/openai/v1/realtime/client_secrets`) carrying the whole session config: persona + inventory instructions, push-to-talk turn detection, far-field noise reduction, transcription, voice
    - Creates database session record
-   - Requests ephemeral token from Azure OpenAI Realtime API
-   - Returns token + WebRTC URL
+   - Returns token + WebRTC URL (`{endpoint}/openai/v1/realtime/calls`)
 3. **Flutter**:
    - Requests microphone permission
    - Creates local audio stream
    - Creates RTCPeerConnection
    - Creates data channel for events
    - Creates SDP offer
-   - Sends offer to WebRTC URL with ephemeral token
+   - Sends offer to WebRTC URL with ephemeral token (GA answers `201 Created`)
    - Sets remote description from answer
+   - Sends no `session.update`: the session already has the backend's config (v1.2.2+)
 4. **During Session**:
    - Audio streams bidirectionally
    - Data channel receives transcripts and state events
@@ -649,7 +654,7 @@ flutter build apk --debug
 1. ~~**Add route to GoRouter**~~ ✅ Completed
 2. ~~**APIM Integration**~~ ✅ Completed - Voice endpoints configured with JWT validation
 3. **Add-on Purchase Flow** - Integrate with App Store/Play Store for minute packs
-4. ~~**Inventory Context**~~ ✅ Completed - Bar inventory sent via session.update (Dec 27, 2025)
+4. ~~**Inventory Context**~~ ✅ Completed - Bar inventory sent via session.update (Dec 27, 2025); since v1.2.2 it travels in the backend's token-time instructions
 5. **Session History** - View past voice conversations from profile
 6. **Analytics** - Track voice usage metrics in Application Insights
 
@@ -783,6 +788,8 @@ Voice AI could not access the user's "My Bar" inventory. When users asked "What'
 ### Root Cause
 
 The `instructions` field in the Azure OpenAI Realtime API session creation request was not being applied to WebRTC sessions. The backend was correctly building inventory-aware system instructions, but they weren't reaching the AI.
+
+> **Superseded in v1.2.2 (October 2026).** This was a Preview-protocol behavior. On the GA protocol the session config sent to `client_secrets` *is* applied to WebRTC calls (verified with a WebRTC probe on 2026-10-17: `session.created` carried the backend's instructions and turn detection), so the app no longer sends `session.update`. Side effect of the old approach: `session.update` replaces `instructions` wholesale, so users with a stocked bar got inventory-only instructions without the bartender persona or guardrails. See [GA Realtime API Migration](#ga-realtime-api-migration-v122-october-17-2026).
 
 ### Solution: session.update via WebRTC Data Channel
 
@@ -1550,4 +1557,54 @@ On iOS, `flutter_webrtc` returns `List<RTCRtpSenderNative>` (concrete subtype). 
 
 ---
 
-**Last Updated**: February 15, 2026 (BUG-012 WebRTC type error fix)
+## GA Realtime API Migration (v1.2.2, October 17, 2026)
+
+### Incident
+
+On 2026-10-17 Voice AI failed on iOS and Android with "Error occurred" / "Failed to initialize voice session". Azure had switched off the Preview Realtime protocol for the resource: `POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview` returned `400 realtime_beta_access_required` ("The Realtime preview API is no longer available for this request. Please migrate from the preview API to the v1 API."). Application Insights: 14 failures from 2 users (22:34–22:38 UTC); last success 2026-09-23 23:36 UTC, with no voice traffic in between. The `gpt-realtime-mini` deployment, API key and quota were fine.
+
+### Protocol changes
+
+| | Preview (retired) | GA |
+|---|---|---|
+| Ephemeral key | `POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview` | `POST {endpoint}/openai/v1/realtime/client_secrets` (no `api-version`) |
+| Request body | flat session fields | `{ expires_after, session: { type: "realtime", model, instructions, audio: { input: { transcription, turn_detection, noise_reduction }, output: { voice } } } }` |
+| Response | `{ id, model, voice, client_secret: { value, expires_at } }` | `{ value, expires_at, session: { id, model, audio.output.voice, ... } }` |
+| WebRTC SDP | `https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc` → 200 | `{endpoint}/openai/v1/realtime/calls` → 201 (works on the `cognitiveservices.azure.com` endpoint in Key Vault) |
+| Event names | `response.audio_transcript.*`, `response.audio.*`, `response.text.*` | `response.output_audio_transcript.*`, `response.output_audio.*`, `response.output_text.*` |
+
+The backend's GA logic lives in `backend/functions/shared/realtime-ga.js` (tests: `shared/realtime-ga.test.js`, `voice-realtime.test.js`). The `voice-session` response contract to the app is unchanged.
+
+### Client modes
+
+| Mode | Who | Session | WebRTC URL |
+|---|---|---|---|
+| `ga` | v1.2.2+ (sends `realtimeProtocol: "ga"`) | `semantic_vad`, `eagerness: low`, `create_response: false`, `interrupt_response: false` (push-to-talk) | `/openai/v1/realtime/calls` |
+| `compat` (default) | store builds ≤ 1.2.1 | `server_vad` (700 ms silence), `create_response: true`, `interrupt_response: false` | `/openai/v1/realtime/calls?webrtcfilter=on` |
+| `update_required` | store builds ≤ 1.2.1 when `VOICE_LEGACY_CLIENT_MODE=update_required` | none: HTTP 426 `update_required` with a "please update" message | — |
+
+**Why compat mode exists.** Store builds send a Preview-shaped `session.update` when the data channel opens. GA rejects it (`missing_required_parameter: 'session.type'`), and those builds treat any `error` event as fatal: push-to-talk is disabled, a tap starts a new session without closing the old one, and leaving the screen skips `endSession()`, so the abandoned session is later billed by `expire_stale_voice_sessions` at 30% of capped wall-clock time (up to 18 minutes). `?webrtcfilter=on` keeps that error from reaching the app (verified), but it also hides `response.done`, which those builds wait for before sending the next `response.create`; so in compat mode the server creates each reply when the user stops talking. Store builds also won't show the AI's reply text (old event names). Risk on iOS: muting uses `replaceTrack(null)`, which stops audio frames, so the server may not detect the end of a turn; if compat tests badly, set `VOICE_LEGACY_CLIENT_MODE=update_required`.
+
+### App changes (v1.2.2+36)
+
+- Sends `realtimeProtocol: "ga"` in the session request
+- Handles the GA event names alongside the Preview names (kept for one release)
+- Data-channel `error` events no longer end the session (they reset the pending-response guard and return to listening)
+- No client `session.update`: persona, inventory, push-to-talk VAD and noise reduction all come from the backend's token-time config
+
+### App settings on `func-mba-fresh` (optional)
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `VOICE_LEGACY_CLIENT_MODE` | `compat` | `update_required` sends store builds ≤ 1.2.1 a "please update" message instead of a compat session |
+| `AZURE_OPENAI_REALTIME_TRANSCRIPTION_MODEL` | `whisper-1` | Transcription model for user speech. Azure documents that this must be a deployment name, but accepts any value at token time; whether transcripts work only shows at runtime (`conversation.item.input_audio_transcription.completed` vs `.failed`). If they fail, deploy a transcribe model (e.g. `gpt-4o-mini-transcribe`) on `blueb-midjmnz5-eastus2` and set its deployment name here |
+
+### Verification
+
+- Smoke test (2026-10-17): `client_secrets` returns 200 for both configs with the session echoed back; `/openai/v1/realtime/calls` is routed on the `cognitiveservices.azure.com` and `openai.azure.com` hosts
+- No-audio WebRTC probe (2026-10-17): `session.created` carries the token-time config; a store-build `session.update` on the plain GA URL produces `error: missing_required_parameter`; on the filtered URL nothing reaches the app
+- Still to verify on devices: store builds in compat mode, v1.2.2+36, user transcripts with `whisper-1`, inventory awareness, push-to-talk replies, minute metering
+
+---
+
+**Last Updated**: October 17, 2026 (GA Realtime API migration, v1.2.2)

@@ -2,6 +2,7 @@ const { app } = require('@azure/functions');
 const { OpenAIClient, AzureKeyCredential } = require('@azure/openai');
 const { getOrCreateUser } = require('./services/userService');
 const { decodeJwtClaims } = require('./shared/auth/jwtDecode');
+const realtimeGa = require('./shared/realtime-ga');
 
 // =============================================================================
 // 1. Health - GET /health
@@ -2692,37 +2693,27 @@ app.http('voice-realtime-test', {
                 };
             }
 
+            // ?mode=compat tests the configuration served to store builds <= v1.2.1
+            const clientMode = request.query?.get('mode') === 'compat' ? 'compat' : 'ga';
+
             context.log('Configuration validated. Attempting ephemeral token request...');
             context.log('Endpoint:', realtimeEndpoint);
             context.log('Deployment:', realtimeDeployment);
+            context.log('Client mode:', clientMode);
 
-            // Build the sessions URL for ephemeral token
-            // Format: POST https://{endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview
-            const sessionsUrl = `${realtimeEndpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`;
+            // GA Realtime API: POST {endpoint}/openai/v1/realtime/client_secrets (no api-version)
+            const clientSecretsUrl = realtimeGa.clientSecretsUrl(realtimeEndpoint);
+            context.log('Client secrets URL:', clientSecretsUrl);
 
-            context.log('Sessions URL:', sessionsUrl);
-
-            // Session configuration for the ephemeral token request
-            const sessionConfig = {
-                model: realtimeDeployment,
-                voice: 'alloy',
+            const sessionConfig = realtimeGa.buildClientSecretRequest({
+                deployment: realtimeDeployment,
                 instructions: 'You are a helpful AI bartender assistant.',
-                input_audio_transcription: {
-                    model: 'whisper-1'
-                },
-                turn_detection: {
-                    type: 'semantic_vad',        // AI-based detection - understands speech semantically
-                    eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
-                    create_response: false,      // Push-to-talk sends explicit response.create
-                    interrupt_response: false    // Prevents AI from being interrupted by noise
-                },
-                input_audio_noise_reduction: {
-                    type: 'far_field'            // For phone speaker/mic - filters ambient noise
-                }
-            };
+                clientMode,
+                transcriptionModel: process.env.AZURE_OPENAI_REALTIME_TRANSCRIPTION_MODEL
+            });
 
             // Request ephemeral token
-            const response = await fetch(sessionsUrl, {
+            const response = await fetch(clientSecretsUrl, {
                 method: 'POST',
                 headers: {
                     'api-key': realtimeKey,
@@ -2731,12 +2722,12 @@ app.http('voice-realtime-test', {
                 body: JSON.stringify(sessionConfig)
             });
 
+            // Never log a successful body: GA returns the client secret at its top level
             const responseText = await response.text();
             context.log('Response status:', response.status);
-            context.log('Response body:', responseText.substring(0, 500));
 
             if (!response.ok) {
-                context.error('Ephemeral token request failed');
+                context.error('Ephemeral token request failed:', response.status, responseText.substring(0, 500));
                 return {
                     status: response.status,
                     headers,
@@ -2748,11 +2739,9 @@ app.http('voice-realtime-test', {
                 };
             }
 
-            // Parse successful response
-            const sessionData = JSON.parse(responseText);
-
-            // The WebRTC URL for East US2
-            const webrtcUrl = 'https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc';
+            const realtimeSession = realtimeGa.mapClientSecretResponse(JSON.parse(responseText), {
+                deployment: realtimeDeployment
+            });
 
             return {
                 status: 200,
@@ -2760,15 +2749,16 @@ app.http('voice-realtime-test', {
                 jsonBody: {
                     success: true,
                     message: 'Realtime API connection validated successfully!',
+                    clientMode,
                     session: {
-                        id: sessionData.id,
-                        model: sessionData.model,
-                        voice: sessionData.voice,
-                        hasClientSecret: !!sessionData.client_secret,
-                        expiresAt: sessionData.client_secret?.expires_at
+                        id: realtimeSession?.realtimeSessionId,
+                        model: realtimeSession?.model,
+                        voice: realtimeSession?.voice,
+                        hasClientSecret: !!realtimeSession,
+                        expiresAt: realtimeSession?.token.expiresAt
                     },
-                    webrtcUrl,
-                    note: 'Ephemeral token generated successfully. The token is valid for ~60 seconds and can be used for WebRTC connection.'
+                    webrtcUrl: realtimeGa.webrtcCallsUrl(realtimeEndpoint, clientMode),
+                    note: 'Ephemeral token generated successfully. The token is valid for 60 seconds and can be used for WebRTC connection.'
                 }
             };
 
@@ -2887,11 +2877,28 @@ app.http('voice-session', {
 
             // Parse request body for optional inventory context
             let inventory = null;
+            let requestBody = null;
             try {
-                const body = await request.json();
-                inventory = body.inventory;
+                requestBody = await request.json();
+                inventory = requestBody.inventory;
             } catch (e) {
                 // No body or invalid JSON - that's fine
+            }
+
+            // v1.2.2+ apps send realtimeProtocol: 'ga'. Store builds <= v1.2.1 speak the
+            // retired Preview protocol and get a compat session (see shared/realtime-ga.js)
+            // unless VOICE_LEGACY_CLIENT_MODE=update_required.
+            const clientMode = realtimeGa.resolveClientMode(requestBody, process.env.VOICE_LEGACY_CLIENT_MODE);
+            if (clientMode === 'update_required') {
+                return {
+                    status: 426,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'update_required',
+                        message: 'Voice AI has been upgraded. Please update My AI Bartender to the latest version to keep using it.'
+                    }
+                };
             }
 
             // Build system instructions with bartender personality
@@ -2960,28 +2967,16 @@ Never provide:
             }
 
             // Request ephemeral token from Azure OpenAI FIRST (before creating DB session)
-            const sessionsUrl = `${realtimeEndpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`;
-
-            const sessionConfig = {
-                model: realtimeDeployment,
-                voice: 'alloy',
+            // GA Realtime API: POST {endpoint}/openai/v1/realtime/client_secrets (no api-version)
+            const sessionConfig = realtimeGa.buildClientSecretRequest({
+                deployment: realtimeDeployment,
                 instructions: systemInstructions,
-                input_audio_transcription: {
-                    model: 'whisper-1'
-                },
-                turn_detection: {
-                    type: 'semantic_vad',        // AI-based detection - understands speech semantically
-                    eagerness: 'low',            // 'low' = more tolerant of background noise/pauses
-                    create_response: false,      // Push-to-talk sends explicit response.create
-                    interrupt_response: false    // Prevents AI from being interrupted by noise
-                },
-                input_audio_noise_reduction: {
-                    type: 'far_field'            // For phone speaker/mic - filters ambient noise
-                }
-            };
+                clientMode,
+                transcriptionModel: process.env.AZURE_OPENAI_REALTIME_TRANSCRIPTION_MODEL
+            });
 
-            context.log('Requesting ephemeral token from Azure OpenAI...');
-            const response = await fetch(sessionsUrl, {
+            context.log('Requesting ephemeral token from Azure OpenAI, client mode:', clientMode);
+            const response = await fetch(realtimeGa.clientSecretsUrl(realtimeEndpoint), {
                 method: 'POST',
                 headers: {
                     'api-key': realtimeKey,
@@ -3005,8 +3000,22 @@ Never provide:
                 };
             }
 
-            const sessionData = await response.json();
-            context.log('Ephemeral token obtained, realtime session:', sessionData.id);
+            const realtimeSession = realtimeGa.mapClientSecretResponse(await response.json(), {
+                deployment: realtimeDeployment
+            });
+            if (!realtimeSession) {
+                context.error('Ephemeral token request failed: response had no client secret');
+                return {
+                    status: 500,
+                    headers,
+                    jsonBody: {
+                        success: false,
+                        error: 'token_error',
+                        message: 'Failed to initialize voice session'
+                    }
+                };
+            }
+            context.log('Ephemeral token obtained, realtime session:', realtimeSession.realtimeSessionId);
 
             // Concurrent session enforcement: prevent multiple active sessions per user
             // Step 1: Auto-expire stale sessions (>2 hours old)
@@ -3065,13 +3074,14 @@ Never provide:
                 `INSERT INTO voice_sessions (user_id, session_id, status, started_at)
                  VALUES ($1, $2, 'active', NOW())
                  RETURNING id`,
-                [user.id, sessionData.id]
+                [user.id, realtimeSession.realtimeSessionId]
             );
             const dbSessionId = sessionInsertResult.rows[0].id;
             context.log('Created database session:', dbSessionId);
 
-            // WebRTC URL for East US2
-            const webrtcUrl = 'https://eastus2.realtimeapi-preview.ai.azure.com/v1/realtimertc';
+            // GA WebRTC URL on the same resource ({endpoint}/openai/v1/realtime/calls);
+            // store builds get ?webrtcfilter=on (compat mode)
+            const webrtcUrl = realtimeGa.webrtcCallsUrl(realtimeEndpoint, clientMode);
 
             return {
                 status: 200,
@@ -3080,14 +3090,11 @@ Never provide:
                     success: true,
                     session: {
                         dbSessionId: dbSessionId,
-                        realtimeSessionId: sessionData.id,
-                        model: sessionData.model,
-                        voice: sessionData.voice
+                        realtimeSessionId: realtimeSession.realtimeSessionId,
+                        model: realtimeSession.model,
+                        voice: realtimeSession.voice
                     },
-                    token: {
-                        value: sessionData.client_secret?.value,
-                        expiresAt: sessionData.client_secret?.expires_at
-                    },
+                    token: realtimeSession.token,
                     webrtcUrl: webrtcUrl,
                     quota: {
                         remainingMinutes: parseFloat(quota.total_remaining),

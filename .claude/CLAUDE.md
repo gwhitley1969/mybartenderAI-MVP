@@ -53,7 +53,7 @@ All core features implemented and tested. Ready for Play Store deployment.
 
 - **AI Services**:
   
-  - Azure OpenAI Service (GPT-4.1-mini for chat recommendations, GPT-realtime-mini for Voice AI) (Claude Haiku for Smart Scanner)
+  - Azure OpenAI Service (GPT-4.1-mini for chat recommendations, GPT-realtime-mini for Voice AI on the GA Realtime API) (Claude Haiku for Smart Scanner)
 
 - **Security**: Managed Identity + Azure Key Vault (`kv-mybartenderai-prod`)
 
@@ -160,6 +160,8 @@ Located in `kv-mybartenderai-prod`:
   
   - GA replacement for gpt-4o-mini-realtime-preview (retired Feb 2026)
   - Low-latency audio streaming for voice-guided cocktail making
+  - **GA Realtime protocol** since v1.2.2 (Oct 2026): ephemeral key from `POST {endpoint}/openai/v1/realtime/client_secrets`, WebRTC SDP to `{endpoint}/openai/v1/realtime/calls` (no `api-version`). Azure retired the Preview protocol (`/openai/realtimeapi/sessions`, `realtimeapi-preview` host), which took Voice AI down on 2026-10-17. Logic: `backend/functions/shared/realtime-ga.js`
+  - The backend applies the whole session config (persona + inventory, push-to-talk VAD, noise reduction) at token time; the app sends **no** `session.update`. Store builds ≤ 1.2.1 get compat mode (`?webrtcfilter=on`, server-created replies). Optional app settings: `VOICE_LEGACY_CLIENT_MODE` (`compat` | `update_required`), `AZURE_OPENAI_REALTIME_TRANSCRIPTION_MODEL` (default `whisper-1`)
 
 - **Claude Haiku 4.5**: Smart Scanner for bottle/ingredient recognition
   
@@ -253,7 +255,7 @@ Located in `kv-mybartenderai-prod`:
 - `recommend`: AI-powered cocktail suggestions
 - `refine-cocktail`: AI recipe refinement for Create Studio
 - `vision-analyze`: Smart Scanner using Claude Haiku
-- `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API (Pro tier)
+- `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API, GA protocol (Pro tier)
 - `voice-purchase`, `voice-quota`, `voice-usage`, `voice-realtime-test`, `voice-session-cleanup`: Voice AI management
 - `subscription-config`, `subscription-status`, `subscription-webhook`: RevenueCat subscription system
 - `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
@@ -438,7 +440,7 @@ flutter test
 
 ---
 
-**Last Updated**: July 27, 2026
+**Last Updated**: October 17, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Google Play Billing 8 compliance (deadline Aug 30, 2026), then App Store submission
-**Recent Changes**: Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.
+**Primary Focus**: Voice AI outage fix — GA Realtime API migration (v1.2.2+36: backend hotfix + app update, code complete, not yet deployed/released), then `docs/CONVERSION_PLAN.md`
+**Recent Changes**: Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1, app sends no `session.update` and handles GA event names. Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

@@ -4,6 +4,58 @@ Chronological record of significant bug fixes applied to the project.
 
 ---
 
+## BUG-014: Android App Links Never Verified — Front Door Sent `assetlinks.json` to the Wrong Path
+
+**Date Fixed**: October 18, 2026
+**Severity**: Medium (Android 12+ can't open `https://share.mybartenderai.com/cocktail…` links in the app; Play Console warning)
+**Component**: Azure Front Door (`fd-mba-share`, route `route-well-known`)
+**Files Modified**: Docs only (`docs/ARCHITECTURE.md`, `docs/DEPLOYMENT_STATUS.md`, `docs/BUG_FIXES.md`)
+**Backend Deployment**: No
+**Azure Change**: `route-well-known` origin path `/api` → `/api/.well-known`
+
+### Problem
+
+Play Console notice (Oct 7, 2026): *"One deep link may be failing because your web domains aren't associated with your app."* `https://share.mybartenderai.com/.well-known/assetlinks.json` returned **HTTP 404** with APIM's `{ "statusCode": 404, "message": "Resource not found" }`, and Google's Digital Asset Links API reported `ERROR_CODE_FETCH_ERROR … 404 Not Found`. Android verifies an `autoVerify` App Link host by fetching that file, so the domain could never verify.
+
+### Root Cause
+
+`route-well-known` matched `/.well-known/*` with origin path `/api`. In Front Door Standard/Premium the origin path **replaces** the matched pattern prefix and carries over only the wildcard part (Microsoft's example: pattern `/foo/*` with origin path `/fwd/` sends `/foo/a/b/c/` to the origin as `fwd/a/b/c`). So the request reached APIM as `/api/assetlinks.json`, which matches no operation. Everything behind Front Door was fine:
+
+| Request | Result |
+| --- | --- |
+| Function `func-mba-fresh.azurewebsites.net/api/.well-known/assetlinks.json` | 200 JSON |
+| APIM `apim-mba-002.azure-api.net/api/.well-known/assetlinks.json` | 200 JSON |
+| Front Door `share.mybartenderai.com/.well-known/assetlinks.json` | **404** |
+| Front Door `share.mybartenderai.com/.well-known/health` | 200, the Function's `/api/health` (proves the prefix replacement) |
+| Front Door `share.mybartenderai.com/.well-known/.well-known/assetlinks.json` | 200, the asset-links JSON (same proof) |
+
+The `WellKnownRewrite` fallback rule set on `route-default` never ran: Front Door picks the most specific route, and `/.well-known/*` always beats `/*`.
+
+**Why BUG-013 looked verified:** its check most likely ran while the new route was still propagating, when `route-default` and the fallback rule still served the file. The Activity Log shows no Front Door or APIM changes in the 90 days before this fix, so this was not a later regression.
+
+### Fix
+
+```bash
+az afd route update --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-well-known --origin-path "/api/.well-known"
+```
+
+Only `originPath` changed; the route's other 15 properties were identical before and after. Rollback: the same command with `--origin-path "/api"`. Side effect: `/.well-known/*` no longer aliases the whole `/api/*` surface.
+
+### Verification
+
+- The Front Door rollout took about 22 minutes (changed 15:13:17Z, first 200 at 15:35:04Z). For a few seconds after that, the same edge IP still answered some requests with 404; from 15:35:37Z, 38 of 38 requests returned 200, with and without a query string, and the `azurefd.net` host matched
+- Response: `HTTP/1.1 200 OK`, `Content-Type: application/json`, no redirect, `Cache-Control: public, max-age=86400`, one statement for `ai.mybartender.mybartenderai`
+- Google Digital Asset Links API (15:36Z): `statements:list` returns the statement with no `errorCode`; `assetlinks:check` for `86:30:…:6F:AD` returns `"linked": true`; the same check for the upload key returns no link (expected: it isn't listed)
+
+### Still Open
+
+- Confirm the file's only fingerprint, `86:30:63:45:8F:D2:A3:7E:4A:0C:0F:52:7A:67:36:0C:85:0C:5C:CF:E5:57:B6:7B:EA:EC:79:EC:06:00:6F:AD`, is Play Console's **App signing key certificate** (it is not the upload key `CD:02:8E:…:8B:70`). Google caches the file for 24 hours (`maxAge` 86399 s, from its `Cache-Control`), so a fingerprint change takes up to a day to be seen
+- Android verifies App Links when the app is installed or updated, so existing installs pick this up with the next update. To check a device now: `adb shell pm verify-app-links --re-verify ai.mybartender.mybartenderai`, then `adb shell pm get-app-links ai.mybartender.mybartenderai`
+- The app shares `https://share.mybartenderai.com/api/cocktail/{id}`, which the App Link (`pathPrefix="/cocktail"`) doesn't claim, so shared links still open the browser preview rather than the app (separate follow-up)
+- The `WellKnownRewrite` rule set on `route-default` is dead config (optional cleanup)
+
+---
+
 ## SUB-006: `PurchaseService` Never Initialized — Android Voice-Minute Purchases Never Worked
 
 **Date Fixed**: July 27, 2026
@@ -1269,6 +1321,8 @@ Google Play Console reported 2 domains not verified and 2 links not working for 
 
 - `https://share.mybartenderai.com/.well-known/assetlinks.json` returns valid JSON with HTTP 200
 - Phantom `cocktail` domain no longer generated in Play Console after AAB upload
+
+> **Correction (Oct 18, 2026):** `route-well-known`'s `/api` origin path sent the file to the wrong path (`/api/assetlinks.json`, a 404), so the domain stayed unverified. See BUG-014.
 
 ---
 

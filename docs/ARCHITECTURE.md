@@ -14,7 +14,8 @@
 - Subscriber features run locally on device where possible (offline-first within the subscription)
 - Mobile → Azure Front Door (`share.mybartenderai.com`) → APIM (`apim-mba-002`) → Azure Functions (HTTPS) → (PostgreSQL/Blob/Key Vault/Azure OpenAI)
 - Azure Front Door (`fd-mba-share`) provides the custom domain entry point, DDoS protection, serves the public cocktail preview for social sharing, and hosts `assetlinks.json` for Android App Links domain verification
-  - Routes: `route-default` (`/*` → static website), `route-api` (`/api/*` → APIM), `route-well-known` (`/.well-known/*` → APIM with `/api` origin path)
+  - Routes: `route-default` (`/*` → static website), `route-api` (`/api/*` → APIM), `route-well-known` (`/.well-known/*` → APIM with `/api/.well-known` origin path)
+  - A route's origin path **replaces** the matched pattern prefix; it isn't prepended. So `route-well-known` forwards `/.well-known/assetlinks.json` to APIM as `/api/.well-known/assetlinks.json`. Its earlier origin path `/api` produced `/api/assetlinks.json` (a 404), which kept App Links unverified until Oct 18, 2026 (BUG-014 in `BUG_FIXES.md`)
 
 ## Current Operational Status (February 2026)
 
@@ -213,7 +214,8 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
 **Deep Link Verification (1)**
 - `well-known-assetlinks` - Android App Links Digital Asset Links (GET /api/.well-known/assetlinks.json)
   - Anonymous access, returns JSON with package name and SHA-256 signing certificate
-  - Served at `https://share.mybartenderai.com/.well-known/assetlinks.json` via Front Door `route-well-known`
+  - Served at `https://share.mybartenderai.com/.well-known/assetlinks.json` via Front Door `route-well-known` (origin path `/api/.well-known`)
+  - Check it the way Android does: `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls` should list the statement with no `errorCode`
 
 **Testing & Utilities (5)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)

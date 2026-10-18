@@ -17,7 +17,7 @@ Example: `https://share.mybartenderai.com/cocktail/17005`
 
 Builds up to v1.2.2 shared `https://share.mybartenderai.com/api/cocktail/{cocktailId}`. Both paths serve the same preview page, and the app opens both. The app builds the URL in one place: `cocktailShareUrl()` in `mobile/app/lib/src/utils/cocktail_links.dart`.
 
-> **Rollout pending (October 2026):** `/cocktail/*` needs the Front Door route `route-cocktail`, which doesn't exist yet. Until it does, `/cocktail/{id}` falls through to `route-default` and the static website answers with its "Recipe Not Found" 404 page. See [Rollout](#rollout-shared-links-open-the-app).
+> **Rollout in progress (October 2026):** Front Door `route-cocktail` has served `/cocktail/{id}` since October 18, 2026. The app starts sharing it in v1.2.3; until then it shares `/api/cocktail/{id}`, and the deployed preview page still names `/api/cocktail/{id}` as its `og:url`. See [Rollout](#rollout-shared-links-open-the-app).
 
 ### Request Flow
 
@@ -122,14 +122,14 @@ A link replaces the navigation stack, so the detail screen is the only page. Its
 
 ## Rollout: Shared Links Open the App
 
-Status on October 18, 2026: step 1 done; the code for steps 4-5 is on branch `claude/zealous-galileo-c073fe`; nothing else applied. Agreed order, each step with Gene's OK:
+Status on October 18, 2026: steps 1 and 3 done; the code for steps 4-5 is on branch `claude/zealous-galileo-c073fe`. Agreed order, each step with Gene's OK:
 
 1. **App Links verification** (done, BUG-014 in `docs/BUG_FIXES.md`): `route-well-known` origin path `/api/.well-known`, applied October 18, 2026. At 15:52 UTC `https://share.mybartenderai.com/.well-known/assetlinks.json` returned 200 and Google's checker listed the app's statement:
    ```
    https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls
    ```
 2. **iOS v1.2.2+36 first**: build and submit it from `main` before this branch merges. `main`'s app code is what the Android v1.2.2+36 bundle was built from; merging first would ship different code on iOS.
-3. **Front Door `route-cocktail`**, any time, even before step 2: it only replaces the static website's 404 for `/cocktail/*`, and the deployed `cocktail-preview` already serves those pages. Same settings as `route-api`, caching off:
+3. **Front Door `route-cocktail`** (done): created October 18, 2026 at 19:29 UTC with the command below and live at the edge from 19:51 UTC. It matches `route-api` in every setting except the pattern and origin path, and the other four routes were unchanged. Checked at 19:51 UTC: `/cocktail/17005` 200 (A True Amaretto Sour, five tries), `/cocktail/11007` 200 (Margarita), an unknown id gets the function's 404 page, and `/api/cocktail/17005`, `/.well-known/assetlinks.json` and `/` answer as before. It could go before step 2 because it only replaces the static website's 404 for `/cocktail/*`. Same settings as `route-api`, caching off:
    ```bash
    az afd route create --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-cocktail --patterns-to-match "[/cocktail/*]" --origin-group og-apim --origin-path "/api/cocktail" --formatted-custom-domains "[{id:/subscriptions/a30b74bc-d8dd-4564-8356-2269a68a9e18/resourceGroups/rg-mba-prod/providers/Microsoft.Cdn/profiles/fd-mba-share/customDomains/share-mybartenderai-com}]" --supported-protocols "[Https]" --forwarding-protocol HttpsOnly --https-redirect Enabled --link-to-default-domain Enabled --enabled-state Enabled
    ```
@@ -367,7 +367,7 @@ Test URL: `https://share.mybartenderai.com/api/cocktail/16943` (A Gilligan's Isl
 
 - **Initial sharing fix**: November 30, 2025
 - **Enhanced preview page**: December 1, 2025
-- **Shared links open the app**: code October 18, 2026; rollout pending (see [Rollout](#rollout-shared-links-open-the-app))
+- **Shared links open the app**: code and Front Door `route-cocktail` October 18, 2026; backend deploy and v1.2.3 pending (see [Rollout](#rollout-shared-links-open-the-app))
 
 ## Key Learnings
 

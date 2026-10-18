@@ -1590,6 +1590,7 @@ The backend's GA logic lives in `backend/functions/shared/realtime-ga.js` (tests
 - Sends `realtimeProtocol: "ga"` in the session request
 - Handles the GA event names alongside the Preview names (kept for one release)
 - Data-channel `error` events no longer end the session (they reset the pending-response guard and return to listening)
+- A normal stop no longer shows "Error occurred" on iPhone: the `closed` peer-connection state, which only follows the app's own `close()` and which `flutter_webrtc` on iOS reports back after the session has ended, is no longer treated as an error (`disconnected` / `failed` still are)
 - No client `session.update`: persona, inventory, push-to-talk VAD and noise reduction all come from the backend's token-time config
 
 ### App settings on `func-mba-fresh` (optional)
@@ -1604,7 +1605,8 @@ The backend's GA logic lives in `backend/functions/shared/realtime-ga.js` (tests
 - Smoke test (2026-10-17): `client_secrets` returns 200 for both configs with the session echoed back; `/openai/v1/realtime/calls` is routed on the `cognitiveservices.azure.com` and `openai.azure.com` hosts
 - No-audio WebRTC probe (2026-10-17): `session.created` carries the token-time config; a store-build `session.update` on the plain GA URL produces `error: missing_required_parameter`; on the filtered URL nothing reaches the app
 - Backend deployed 2026-10-17 23:46 UTC (commit `d2972b4`); `voice-realtime-test` returns 200 in both modes, with no client secret in the logs
-- Still to verify on devices: store builds in compat mode, v1.2.2+36, user transcripts with `whisper-1`, inventory awareness, push-to-talk replies, minute metering
+- Device test (2026-10-18): store builds in compat mode work on iPhone and Android; a normally ended Android session billed its measured talk time (24 s of 30 s, `client_capped_by_wallclock`)
+- Still to verify on devices: v1.2.2+36, user transcripts with `whisper-1`, inventory awareness, push-to-talk replies
 
 ---
 

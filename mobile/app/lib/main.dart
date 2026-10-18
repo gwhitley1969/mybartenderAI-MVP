@@ -26,6 +26,7 @@ import 'src/providers/cocktail_provider.dart';
 import 'src/providers/subscription_gate_provider.dart';
 import 'src/providers/subscription_provider.dart';
 import 'src/services/notification_service.dart';
+import 'src/utils/cocktail_links.dart';
 
 /// Global navigator key for navigation from notification taps
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -355,6 +356,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     // This re-evaluates redirects WITHOUT recreating the router, preserving nav stack
     refreshListenable: refreshNotifier,
     redirect: (BuildContext context, GoRouterState state) {
+      // 0. Shared-cocktail links the routes can't match (custom scheme,
+      //    v1.2.2 share URL) become /cocktail/:id, which the rules below then
+      //    gate like any cocktail link. Reads state.uri: matchedLocation has
+      //    lost the link's scheme and host.
+      final cocktailLink = cocktailDeepLinkRedirect(state.uri);
+      if (cocktailLink != null) {
+        return cocktailLink;
+      }
+
       // Use ref.read() inside redirect - reads current state without subscribing
       // This is called whenever refreshNotifier.notifyListeners() is triggered
       final authState = ref.read(authNotifierProvider);

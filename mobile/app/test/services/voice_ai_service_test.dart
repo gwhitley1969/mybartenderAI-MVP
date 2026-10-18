@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import 'package:mybartenderai/src/services/voice_ai_service.dart';
 
@@ -89,6 +90,28 @@ void main() {
 
       expect(transcriptLines(), [('assistant', 'Try a Negroni.')]);
     });
+  });
+
+  group('connection state', () {
+    // 'closed' only ever follows the app's own close(). flutter_webrtc on iOS reports
+    // it back after a normal stop, when the session has already returned to idle.
+    test('the app closing its own connection is not an error', () {
+      service.handleConnectionState(RTCPeerConnectionState.RTCPeerConnectionStateClosed);
+
+      expect(service.state, VoiceAIState.idle);
+    });
+
+    // Guards: a dropped connection still surfaces as an error (pass before and after).
+    for (final dropped in [
+      RTCPeerConnectionState.RTCPeerConnectionStateFailed,
+      RTCPeerConnectionState.RTCPeerConnectionStateDisconnected,
+    ]) {
+      test('$dropped still puts the session into the error state', () {
+        service.handleConnectionState(dropped);
+
+        expect(service.state, VoiceAIState.error);
+      });
+    }
   });
 
   group('error events', () {

@@ -582,20 +582,7 @@ class VoiceAIService {
       await _peerConnection!.setRemoteDescription(answer);
 
       // Monitor connection state
-      _peerConnection!.onConnectionState = (RTCPeerConnectionState state) {
-        switch (state) {
-          case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
-            _setState(VoiceAIState.listening);
-            break;
-          case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-          case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
-          case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
-            _setState(VoiceAIState.error);
-            break;
-          default:
-            break;
-        }
-      };
+      _peerConnection!.onConnectionState = handleConnectionState;
 
       // iOS-specific: Force speaker output AFTER peer connection is established
       // This must happen AFTER WebRTC setup to override iOS's default earpiece routing
@@ -621,6 +608,27 @@ class VoiceAIService {
     } catch (e) {
       await _cleanup();
       throw VoiceAIException('WebRTC connection failed: $e');
+    }
+  }
+
+  /// Map WebRTC peer connection state changes to the session state
+  ///
+  /// 'closed' is not an error: it only ever follows our own close() in _cleanup().
+  /// A dropped or ended remote session reports 'disconnected' or 'failed'. On iOS,
+  /// flutter_webrtc forwards our own close() back as 'closed' after endSession() has
+  /// already set idle, which used to leave "Error occurred" on screen after a stop.
+  @visibleForTesting
+  void handleConnectionState(RTCPeerConnectionState state) {
+    switch (state) {
+      case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
+        _setState(VoiceAIState.listening);
+        break;
+      case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+      case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
+        _setState(VoiceAIState.error);
+        break;
+      default:
+        break;
     }
   }
 

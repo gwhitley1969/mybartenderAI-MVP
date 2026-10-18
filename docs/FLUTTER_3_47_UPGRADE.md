@@ -82,7 +82,7 @@ Baseline: unchanged `main` @ `0f54b51` on Flutter 3.35.5. After: this branch on 
 
 ## Pre-existing problems found (not fixed here)
 
-- **A fresh clone can't build a release.** Line 53 of the root `.gitignore` is `*.png`, so 22 generated Android PNGs never reached git: `android12splash` (×10), `splash` (×5), `ic_launcher_foreground` (×5) and `background` (×2). Neither did 7 iOS PNGs (AppIcon 50/57/72 pt, `LaunchBackground`). Tracked XML and asset catalogs reference all of them. The first build here failed at `:app:processReleaseResources` (`drawable/android12splash not found`) until those 22 files were copied from the main checkout, where they're identical but untracked. Fix: narrow the ignore rule and commit them.
+- **A fresh clone can't build a release.** Line 53 of the root `.gitignore` is `*.png`, apparently by accident, since it sits in the Node / Azure Functions section. So 22 generated Android PNGs never reached git: `android12splash` (×10), `splash` (×5), `ic_launcher_foreground` (×5) and `background` (×2). Tracked resource XML references all 22. On iOS, `LaunchBackground.imageset/background.png` never reached git either, and the launch screen uses it. Without that file Xcode only warns, and the launch screen ships without its background. Six AppIcon PNGs (50/57/72 pt) are also untracked, but the icon set doesn't reference them. The first build here failed at `:app:processReleaseResources` (`drawable/android12splash not found`) until the 22 Android files were copied from the main checkout, where they exist but are untracked. Fix: narrow the ignore rule and commit the referenced files.
 - **`ios/Podfile.lock` in git is stale.** It still lists `purchases_flutter` 8.11.0, `msal_auth` 2.0.2 and `flutter_webrtc` 0.12.6. Commit the one `pod install` produces on the Mac.
 - `test/services/apim_subscription_service_test.dart` (imports `package:app/…`, has no mockito mocks) and `test/widget_test.dart` (`MyApp` no longer exists) don't compile.
 
@@ -91,7 +91,7 @@ Baseline: unchanged `main` @ `0f54b51` on Flutter 3.35.5. After: this branch on 
 - AGP 9 + Gradle 9.x, with Flutter's template versions as the target (Gradle 9.3.1, AGP 9.1.0, Kotlin 2.4.0), then built-in Kotlin. Gradle 9.1+ also runs on Android Studio's bundled Java 25, which would end the JDK 21 pin.
 - Upgrade `flutter_webrtc` (1.6.x) and `share_plus` (13.x), then delete the compileSdk override in `android/build.gradle.kts`. The Voice AI push-to-talk test and the iPhone stop behavior must be re-checked.
 - Swift Package Manager for iOS (delete the `config` line in `pubspec.yaml`).
-- UIScene lifecycle (iOS). Flutter 3.47 warns on every iOS build. The custom `AppDelegate` (notification taps) can't be auto-migrated, and MSAL's redirect handling has to move to the scene delegate.
+- UIScene lifecycle (iOS). Flutter 3.47 warns on every iOS build, and its tool states that UIScene is **required on iOS 27 and later**, so this one has a deadline. The custom `AppDelegate` (notification taps) can't be auto-migrated, and MSAL's redirect handling has to move to the scene delegate.
 - freezed 3, then raise the Dart language version.
 - Commit the gitignored generated PNGs.
 
@@ -99,18 +99,20 @@ Baseline: unchanged `main` @ `0f54b51` on Flutter 3.35.5. After: this branch on 
 
 ## Regression checklist
 
-Run this before the upgrade ships. The marked items cover areas the upgrade actually touched. Everything else is a smoke test.
+Run this before the upgrade ships. The marked items cover areas the upgrade actually touched. Everything else is a smoke test. The framework changes cited below come from Flutter's [breaking-changes list](https://docs.flutter.dev/release/breaking-changes) for 3.38–3.47.
 
 ### 0. Before testing
 
 - [ ] Bump `version:` in `mobile/app/pubspec.yaml` (for example `1.2.3+37`). The hotfix bundle already uses `1.2.2+36`.
 - [ ] Windows: build with `C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat` (`flutter clean` first). The `flutter` on `PATH` is 3.47.1. It pins the same packages, but it lacks six patch releases of fixes.
+- [ ] Building from a fresh clone or worktree instead of the main checkout? First copy the 22 Android PNGs and the two signing files over from the main checkout (`git ls-files --others --ignored --exclude-standard mobile/app` there lists them).
 
 ### 1. Mac: build setup (iOS)
 
 - [ ] Install Flutter **3.47.7** exactly (`flutter --version`), the same version the Android build uses.
 - [ ] Xcode: Flutter 3.47 requires ≥ 15 and recommends ≥ 16. Use the version App Store Connect currently requires for uploads. CocoaPods ≥ 1.16.2 is recommended (`pod --version`).
 - [ ] `cd mobile/app && flutter clean && flutter pub get`, then `cd ios && pod repo update && pod install`. Expect `Podfile.lock` to change (it's stale), and commit it.
+- [ ] Confirm `ios/Runner/Assets.xcassets/LaunchBackground.imageset/background.png` exists. It's gitignored, so a fresh Mac clone doesn't have it; copy it from the PC's main checkout. Without it, Xcode only warns and the launch screen loses its background.
 - [ ] **`flutter build ios --release`**. Expected output: a warning that "UIScene lifecycle support will soon be required" (follow-up, ignore for now). There should be **no** "Updating minimum iOS deployment target" line, because the repo is already on 15.0.
 - [ ] Run `git status` in `mobile/app/ios`. Flutter's other iOS migrators may touch `project.pbxproj`, the Runner scheme or `ios/.gitignore`. Review and commit them, or report anything odd. Nothing SwiftPM-related should appear (`FlutterGeneratedPluginSwiftPackage`); if it does, the `pubspec.yaml` setting didn't take effect.
 - [ ] Archive in Xcode (Product → Archive). Watch for "compiling for iOS 14.0, but module … has a minimum deployment target of iOS 15.0". The Podfile change should prevent it.
@@ -120,6 +122,14 @@ Run this before the upgrade ships. The marked items cover areas the upgrade actu
 
 Android: connect a phone, `flutter clean`, `flutter run --release`. The Play upload stays gated on Gene's OK.
 
+- [ ] **Install over the store build first**, since that's what every real user does. Install the current store version, sign in, stock My Bar, save favorites and let a Today's Special reminder get scheduled. Then install this build over it without uninstalling and check that:
+  - you're still signed in (Keystore / Keychain)
+  - the Recipe Vault database opens without a re-download
+  - My Bar and favorites are intact
+  - the reminder still fires
+  - the subscription is recognized without buying again
+
+  On Android this needs Play's internal testing track or internal app sharing, which means an upload and Gene's OK. Play re-signs store builds with the app signing key, so a build signed locally with the upload key can't install over them. On iOS, a TestFlight build installs over the App Store version.
 - [ ] Launch: splash screen (Android 12+ animated icon), app icon, no crash on cold start.
 - [ ] Sign in with Email, Google and Apple. The browser hands back to the app (MSAL redirect). Kill the app, relaunch, and confirm you're still signed in.
 - [ ] Age verification for a new account.
@@ -138,7 +148,7 @@ Android: connect a phone, `flutter clean`, `flutter run --release`. The Play upl
 
 ### 3. Android-specific
 
-- [ ] **Back gesture on Android 14+** with predictive back. Since Flutter 3.38 the default Android page transition is `PredictiveBackPageTransitionBuilder`, so screens animate differently. That's expected; check that it doesn't feel broken.
+- [ ] **Page transitions:** the default Android route transition changed from Zoom (3.35.5) to `PredictiveBackPageTransitionsBuilder` (Flutter 3.38). Predictive back itself isn't enabled (the manifest has no `android:enableOnBackInvokedCallback`), so it falls back to the fade-forwards animation and screens animate differently. That's expected; check that navigation doesn't feel broken.
 - [ ] **Material 3 visual pass** (Flutter 3.41 updated the M3 tokens): buttons, cards, chips, dialogs, bottom sheets, navigation bar, text fields. Compare with v1.2.2 screenshots if you have them.
 - [ ] An older or low-end phone, or an emulator without Vulkan (Impeller's OpenGL ES path; 3.47 changed how GLES textures are stored): YouTube and WebView content renders right side up, no black screens.
 - [ ] Debug run (`flutter run`): watch the console for new framework assertions. One example is 3.44's error for a `ListTile` inside a colored widget; six screens use `ListTile`.

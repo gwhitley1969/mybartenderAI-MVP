@@ -21,14 +21,16 @@ subprojects {
 // compile such plugins against the app's SDK. Only the android.jar they compile
 // against changes, not their code or native libraries. Remove once both plugins
 // are on releases that compile against 34+.
-// Must stay above evaluationDependsOn(":app"), which evaluates the plugins.
+// The hook is registered here in the root script, so it exists before any
+// plugin project is evaluated. It logs at quiet level because `flutter build`
+// runs Gradle with -q, which hides lifecycle messages.
 subprojects {
     pluginManager.withPlugin("com.android.library") {
         extensions.getByType(com.android.build.api.variant.LibraryAndroidComponentsExtension::class.java)
             .finalizeDsl { android ->
                 val requested = android.compileSdk
                 if (requested != null && requested < 34) {
-                    logger.lifecycle("Compiling ${project.path} against android-36 (it asks for android-$requested)")
+                    logger.quiet("Compiling ${project.path} against android-36 (it asks for android-$requested)")
                     android.compileSdk = 36
                 }
             }

@@ -28,7 +28,7 @@ void callbackDispatcher() {
           return await _performTokenRefresh();
         default:
           print('[BG-TOKEN] Unknown task: $task');
-          return Future.value(true);
+          return true;
       }
     } catch (e, stackTrace) {
       print('[BG-TOKEN] Background task error: $e');

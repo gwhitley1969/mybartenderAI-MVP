@@ -138,7 +138,7 @@ Android: connect a phone, `flutter clean`, `flutter run --release`. The Play upl
 - [ ] Smart Scanner: camera and photo-library permissions, scan, results added to My Bar.
 - [ ] **Recipe Vault offline data:** fresh install → snapshot download and decompress (zstandard; its native library was rebuilt), then browse and search offline.
 - [ ] Today's Special notification: permission prompt, scheduled reminder, and tapping it opens the cocktail (iOS: the custom `AppDelegate` notification code).
-- [ ] Share a recipe card (system share sheet, Instagram, Facebook); Friends via Code; a `share.mybartenderai.com` link opens the app.
+- [ ] Share a recipe card (system share sheet, Instagram, Facebook); Friends via Code; a `share.mybartenderai.com` link opens the app (Android: test it on the Play-signed build, see the App Links check in section 3).
 - [ ] WebViews: Privacy Policy and Terms. Academy and Pro Tools YouTube videos play right side up.
 - [ ] Profile: settings, Sign Out, **Delete Account** (double confirm). Back gesture on the profile screen (`PopScope`).
 - [ ] Background token refresh (workmanager): leave the app in the background for a few hours, come back, and you should still be signed in.
@@ -151,6 +151,7 @@ Android: connect a phone, `flutter clean`, `flutter run --release`. The Play upl
 - [ ] An older or low-end phone, or an emulator without Vulkan (Impeller's OpenGL ES path; 3.47 changed how GLES textures are stored): YouTube and WebView content renders right side up, no black screens.
 - [ ] Debug run (`flutter run`): watch the console for new framework assertions. One example is 3.44's error for a `ListTile` inside a colored widget; six screens use `ListTile`.
 - [ ] Android 13+ notification permission; edge-to-edge system bars look right.
+- [ ] **App Links, on the Play internal-testing build.** Run `adb shell pm get-app-links ai.mybartender.mybartenderai`: under "Domain verification state" it should show `share.mybartenderai.com: verified`. Then tapping a shared link should open the app, not the browser. If the state is anything else, run `adb shell pm verify-app-links --re-verify ai.mybartender.mybartenderai`, wait a minute and check again. The live `assetlinks.json` trusts only Play's app signing key (`86:30…6F:AD`). Builds signed locally with the upload key (`flutter run --release`, or this upgrade's test bundle) never verify, so on those, links opening in the browser is expected and not a regression.
 
 ### 4. iOS-specific
 

@@ -96,7 +96,7 @@ The function:
 
 ### Opening the App
 
-**Android App Links.** The manifest's `autoVerify` intent filter claims `https://share.mybartenderai.com` with the path prefixes `/cocktail/` and `/api/cocktail/` (the second from builds after v1.2.2, so links shared by older builds open the app too). A tapped link opens the app directly only once Android has verified the domain, which needs `https://share.mybartenderai.com/.well-known/assetlinks.json` (Front Door `route-well-known` → APIM → `well-known-assetlinks` function) to list the key the installed build is signed with. It lists one SHA-256 fingerprint, presumably the Play App Signing key (confirm in Play Console under App integrity); debug and sideloaded upload-key builds don't verify.
+**Android App Links.** The manifest's `autoVerify` intent filter claims `https://share.mybartenderai.com` with the path prefixes `/cocktail/` and `/api/cocktail/` (the second from v1.2.3, so links shared by older builds open the app too). A tapped link opens the app directly only once Android has verified the domain, which needs `https://share.mybartenderai.com/.well-known/assetlinks.json` (Front Door `route-well-known` → APIM → `well-known-assetlinks` function) to list the key the installed build is signed with. It lists one SHA-256 fingerprint, the Play App Signing key (confirmed in Play Console on October 18, 2026), so only Play-installed builds verify; debug and sideloaded upload-key builds don't.
 
 **iOS.** No Universal Links yet: the app has no Associated Domains entitlement and the domain serves no `apple-app-site-association`. A tapped link opens the preview page in Safari.
 
@@ -122,21 +122,22 @@ A link replaces the navigation stack, so the detail screen is the only page. Its
 
 ## Rollout: Shared Links Open the App
 
-Status on October 18, 2026: step 1 done; code for steps 3-4 on branch `claude/zealous-galileo-c073fe`; steps 2-5 not applied. Each step needs Gene's OK.
+Status on October 18, 2026: step 1 done; the code for steps 4-5 is on branch `claude/zealous-galileo-c073fe`; nothing else applied. Agreed order, each step with Gene's OK:
 
-1. **App Links verification** (done): `route-well-known` origin path `/api/.well-known`, applied October 18, 2026. At 15:52 UTC `https://share.mybartenderai.com/.well-known/assetlinks.json` returned 200 and Google's checker listed the app's statement:
+1. **App Links verification** (done, BUG-014 in `docs/BUG_FIXES.md`): `route-well-known` origin path `/api/.well-known`, applied October 18, 2026. At 15:52 UTC `https://share.mybartenderai.com/.well-known/assetlinks.json` returned 200 and Google's checker listed the app's statement:
    ```
    https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls
    ```
-2. **Front Door `route-cocktail`** (same settings as `route-api`, caching off):
+2. **iOS v1.2.2+36 first**: build and submit it from `main` before this branch merges. `main`'s app code is what the Android v1.2.2+36 bundle was built from; merging first would ship different code on iOS.
+3. **Front Door `route-cocktail`**, any time, even before step 2: it only replaces the static website's 404 for `/cocktail/*`, and the deployed `cocktail-preview` already serves those pages. Same settings as `route-api`, caching off:
    ```bash
    az afd route create --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-cocktail --patterns-to-match "[/cocktail/*]" --origin-group og-apim --origin-path "/api/cocktail" --formatted-custom-domains "[{id:/subscriptions/a30b74bc-d8dd-4564-8356-2269a68a9e18/resourceGroups/rg-mba-prod/providers/Microsoft.Cdn/profiles/fd-mba-share/customDomains/share-mybartenderai-com}]" --supported-protocols "[Https]" --forwarding-protocol HttpsOnly --https-redirect Enabled --link-to-default-domain Enabled --enabled-state Enabled
    ```
    Verify (allow time for Front Door to propagate): `curl -s https://share.mybartenderai.com/cocktail/17005` returns 200 with `<title>A True Amaretto Sour - My AI Bartender</title>`.
    Rollback: `az afd route delete --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-cocktail --yes`
-3. **Backend deploy** (`cocktail-preview`: Open button, canonical `og:url`). After step 2: otherwise Facebook scrapes the `og:url` and gets the 404 page.
-4. **App release** (share URL, App Link paths, link mapping, back arrow). After step 2: otherwise people without the app get the 404 page.
-5. **Device check** on a Play-installed build (Play signs with the key `assetlinks.json` lists):
+4. **After step 2: push, PR, merge, then deploy the backend** (`cocktail-preview`: Open button, canonical `og:url`). Needs step 3 too: otherwise Facebook scrapes the `og:url` and gets the 404 page.
+5. **App release v1.2.3** (share URL, App Link paths, link mapping, back arrow). Needs step 3: otherwise people without the app get the 404 page. The Flutter 3.47 upgrade (PR #4) merges after this branch, so its regression pass covers the link handling.
+6. **Device check** on a Play-installed v1.2.3 (Play signs with the key `assetlinks.json` lists):
    ```bash
    adb shell pm get-app-links ai.mybartender.mybartenderai
    adb shell pm verify-app-links --re-verify ai.mybartender.mybartenderai

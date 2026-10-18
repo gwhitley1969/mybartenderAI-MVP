@@ -2,13 +2,15 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: October 17, 2026
+**Last Updated**: October 18, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
 
 > **Open incident (Oct 17, 2026): Voice AI.** The backend GA fix below was deployed at 23:46 UTC; installed store builds get compat mode, and voice was verified working on iPhone and Android on Oct 18. The app update (v1.2.2+36) is not yet released. All other features are unaffected.
 
 ### Recent Updates (October 2026)
+
+- **Android App Links domain verification fixed: Front Door origin path** (Oct 18): Play Console warned on Oct 7 that *"One deep link may be failing because your web domains aren't associated with your app."* `https://share.mybartenderai.com/.well-known/assetlinks.json` returned 404. `route-well-known` (`/.well-known/*` → `og-apim`) had origin path `/api`, and Front Door replaces the matched prefix with the origin path, so APIM received `/api/assetlinks.json`. Changed the origin path to `/api/.well-known` with `az afd route update` (Azure change only: no code change, no deploy); the route's other properties are unchanged. The edge rollout took about 22 minutes; the file now returns 200 `application/json`, and Google's Digital Asset Links API reports `"linked": true` for the listed certificate. Still open: confirm that certificate (`86:30:…:6F:AD`) is the Play App Signing key; shared links use `/api/cocktail/{id}`, which the App Link (`/cocktail`) doesn't claim. Details: BUG-014 in `BUG_FIXES.md`.
 
 - **Incident — Voice AI down: Azure retired the Preview Realtime API** (Oct 17): starting a voice session showed "Error occurred" / "Failed to initialize voice session" on iOS and Android; text chat was unaffected. `voice-session`'s ephemeral-token request (`POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`) returned `400 realtime_beta_access_required`: *"The Realtime preview API is no longer available for this request. Please migrate from the preview API to the v1 API."* Application Insights: 14 failures from 2 users (22:34–22:38 UTC); last success 2026-09-23 23:36 UTC, with no voice traffic in between, so the cutoff landed somewhere in that window (Microsoft deprecated the Preview on Apr 30, 2026). The `gpt-realtime-mini` deployment (2025-12-15), API key and quota were all fine.
 
@@ -506,6 +508,7 @@ The My AI Bartender mobile app and Azure backend are fully operational and in pr
   - Created Front Door route `route-well-known` (`/.well-known/*` → `og-apim`)
   - Created Front Door rule set `WellKnownRewrite` with URL rewrite rule on `route-default`
   - Verified: `https://share.mybartenderai.com/.well-known/assetlinks.json` returns valid JSON
+  - **Corrected Oct 18, 2026:** the route's `/api` origin path actually forwarded the file as `/api/assetlinks.json` (404); it is now `/api/.well-known`. See the October 2026 updates and BUG-014 in `BUG_FIXES.md`
 
 - **Multi-Layer 403 Entitlement Defense** (Feb 22): Implemented a 3-layer server-side entitlement enforcement system to replace the broken client-side subscription gate. Previously, unpaid users hitting a backend AI endpoint saw raw `DioException` errors. Now, 403 `entitlement_required` responses are caught, typed, and surfaced as clean paywall UI on each screen. Three layers:
   1. **Layer 1 — Dio Interceptor** (`backend_service.dart`): `onError` handler inspects 403 responses for `{ error: 'entitlement_required' }`. Wraps in typed `EntitlementRequiredException` via `handler.reject()` so downstream code can catch by type instead of parsing HTTP status codes. Also invokes `onEntitlementRequired` callback (wired in `backend_provider.dart`) to trigger Layer 3.

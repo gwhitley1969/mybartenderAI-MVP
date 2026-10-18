@@ -2,7 +2,9 @@
 
 > **For Claude Code** - This is the implementation guide for the "Talk" feature in My AI Bartender.
 
-**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 15, 2026 - iOS background audio capture fix)
+**Status**: ✅ IMPLEMENTED (December 9, 2025, updated February 15, 2026 - iOS background audio capture fix; October 18, 2026 - GA Realtime API migration, v1.2.2)
+
+> **Protocol update (October 2026, v1.2.2).** Azure retired the Preview Realtime API this spec was written against, which took Voice AI down on 2026-10-17. Code below that uses `/openai/realtimeapi/sessions?api-version=2025-04-01-preview`, `client_secret.value`, the `realtimeapi-preview.ai.azure.com/v1/realtimertc` host, flat session fields (`input_audio_transcription`, top-level `turn_detection`), Preview event names (`response.audio_transcript.*`) or a client `session.update` is **historical: do not reintroduce it**. Current implementation: `backend/functions/shared/realtime-ga.js` (GA `POST {endpoint}/openai/v1/realtime/client_secrets` and `{endpoint}/openai/v1/realtime/calls`, plus the compat mode for store builds ≤ 1.2.1) and `docs/VOICE_AI_DEPLOYED.md` → *GA Realtime API Migration*.
 
 ## Overview
 
@@ -83,6 +85,8 @@ CREATE TABLE voice_addon_purchases (
 Location: `apps/backend/v4-deploy/voice-session/index.js`
 
 Purpose: Validate paid entitlement, check quota, return ephemeral token for WebRTC connection.
+
+> **Historical sample (Preview protocol).** Since v1.2.2 the handler lives in `backend/functions/index.js` and builds the GA request with `shared/realtime-ga.js`: `POST {endpoint}/openai/v1/realtime/client_secrets` with `{ expires_after, session: { type: "realtime", model, instructions, audio: { input: { transcription, turn_detection, noise_reduction }, output: { voice } } } }`, reading `value` / `expires_at` / `session.id` from the response and returning `{endpoint}/openai/v1/realtime/calls` as the WebRTC URL. The response field names sent to the app are unchanged.
 
 ```javascript
 const { app } = require('@azure/functions');
@@ -343,7 +347,8 @@ class VoiceRealtimeService {
       case 'conversation.item.input_audio_transcription.completed':
         onTranscript(event['transcript']); // User's speech
         break;
-      case 'response.audio_transcript.done':
+      case 'response.output_audio_transcript.done': // GA name (v1.2.2+)
+      case 'response.audio_transcript.done':        // Preview name, kept for one release
         onTranscript(event['transcript']); // AI's response
         break;
       case 'input_audio_buffer.speech_started':
@@ -455,7 +460,9 @@ const WARNING_THRESHOLD = 0.80;      // Warn at 80% used (6 min remaining)
 - [x] Push-to-talk: Phantom "Thinking..." from muted-mic VAD events fixed ✅ January 31, 2026
 - [x] Push-to-talk: Interruption no longer causes duplicate/truncated transcripts ✅ February 15, 2026
 - [x] "How to use" instructions updated for push-to-talk ✅ January 16, 2026
-- [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025
+- [x] Bar inventory context passed to AI (via session.update) ✅ December 27, 2025; since v1.2.2 via the backend's token-time instructions
+- [x] GA Realtime API (client_secrets / calls), compat mode for store builds ≤ 1.2.1 ✅ October 17-18, 2026 (backend deployed, verified on iPhone and Android)
+- [x] Normal stop no longer shows "Error occurred" on iPhone ✅ October 18, 2026 (v1.2.2)
 - [x] "Minutes remaining" updates after each session ✅ February 9, 2026 (dispose + PopScope + quota nulling fix)
 - [ ] 80% warning toast appears at 6 minutes remaining
 - [ ] Quota exhaustion shows purchase option (after AI finishes response)
@@ -498,6 +505,8 @@ See `docs/VOICE_AI_DEPLOYED.md` for complete deployment documentation.
 ## Bar Inventory Integration (December 27, 2025)
 
 ### Implementation Change
+
+> **Superseded in v1.2.2 (October 2026).** On the GA protocol the session config sent to `client_secrets` is applied to WebRTC calls (verified with a WebRTC probe on 2026-10-17), so inventory now travels in the backend's token-time instructions and the app sends no `session.update`. The old update also replaced the bartender persona with inventory-only instructions for users with a stocked bar.
 
 The original plan called for passing inventory context to the backend `voice-session` function, which would include it in the system instructions during session creation. However, this approach did not work for WebRTC sessions - the `instructions` field was not being applied.
 
@@ -635,7 +644,7 @@ The `speech_started` and `speech_stopped` VAD handlers didn't check `_isMuted` w
 
 ### Updated Session Configuration
 
-The `session.update` now uses `create_response: false` (push-to-talk sends explicit `response.create` on button release):
+The `session.update` now uses `create_response: false` (push-to-talk sends explicit `response.create` on button release). Since v1.2.2 this turn-detection config is part of the backend's GA `client_secrets` request (`PUSH_TO_TALK_TURN_DETECTION` in `shared/realtime-ga.js`); the app no longer sends `session.update`:
 
 ```dart
 'turn_detection': {

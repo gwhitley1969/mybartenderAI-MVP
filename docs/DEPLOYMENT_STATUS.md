@@ -2,9 +2,46 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: July 27, 2026
+**Last Updated**: October 17, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
+
+> **Open incident (Oct 17, 2026): Voice AI.** The backend GA fix below was deployed at 23:46 UTC; installed store builds get compat mode, and voice was verified working on iPhone and Android on Oct 18. The app update (v1.2.2+36) is not yet released. All other features are unaffected.
+
+### Recent Updates (October 2026)
+
+- **Incident — Voice AI down: Azure retired the Preview Realtime API** (Oct 17): starting a voice session showed "Error occurred" / "Failed to initialize voice session" on iOS and Android; text chat was unaffected. `voice-session`'s ephemeral-token request (`POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`) returned `400 realtime_beta_access_required`: *"The Realtime preview API is no longer available for this request. Please migrate from the preview API to the v1 API."* Application Insights: 14 failures from 2 users (22:34–22:38 UTC); last success 2026-09-23 23:36 UTC, with no voice traffic in between, so the cutoff landed somewhere in that window (Microsoft deprecated the Preview on Apr 30, 2026). The `gpt-realtime-mini` deployment (2025-12-15), API key and quota were all fine.
+
+- **Version 1.2.2+36 — Voice AI on the GA Realtime API** (Oct 17) — **backend deployed Oct 17, 23:46 UTC; app not yet released.** Two stages: a backend hotfix that also serves the store builds already installed, and an app update.
+
+  **Backend (Stage A):**
+  - `backend/functions/shared/realtime-ga.js` (NEW): GA URLs (`POST {endpoint}/openai/v1/realtime/client_secrets`, `{endpoint}/openai/v1/realtime/calls`, no `api-version`, no hardcoded region), the GA session request (`type: "realtime"`, settings nested under `audio.input` / `audio.output`, 60-second ephemeral key to match the Preview), and GA response mapping (`value`, `expires_at`, `session.id` / `model` / `audio.output.voice`) with non-null fallbacks (the app force-unwraps the session id and `voice_sessions.session_id` is `NOT NULL`)
+  - `voice-session`: GA token request with a client-mode switch. v1.2.2+ apps send `realtimeProtocol: "ga"` and get the push-to-talk session as before. Store builds ≤ 1.2.1 get **compat mode**: `?webrtcfilter=on` plus `server_vad` with server-created replies. Reason: those builds send a Preview-shaped `session.update` that GA rejects (`missing_required_parameter: 'session.type'`), and their `error` handler disables push-to-talk and orphans the session, which `expire_stale_voice_sessions` later bills at 30% of capped wall-clock time (up to 18 minutes per attempt). The filter hides that error but also `response.done`, which those builds wait for before their next `response.create`, hence server-created replies. Store builds won't show the AI's reply text (old event names). DB writes, quota and entitlement checks unchanged; the response contract to the app is unchanged
+  - New optional app settings: `VOICE_LEGACY_CLIENT_MODE` (`compat` default; `update_required` returns HTTP 426 with a "please update" message instead) and `AZURE_OPENAI_REALTIME_TRANSCRIPTION_MODEL` (default `whisper-1`)
+  - `voice-realtime-test`: GA too; `?mode=compat` tests the store-build config; no longer logs the response body (GA returns the client secret at its top level)
+
+  **App (Stage B):**
+  - `mobile/app/lib/src/services/voice_ai_service.dart`: sends `realtimeProtocol: "ga"`; handles the GA event names (`response.output_audio_transcript.*`, `response.output_audio.done`, `conversation.item.added` / `.done`) alongside the Preview names for one release; data-channel `error` events no longer end the session; removed the client `session.update`. GA applies the backend's token-time config to WebRTC calls, so it was redundant, and it replaced the bartender persona with inventory-only instructions for users with a stocked bar (pre-existing since Dec 2025)
+  - Same file (Oct 18, `08eda16`, found in device testing): a normal stop on iPhone no longer leaves "Error occurred" on screen. `flutter_webrtc` on iOS forwards the app's own `RTCPeerConnection.close()` back as `RTCPeerConnectionStateClosed` after `endSession()` has already set idle, and the connection-state handler treated it like `Failed`. `closed` only ever follows the app's own close, so it no longer counts as an error; `disconnected` and `failed` still do. Android's plugin doesn't surface that event, which is why only iPhone showed it. Store builds keep the cosmetic label until they update; the session still ends and bills correctly
+  - `mobile/app/pubspec.yaml`: version `1.2.1+35 → 1.2.2+36`
+
+  **Verification so far:**
+  - Pre-deploy smoke test against `blueb-midjmnz5-eastus2`: `client_secrets` returns 200 for both client modes with the session echoed back; `/openai/v1/realtime/calls` is routed on the `cognitiveservices.azure.com` endpoint stored in Key Vault (no secret change needed)
+  - No-audio WebRTC probe: `session.created` carries the backend's instructions and push-to-talk VAD; a store-build `session.update` on the plain GA URL produces `error: missing_required_parameter`; on the filtered URL nothing reaches the app
+  - Tests: backend Jest 31/31 (`shared/realtime-ga.test.js`, `voice-realtime.test.js` — the backend's first tests); Flutter `test/services/voice_ai_service_test.dart` 9/9 (the full suite's other two test files already failed to compile before this work: `apim_subscription_service_test.dart`, `widget_test.dart`)
+  - Pre-deploy drift check: all 63 backend files live on `func-mba-fresh` matched `main` byte-for-byte (after newline normalization), nothing live was untracked, and all 16 production dependencies matched the local `node_modules`
+  - **Backend deployed** Oct 17, 23:46 UTC from commit `d2972b4` with `az functionapp deployment source config-zip --subscription "My AI Bartender"` (Azure Functions Core Tools isn't installed on the dev PC). Package: the tracked `backend/functions` files plus `node_modules`, without `local.settings.json`; active package `20261017234552.zip` (`WEBSITE_RUN_FROM_PACKAGE=1`). Host restarted with 36 functions loaded
+  - Post-deploy smoke test: `voice-realtime-test` returned 200 in both modes (`clientMode: "ga"` → GA calls URL; `clientMode: "compat"` → `?webrtcfilter=on`); logs show no response body and no client secret; no errors or exceptions since the deploy
+  - Device test, store builds in compat mode (Oct 18): voice works on iPhone and Android. Android session ended normally and billed 24 s of 30 s wall clock (`client_capped_by_wallclock`, 0.40 min consumed). iPhone sessions abandoned by locking the phone were closed by the server fallback as designed (last-session-wins, 30% of wall clock); after a normal stop, the store build shows "Error occurred" (iOS plugin quirk, fixed in v1.2.2 above)
+
+  **Remaining:** confirm user transcripts with `whisper-1`; build the iOS app and submit v1.2.2+36 to both stores (expedited review on iOS; the Android bundle is built, see below); Step 5 checks in `VOICE_GA_MIGRATION.md`.
+
+  **Android build toolchain on the dev PC (found and fixed Oct 17):** a clean `flutter build appbundle --release` failed before compiling, for two reasons. Flutter runs Gradle on Android Studio's bundled JBR, which an Android Studio update moved from Java **21** to **25.0.3**, and Gradle 8.12 (the project's wrapper) can't run on Java 25; that needs Gradle 9.1+. And the PC's Flutter had moved to **3.47.1**, whose Gradle plugin fails the build on this project's Gradle 8.12, AGP 8.9.1 and Kotlin 2.1.0 (its minimums are Gradle 8.14, AGP 8.11.1 and Kotlin 2.2.20), so 3.47.1 can't build the app until those are upgraded. Fixed with no project-file changes by recreating the toolchain that built v1.2.1+35:
+  - **JDK 21:** Microsoft Build of OpenJDK 21.0.12.1 (`winget install Microsoft.OpenJDK.21`), selected with `flutter config --jdk-dir="C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"`. The setting lives in `%APPDATA%\.flutter_settings`, applies to every Flutter SDK on the PC, and takes precedence over Android Studio's JBR, `JAVA_HOME` and `PATH`
+  - **Flutter 3.35.5** alongside 3.47.1 at `C:\src\flutter_windows_3.35.5-stable\flutter` (official zip, SHA-256 checked). `flutter` on `PATH` is still 3.47.1, so run `C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat` by full path for this project. On 3.35.5, `pub get` leaves `pubspec.lock` unchanged and none of 3.47.1's migrations (`analysis_options.yaml`, `pubspec.lock`, `android/gradle.properties`) run
+  - The first build installed NDK 27.0.12077973, Build-Tools 35 and Platforms 31/33/34 through Gradle; they were no longer in the Android SDK
+
+  Result: `flutter clean` + `flutter build appbundle --release` built `mobile/app/build/app/outputs/bundle/release/app-release.aab` (1.2.2 / versionCode 36, targetSdk 36) without the `libs.jar` workaround under Build & Deployment. The first build (Oct 17) was superseded on Oct 18 by a rebuild from `08eda16`, which adds the iPhone stop fix: 80.3 MB, SHA-256 `73aa7e6e84aa38599b91d83bb4f50d5f595c206eb08f1119dd3b6cf2d3224c8e`. Its signer certificate (SHA-256 `CD:02:8E:2F:59:1E:3B:A7:B8:D6:BA:72:09:BF:76:19:B8:7E:38:30:53:43:40:72:91:54:4D:AE:99:E5:8B:70`) matches the release signing config from `key.properties` (`gradlew :app:signingReport`; `keytool -printcert -jarfile` on the rebuilt bundle; `jarsigner -verify` reports "jar verified", and its PKIX chain warning is expected for a self-signed upload key); `voice_ai_service_test.dart` 9/9 on 3.35.5. Not uploaded to Play yet. Moving the project to Flutter 3.47.x is a separate upgrade that needs full regression testing on both platforms. If Android Studio's own Gradle sync of `mobile/app/android` fails on Java 25, set its Gradle JDK (*Settings → Build, Execution, Deployment → Build Tools → Gradle*) to the JDK 21.
 
 ### Recent Updates (July 2026)
 
@@ -1127,6 +1164,8 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 
 **Migration Note**: Upgraded from gpt-4o-mini-realtime-preview (retiring Feb 28, 2026) on January 21, 2026.
 
+**Protocol**: GA Realtime API since October 17, 2026 (backend) and v1.2.2 (app): the ephemeral key comes from `POST {endpoint}/openai/v1/realtime/client_secrets` and the app's WebRTC offer goes to `{endpoint}/openai/v1/realtime/calls`. Azure retired the Preview protocol (`/openai/realtimeapi/sessions`, `realtimeapi-preview` host), which took voice down on Oct 17, 2026. See the October 2026 entry above and `VOICE_AI_DEPLOYED.md`.
+
 ---
 
 ## Mobile App Features
@@ -1287,6 +1326,8 @@ PostgreSQL (users.entitlement updated)
 
 ### Mobile App (Android)
 
+**Toolchain (since Oct 17, 2026):** build releases with Flutter **3.35.5** (`C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`, by full path) and JDK 21 (`flutter config --jdk-dir`); the default `flutter` on `PATH` (3.47.1) can't build this project. Play uploads use `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab`. Details in the October 2026 entry.
+
 ```bash
 # Development
 cd mobile/app
@@ -1363,9 +1404,16 @@ xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -
 cd backend/functions
 func azure functionapp publish func-mba-fresh --javascript
 
-# Or via zip deployment
-az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --src deployment.zip
+# Or via zip deployment (Core Tools isn't installed on the dev PC as of Oct 2026).
+# Name the subscription explicitly: the Azure CLI default on the dev PC is a different subscription.
+az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --subscription "My AI Bartender" --src deployment.zip
 ```
+
+- **Package contents** (`WEBSITE_RUN_FROM_PACKAGE=1`, no remote build): the tracked `backend/functions` files (`git ls-files backend/functions`) plus `node_modules`, and never `local.settings.json`. The Oct 17, 2026 deploy built it with `tar.exe -a -c -f deployment.zip -C backend/functions -T filelist.txt`
+- **Before deploying**, check for drift: compare the live files (Kudu VFS, `https://func-mba-fresh.scm.azurewebsites.net/api/vfs/site/wwwroot/`) with `main` and the production dependency versions with local `node_modules`, so a whole-folder deploy changes only what you intend
+- **After deploying**, confirm the active package (`data/SitePackages/packagename.txt`), the host log line "36 functions loaded", and `GET /api/v1/voice/test` (function key; add `?mode=compat` for the store-build configuration). Right after a deploy, Kudu's view of `wwwroot` can still show the previous package
+- **Tests**: `npm test` in `backend/functions` (Jest; first suites added Oct 2026)
+- **No CI/CD**: there is no GitHub Actions workflow, so merging to `main` does not deploy
 
 ---
 

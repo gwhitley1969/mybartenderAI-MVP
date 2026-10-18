@@ -67,9 +67,6 @@ class VoiceAIService {
   bool _responseInProgress = false;
   bool _responseCancelled = false;
 
-  // Pending instructions to send via session.update after connection
-  String? _pendingInstructions;
-
   VoiceAIState _state = VoiceAIState.idle;
   VoiceAIState get state => _state;
 
@@ -301,6 +298,17 @@ class VoiceAIService {
     _setState(VoiceAIState.processing);
   }
 
+  /// Body for POST /v1/voice/session
+  /// The backend builds the whole realtime session (persona + inventory, push-to-talk
+  /// VAD, noise reduction) when it issues the ephemeral key. 'realtimeProtocol' tells it
+  /// this build speaks the GA Realtime API; store builds <= 1.2.1 don't send it.
+  static Map<String, dynamic> sessionRequestBody(Map<String, List<String>>? inventory) {
+    return {
+      if (inventory != null) 'inventory': inventory,
+      'realtimeProtocol': 'ga',
+    };
+  }
+
   /// Get current voice quota for the user
   Future<VoiceQuota> getVoiceQuota() async {
     try {
@@ -330,14 +338,8 @@ class VoiceAIService {
     _onTranscript = onTranscript;
     _onQuotaUpdate = onQuotaUpdate;
 
-    // Build inventory instructions to send via session.update after connection
-    if (inventory != null && (inventory['spirits']?.isNotEmpty ?? false)) {
-      _pendingInstructions = _buildInventoryInstructions(inventory);
-      debugPrint('[VOICE-AI] Built inventory instructions for ${inventory['spirits']?.length ?? 0} ingredients');
-    } else {
-      _pendingInstructions = null;
-      debugPrint('[VOICE-AI] No inventory provided for session');
-    }
+    // The backend adds the inventory to the session's system instructions
+    debugPrint('[VOICE-AI] Inventory for session: ${inventory?['spirits']?.length ?? 0} ingredients');
 
     _setState(VoiceAIState.connecting);
 
@@ -364,9 +366,7 @@ class VoiceAIService {
 
       final response = await _voiceDio.post(
         requestUrl,
-        data: {
-          if (inventory != null) 'inventory': inventory,
-        },
+        data: sessionRequestBody(inventory),
         options: Options(headers: headers),
       );
 
@@ -549,16 +549,13 @@ class VoiceAIService {
       );
 
       _dataChannel!.onMessage = (RTCDataChannelMessage message) {
-        _handleDataChannelMessage(message.text);
+        handleDataChannelMessage(message.text);
       };
 
-      // Send inventory instructions when data channel opens
+      // No session.update on open: the backend applies the whole session config
+      // (persona + inventory, push-to-talk VAD, noise reduction) with the ephemeral key.
       _dataChannel!.onDataChannelState = (RTCDataChannelState state) {
         debugPrint('[VOICE-AI] Data channel state changed: $state');
-        if (state == RTCDataChannelState.RTCDataChannelOpen) {
-          debugPrint('[VOICE-AI] Data channel opened');
-          _sendSessionUpdate();
-        }
       };
 
       // Create offer
@@ -585,20 +582,7 @@ class VoiceAIService {
       await _peerConnection!.setRemoteDescription(answer);
 
       // Monitor connection state
-      _peerConnection!.onConnectionState = (RTCPeerConnectionState state) {
-        switch (state) {
-          case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
-            _setState(VoiceAIState.listening);
-            break;
-          case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
-          case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
-          case RTCPeerConnectionState.RTCPeerConnectionStateClosed:
-            _setState(VoiceAIState.error);
-            break;
-          default:
-            break;
-        }
-      };
+      _peerConnection!.onConnectionState = handleConnectionState;
 
       // iOS-specific: Force speaker output AFTER peer connection is established
       // This must happen AFTER WebRTC setup to override iOS's default earpiece routing
@@ -627,8 +611,30 @@ class VoiceAIService {
     }
   }
 
+  /// Map WebRTC peer connection state changes to the session state
+  ///
+  /// 'closed' is not an error: it only ever follows our own close() in _cleanup().
+  /// A dropped or ended remote session reports 'disconnected' or 'failed'. On iOS,
+  /// flutter_webrtc forwards our own close() back as 'closed' after endSession() has
+  /// already set idle, which used to leave "Error occurred" on screen after a stop.
+  @visibleForTesting
+  void handleConnectionState(RTCPeerConnectionState state) {
+    switch (state) {
+      case RTCPeerConnectionState.RTCPeerConnectionStateConnected:
+        _setState(VoiceAIState.listening);
+        break;
+      case RTCPeerConnectionState.RTCPeerConnectionStateFailed:
+      case RTCPeerConnectionState.RTCPeerConnectionStateDisconnected:
+        _setState(VoiceAIState.error);
+        break;
+      default:
+        break;
+    }
+  }
+
   /// Handle incoming data channel messages (transcripts, state changes)
-  void _handleDataChannelMessage(String message) {
+  @visibleForTesting
+  void handleDataChannelMessage(String message) {
     try {
       final data = json.decode(message);
       final type = data['type'];
@@ -641,12 +647,17 @@ class VoiceAIService {
           type == 'input_audio_buffer.speech_stopped' ||
           type == 'conversation.interrupted' ||
           type == 'response.done' ||
+          type == 'response.output_audio.done' ||
           type == 'response.audio.done' ||
           type == 'response.audio.started') {
         debugPrint('[VOICE-AI] FULL EVENT DATA: ${json.encode(data)}');
       }
 
+      // GA renamed response.audio_transcript.* to response.output_audio_transcript.*
+      // and response.audio.* to response.output_audio.*. The Preview names stay
+      // handled for one release.
       switch (type) {
+        case 'response.output_audio_transcript.delta':
         case 'response.audio_transcript.delta':
           if (_responseCancelled) break; // Ignore deltas from cancelled response
           // AI response transcript - streaming word-by-word
@@ -659,6 +670,7 @@ class VoiceAIService {
           }
           break;
 
+        case 'response.output_audio_transcript.done':
         case 'response.audio_transcript.done':
           if (_responseCancelled) {
             debugPrint('[VOICE-AI] Discarding transcript.done for cancelled response');
@@ -786,19 +798,15 @@ class VoiceAIService {
           }
           break;
 
-        // response.audio.done and response.done indicate GENERATION complete, NOT playback complete
+        // response.output_audio.done and response.done indicate GENERATION complete, NOT playback complete
         // Do NOT change state here - let output_audio_buffer.stopped handle state transitions
+        case 'response.output_audio.done':
         case 'response.audio.done':
         case 'response.done':
           _responseInProgress = false;
           debugPrint('[VOICE-AI] Response generation complete (state: $_state, playback may still be ongoing)');
           // Note: We intentionally do NOT transition state here.
           // The output_audio_buffer.stopped event handles the actual end of playback.
-          break;
-
-        case 'session.updated':
-          // Confirmation that session.update was applied (instructions set)
-          debugPrint('[VOICE-AI] Session updated - inventory instructions applied successfully');
           break;
 
         case 'conversation.interrupted':
@@ -822,9 +830,15 @@ class VoiceAIService {
           break;
 
         case 'error':
-          // Error message available in data['error']?['message']
+          // The server rejected a client event (e.g. a commit with too little audio).
+          // The WebRTC session itself is still alive, so keep it usable: clear the
+          // pending-response guard and stop waiting for a reply that won't come.
+          // Connection failures still reach the error state via onConnectionState.
           debugPrint('VoiceAIService: Received error from data channel: ${data['error']}');
-          _setState(VoiceAIState.error);
+          _responseInProgress = false;
+          if (_state == VoiceAIState.processing) {
+            _setState(VoiceAIState.listening);
+          }
           break;
 
         case 'response.cancelled':
@@ -843,8 +857,8 @@ class VoiceAIService {
           break;
 
         // Events we want to track but don't need to act on
-        // NOTE: response.audio_transcript.delta and response.audio_transcript.done
-        // are handled above for transcript processing - do NOT duplicate here!
+        // NOTE: the response.(output_)audio_transcript.* events are handled above
+        // for transcript processing - do NOT duplicate here!
         case 'response.created':
         case 'response.output_item.added':
         case 'response.output_item.done':
@@ -852,9 +866,13 @@ class VoiceAIService {
         case 'response.content_part.done':
         case 'input_audio_buffer.committed':
         case 'conversation.item.created':
+        case 'conversation.item.added':
+        case 'conversation.item.done':
+        case 'conversation.item.input_audio_transcription.delta':
         case 'conversation.item.truncated':
         case 'rate_limits.updated':
         case 'session.created':
+        case 'session.updated':
           // These are informational events - already logged above
           break;
 
@@ -1015,71 +1033,6 @@ class VoiceAIService {
   /// Dispose service resources
   Future<void> dispose() async {
     await _cleanup();
-  }
-
-  /// Build inventory instructions string for session.update
-  String _buildInventoryInstructions(Map<String, List<String>> inventory) {
-    final allIngredients = inventory['spirits'] ?? [];
-    final mixers = inventory['mixers'] ?? [];
-
-    // Combine all ingredients
-    final combined = [...allIngredients, ...mixers].where((s) => s.isNotEmpty).toList();
-
-    return '''
-USER'S BAR INVENTORY:
-The user has these ingredients in their home bar: ${combined.join(', ')}
-
-IMPORTANT: When the user asks what they can make or for drink suggestions, you MUST reference these specific ingredients. Suggest cocktails that can be made using ONLY these available ingredients. If they ask "what's in my bar" or "what do I have", list these ingredients.
-''';
-  }
-
-  /// Send session.update event via data channel to apply VAD config and instructions
-  void _sendSessionUpdate() {
-    if (_dataChannel == null) {
-      debugPrint('[VOICE-AI] Data channel is null, cannot send session.update');
-      return;
-    }
-
-    if (_dataChannel!.state != RTCDataChannelState.RTCDataChannelOpen) {
-      debugPrint('[VOICE-AI] Data channel not open (state: ${_dataChannel!.state}), cannot send session.update');
-      return;
-    }
-
-    // Build session config with VAD settings and optional instructions
-    final sessionConfig = <String, dynamic>{
-      // Semantic VAD - uses AI to understand speech, not just volume
-      // 'low' eagerness = more tolerant of background noise/pauses
-      'turn_detection': {
-        'type': 'semantic_vad',
-        'eagerness': 'low',
-        'create_response': false,     // Push-to-talk sends explicit response.create on button release
-        'interrupt_response': false,
-      },
-      // Noise reduction filter for phone speaker/mic usage
-      'input_audio_noise_reduction': {
-        'type': 'far_field',
-      },
-    };
-
-    // Add inventory instructions if available
-    if (_pendingInstructions != null) {
-      sessionConfig['instructions'] = _pendingInstructions;
-      debugPrint('[VOICE-AI] Including inventory instructions');
-    }
-
-    final event = json.encode({
-      'type': 'session.update',
-      'session': sessionConfig,
-    });
-
-    debugPrint('[VOICE-AI] Sending session.update with VAD config (semantic_vad + far_field noise reduction)');
-    if (_pendingInstructions != null) {
-      debugPrint('[VOICE-AI] Instructions: $_pendingInstructions');
-    }
-
-    _dataChannel!.send(RTCDataChannelMessage(event));
-    _pendingInstructions = null; // Clear after sending
-    debugPrint('[VOICE-AI] session.update sent successfully');
   }
 
   /// Send a generic command via the data channel

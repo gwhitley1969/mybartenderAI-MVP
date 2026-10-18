@@ -216,6 +216,7 @@ CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 - CocoaPods (`gem install cocoapods`)
 - Valid Apple Developer account
 - Developer Mode enabled on physical device (iOS 16+)
+- Flutter matching the Android release build: **3.35.5** as of v1.2.2 (check with `flutter --version`), so both platforms ship the same framework. Flutter 3.47.x hasn't been regression-tested with this project, and on the Windows PC it can't build the Android app at all (see `DEPLOYMENT_STATUS.md` → Android build toolchain)
 
 ### Clean Build
 

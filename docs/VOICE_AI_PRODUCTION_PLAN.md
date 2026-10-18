@@ -2,6 +2,8 @@
 
 > **Note (February 2026):** This document was written during the Free/Premium/Pro tier model. The subscription model has since been simplified to a binary `paid`/`none` entitlement managed via RevenueCat. References to "Pro tier" below should be read as "paid entitlement (subscriber)." See `SUBSCRIPTION_DEPLOYMENT.md` for the current model and `VOICE_AI_DEPLOYED.md` for the current voice architecture.
 
+> **Note (October 2026):** Voice now runs on the GA Realtime API (v1.2.2). The Preview-era details below, including inventory sent through a client `session.update`, are historical; see `VOICE_AI_DEPLOYED.md` → *GA Realtime API Migration*.
+
 **Created:** December 11, 2025
 **Last Updated:** January 7, 2026
 **Status:** ✅ Implemented

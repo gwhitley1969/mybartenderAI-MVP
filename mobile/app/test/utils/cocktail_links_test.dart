@@ -73,6 +73,33 @@ void main() {
       expect(find.text('cocktail 17005'), findsOneWidget);
     });
 
+    // The share preview page's iOS "Open in" link. With no host the path is
+    // /cocktail/17005, so builds without the mapping open it too.
+    testWidgets('a host-less custom-scheme link opens the cocktail',
+        (tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue =
+          'mybartender:///cocktail/17005';
+      addTearDown(
+          tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
+
+      await tester.pumpWidget(MaterialApp.router(
+        routerConfig: GoRouter(
+          initialLocation: '/',
+          routes: [
+            GoRoute(path: '/', builder: (_, __) => const Text('home')),
+            GoRoute(
+              path: '/cocktail/:id',
+              builder: (_, state) =>
+                  Text('cocktail ${state.pathParameters['id']}'),
+            ),
+          ],
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('cocktail 17005'), findsOneWidget);
+    });
+
     testWidgets('a v1.2.2 share link opens the cocktail while the app runs',
         (tester) async {
       await tester.pumpWidget(MaterialApp.router(routerConfig: buildRouter()));

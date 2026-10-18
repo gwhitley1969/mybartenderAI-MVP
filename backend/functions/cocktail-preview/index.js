@@ -75,8 +75,28 @@ function generateDescription(cocktail) {
     return `Discover how to make ${cocktail.name} with My AI Bartender - your personal AI bartender guide!`;
 }
 
+const ANDROID_PACKAGE = 'ai.mybartender.mybartenderai';
+const PLAY_STORE_URL = `https://play.google.com/store/apps/details?id=${ANDROID_PACKAGE}`;
+
+// Targets for the "Open in My AI Bartender" button. Browsers open an app only
+// from a user's tap, so the page can't do it on load.
+// - Android: an intent: URL for the app's https App Link. Naming the package
+//   opens the app without domain verification; without the app, Chrome
+//   follows the Play Store fallback.
+// - iOS (no Universal Links yet): the custom scheme with no host, so the path
+//   is /cocktail/{id}, which every app version routes.
+function openInAppLinks(cocktailId) {
+    const id = encodeURIComponent(cocktailId);
+    return {
+        android: `intent://share.mybartenderai.com/cocktail/${id}#Intent;scheme=https;package=${ANDROID_PACKAGE};` +
+            `S.browser_fallback_url=${encodeURIComponent(PLAY_STORE_URL)};end`,
+        ios: `mybartender:///cocktail/${id}`
+    };
+}
+
 function generatePreviewPage(cocktail) {
     const shareUrl = `https://share.mybartenderai.com/api/cocktail/${cocktail.id}`;
+    const appLinks = openInAppLinks(cocktail.id);
     const imageUrl = cocktail.imageUrl || 'https://mbacocktaildb3.blob.core.windows.net/images/default-cocktail.jpg';
     const description = escapeHtml(generateDescription(cocktail));
     const cocktailName = escapeHtml(cocktail.name);
@@ -126,30 +146,9 @@ function generatePreviewPage(cocktail) {
     <meta property="al:android:url" content="mybartender://cocktail/${cocktail.id}">
     <meta property="al:android:package" content="ai.mybartender.mybartenderai">
     <meta property="al:android:app_name" content="My AI Bartender">
-    <meta property="al:ios:url" content="mybartender://cocktail/${cocktail.id}">
+    <meta property="al:ios:url" content="${escapeHtml(appLinks.ios)}">
     <meta property="al:ios:app_store_id" content="6758023541">
     <meta property="al:ios:app_name" content="My AI Bartender">
-
-    <!-- Smart behavior - show content, attempt deep link only if app installed -->
-    <script>
-        (function() {
-            const userAgent = navigator.userAgent || navigator.vendor;
-            const isAndroid = /android/i.test(userAgent);
-            const isIOS = /iPad|iPhone|iPod/.test(userAgent);
-            const isMobile = isAndroid || isIOS;
-
-            if (isMobile) {
-                // On mobile: try deep link (will open app if installed, otherwise nothing happens)
-                var iframe = document.createElement('iframe');
-                iframe.style.display = 'none';
-                iframe.src = "mybartender://cocktail/${cocktail.id}";
-                document.body.appendChild(iframe);
-                setTimeout(function() {
-                    document.body.removeChild(iframe);
-                }, 2000);
-            }
-        })();
-    </script>
 
     <style>
         * {
@@ -205,6 +204,20 @@ function generatePreviewPage(cocktail) {
             border-color: rgba(96, 165, 250, 0.5);
             color: #93c5fd;
             background: rgba(96, 165, 250, 0.1);
+        }
+        .open-app-button {
+            display: block;
+            margin-bottom: 1.5rem;
+            padding: 0.85rem 1.25rem;
+            background: #8b5cf6;
+            border-radius: 10px;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .open-app-button[hidden] {
+            display: none;
         }
         .section-title {
             font-size: 1.25rem;
@@ -325,6 +338,10 @@ function generatePreviewPage(cocktail) {
             ${tagsHtml}
         </div>
 
+        <a id="open-in-app" class="open-app-button" hidden
+           data-android-href="${escapeHtml(appLinks.android)}"
+           data-ios-href="${escapeHtml(appLinks.ios)}">Open in My AI Bartender</a>
+
         <div class="section-title">Ingredients</div>
         <div class="ingredients-card">
             ${ingredientsHtml}
@@ -351,6 +368,24 @@ function generatePreviewPage(cocktail) {
             <span class="branding-text">Shared from My AI Bartender</span>
         </div>
     </div>
+
+    <script>
+        // Only phones show the button: there's no app to open on a desktop.
+        (function () {
+            var link = document.getElementById('open-in-app');
+            var ua = navigator.userAgent || '';
+            // iPadOS Safari reports a Mac user agent.
+            var isIOS = /iPad|iPhone|iPod/.test(ua) ||
+                (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+            var href = /Android/i.test(ua) ? link.getAttribute('data-android-href')
+                : isIOS ? link.getAttribute('data-ios-href')
+                : null;
+            if (href) {
+                link.href = href;
+                link.hidden = false;
+            }
+        })();
+    </script>
 </body>
 </html>`;
 }

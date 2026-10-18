@@ -43,13 +43,13 @@ Only `originPath` changed; the route's other 15 properties were identical before
 
 ### Verification
 
-- The Front Door rollout took about 22 minutes (changed 15:13:17Z, first 200 at 15:35:04Z). For a few seconds after that, the same edge IP still answered some requests with 404; from 15:35:37Z, 38 of 38 requests returned 200, with and without a query string, and the `azurefd.net` host matched
+- The Front Door rollout took about 22 minutes (changed 15:13:17Z, first 200 at 15:35:04Z). For a few seconds after that, the same edge IP still answered some requests with 404; from 15:35:37Z, 48 of 48 requests returned 200, with and without a query string. The `azurefd.net` host was still 404 at 15:35:10Z and returned 200 (10 of 10) when re-checked at 19:08Z
 - Response: `HTTP/1.1 200 OK`, `Content-Type: application/json`, no redirect, `Cache-Control: public, max-age=86400`, one statement for `ai.mybartender.mybartenderai`
-- Google Digital Asset Links API (15:36Z): `statements:list` returns the statement with no `errorCode`; `assetlinks:check` for `86:30:…:6F:AD` returns `"linked": true`; the same check for the upload key returns no link (expected: it isn't listed)
+- Google Digital Asset Links API (15:36Z): `statements:list` returns the statement with no `errorCode`; `assetlinks:check` for `86:30:…:6F:AD` returns `"linked": true`; the same check for the upload key returns no link (expected: it isn't listed). Google caches the result for 24 hours (`maxAge` 86399 s, from the file's `Cache-Control`), so a future fingerprint change takes up to a day to be seen
+- Fingerprint: Play Console's **App signing key certificate** SHA-256 is `86:30:63:…:06:00:6F:AD` (checked by Gene, Oct 18), the certificate the file lists. The upload key `CD:02:8E:…:8B:70` only signs the bundles uploaded to Play; Google re-signs the APKs it delivers with the app signing key
 
 ### Still Open
 
-- Confirm the file's only fingerprint, `86:30:63:45:8F:D2:A3:7E:4A:0C:0F:52:7A:67:36:0C:85:0C:5C:CF:E5:57:B6:7B:EA:EC:79:EC:06:00:6F:AD`, is Play Console's **App signing key certificate** (it is not the upload key `CD:02:8E:…:8B:70`). Google caches the file for 24 hours (`maxAge` 86399 s, from its `Cache-Control`), so a fingerprint change takes up to a day to be seen
 - Android verifies App Links when the app is installed or updated, so existing installs pick this up with the next update. To check a device now: `adb shell pm verify-app-links --re-verify ai.mybartender.mybartenderai`, then `adb shell pm get-app-links ai.mybartender.mybartenderai`
 - The app shares `https://share.mybartenderai.com/api/cocktail/{id}`, which the App Link (`pathPrefix="/cocktail"`) doesn't claim, so shared links still open the browser preview rather than the app (separate follow-up)
 - The `WellKnownRewrite` rule set on `route-default` is dead config (optional cleanup)

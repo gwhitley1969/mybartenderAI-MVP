@@ -213,7 +213,7 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
 
 **Deep Link Verification (1)**
 - `well-known-assetlinks` - Android App Links Digital Asset Links (GET /api/.well-known/assetlinks.json)
-  - Anonymous access, returns JSON with package name and SHA-256 signing certificate
+  - Anonymous access, returns JSON with the package name and the SHA-256 of the **Play App Signing key** (`86:30:…:6F:AD`, held by Google). Not the upload key (`CD:02:…:8B:70`): Play re-signs the APKs it delivers, so the app signing key's certificate is the one on users' phones
   - Served at `https://share.mybartenderai.com/.well-known/assetlinks.json` via Front Door `route-well-known` (origin path `/api/.well-known`)
   - Check it the way Android does: `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls` should list the statement with no `errorCode`
 

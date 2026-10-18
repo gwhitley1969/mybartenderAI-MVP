@@ -1164,6 +1164,8 @@ Analyzes bar photos to identify spirits, liqueurs, and mixers with high accuracy
 
 **Migration Note**: Upgraded from gpt-4o-mini-realtime-preview (retiring Feb 28, 2026) on January 21, 2026.
 
+**Protocol**: GA Realtime API since October 17, 2026 (backend) and v1.2.2 (app): the ephemeral key comes from `POST {endpoint}/openai/v1/realtime/client_secrets` and the app's WebRTC offer goes to `{endpoint}/openai/v1/realtime/calls`. Azure retired the Preview protocol (`/openai/realtimeapi/sessions`, `realtimeapi-preview` host), which took voice down on Oct 17, 2026. See the October 2026 entry above and `VOICE_AI_DEPLOYED.md`.
+
 ---
 
 ## Mobile App Features
@@ -1402,9 +1404,16 @@ xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -
 cd backend/functions
 func azure functionapp publish func-mba-fresh --javascript
 
-# Or via zip deployment
-az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --src deployment.zip
+# Or via zip deployment (Core Tools isn't installed on the dev PC as of Oct 2026).
+# Name the subscription explicitly: the Azure CLI default on the dev PC is a different subscription.
+az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --subscription "My AI Bartender" --src deployment.zip
 ```
+
+- **Package contents** (`WEBSITE_RUN_FROM_PACKAGE=1`, no remote build): the tracked `backend/functions` files (`git ls-files backend/functions`) plus `node_modules`, and never `local.settings.json`. The Oct 17, 2026 deploy built it with `tar.exe -a -c -f deployment.zip -C backend/functions -T filelist.txt`
+- **Before deploying**, check for drift: compare the live files (Kudu VFS, `https://func-mba-fresh.scm.azurewebsites.net/api/vfs/site/wwwroot/`) with `main` and the production dependency versions with local `node_modules`, so a whole-folder deploy changes only what you intend
+- **After deploying**, confirm the active package (`data/SitePackages/packagename.txt`), the host log line "36 functions loaded", and `GET /api/v1/voice/test` (function key; add `?mode=compat` for the store-build configuration). Right after a deploy, Kudu's view of `wwwroot` can still show the previous package
+- **Tests**: `npm test` in `backend/functions` (Jest; first suites added Oct 2026)
+- **No CI/CD**: there is no GitHub Actions workflow, so merging to `main` does not deploy
 
 ---
 

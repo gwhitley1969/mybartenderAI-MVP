@@ -964,7 +964,7 @@ input_audio_noise_reduction: {
 }
 ```
 
-**Client-side session.update (voice_ai_service.dart):**
+**Client-side session.update (voice_ai_service.dart)** — superseded in v1.2.2: these settings now come only from the backend's GA `client_secrets` request, and the app sends no `session.update`:
 ```dart
 'turn_detection': {
   'type': 'semantic_vad',

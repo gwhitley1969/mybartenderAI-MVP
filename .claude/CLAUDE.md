@@ -225,8 +225,10 @@ Located in `kv-mybartenderai-prod`:
 - **IDE**: VS Code 
 - **Languages**: Dart/Flutter, PowerShell, Azure Bicep
 - **Node.js**: Required for Azure Functions and tooling
-- **Azure CLI**: For infrastructure deployment
-- **Flutter SDK**: For mobile development
+- **Azure CLI**: For infrastructure deployment. App resources are in subscription **`My AI Bartender`**; the CLI default on the dev PC is a different subscription (and tenant), so pass `--subscription "My AI Bartender"` on every command
+- **Flutter SDK**: **3.35.5** for this project, run by full path: `C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`. The `flutter` on `PATH` is 3.47.1, which can't build this project and silently migrates `analysis_options.yaml`, `pubspec.lock` and `android/gradle.properties`
+- **JDK 21** (Microsoft OpenJDK), selected with `flutter config --jdk-dir`; Android Studio's bundled JBR 25 can't run the project's Gradle 8.12
+- **Azure Functions Core Tools**: not installed on the dev PC; deploy the backend with Azure CLI zip deploy (see Quick Commands)
 
 ### Key Scripts & Templates
 
@@ -308,7 +310,7 @@ Located in `kv-mybartenderai-prod`:
 - ✅ Recipe Vault with offline SQLite database
 - ✅ My Bar inventory management
 - ✅ Scan My Bar / Smart Scanner (Claude Haiku)
-- ✅ Voice AI (GPT-realtime-mini via Azure OpenAI Realtime API, Pro tier)
+- ✅ Voice AI (GPT-realtime-mini via Azure OpenAI Realtime API, Pro tier) — GA protocol since Oct 17, 2026 (backend) / v1.2.2 (app)
 - ✅ Create Studio with AI refinement
 - ✅ Today's Special with notifications
 - ✅ Social sharing (Instagram/Facebook)
@@ -335,9 +337,16 @@ Located in `kv-mybartenderai-prod`:
 
 ### In Progress
 
+- 🔄 v1.2.2+36 release (Voice GA migration + iPhone stop fix): backend deployed and verified on iPhone and Android; signed Android bundle built (Flutter 3.35.5); iOS build and store submission pending; PR #2 (`fix/voice-ga-realtime-api`) open against `main`
 - 🔄 Taste Profile feature (UI design)
 - 🔄 iOS TestFlight testing (we're in production now)
 - 🔄 Android Play Store deployment beta testing (we're in production now)
+
+### Known Issues
+
+- Store builds ≤ 1.2.1 on iPhone show "Error occurred" after a normal voice stop (cosmetic: the session ends and bills correctly). Fixed in v1.2.2: `flutter_webrtc` on iOS reports the app's own `close()` as `RTCPeerConnectionStateClosed`, which is no longer treated as an error
+- Voice sessions abandoned without a stop (phone locked, app backgrounded or closed) report no usage; the server bills them by fallback (30% of capped wall clock, via last-session-wins or the hourly cleanup)
+- `flutter test`: `test/services/apim_subscription_service_test.dart` and `test/widget_test.dart` fail to compile (pre-existing: wrong package import, missing generated mocks, removed `MyApp`)
 
 ### Upcoming
 
@@ -365,6 +374,8 @@ Located in `kv-mybartenderai-prod`:
 5. **Pragmatic Approach**: Production uses Managed Identity
 6. **Cross-Platform**: Remember Flutter targets both Android and iOS
 7. **Windows Expertise**: Developer has strong Windows/Azure background
+8. **Azure subscription**: always pass `--subscription "My AI Bartender"`; the CLI default on the dev PC points elsewhere
+9. **Voice protocol**: Voice AI is on the GA Realtime API. Never reintroduce Preview endpoints (`/openai/realtimeapi/sessions`, `realtimeapi-preview` host, `api-version=2025-04-01-preview`) or a client `session.update`; see `docs/VOICE_AI_DEPLOYED.md` → GA Realtime API Migration
 
 ### Preferred Patterns
 
@@ -385,7 +396,8 @@ Located in `kv-mybartenderai-prod`:
 Refer to these files in the repository:
 
 - `docs/ARCHITECTURE.md`: Detailed architecture documentation (authoritative)
-- `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog
+- `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog (includes backend deploy steps and the Android build toolchain)
+- `docs/VOICE_AI_DEPLOYED.md`: Voice AI architecture, including the GA Realtime API migration, client modes and voice app settings
 - `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
 - `docs/DELETE_USER.md`: Account deletion implementation (Apple Guideline 5.1.1(v))
 - `docs/REVENUECAT_PLAN.md`: RevenueCat setup checklist (Google Play + App Store)
@@ -400,10 +412,10 @@ Refer to these files in the repository:
 
 ```bash
 # Retrieve a secret
-az keyvault secret show --vault-name kv-mybartenderai-prod --name COCKTAILDB-API-KEY
+az keyvault secret show --vault-name kv-mybartenderai-prod --subscription "My AI Bartender" --name COCKTAILDB-API-KEY
 
 # List all secrets
-az keyvault secret list --vault-name kv-mybartenderai-prod
+az keyvault secret list --vault-name kv-mybartenderai-prod --subscription "My AI Bartender"
 
 # Grant Function App access to Key Vault
 az role assignment create \
@@ -422,25 +434,37 @@ az deployment group create --resource-group rg-mba-prod --template-file main.bic
 az role assignment create --assignee <identity-id> --role "Storage Blob Data Contributor" --scope <storage-account-id>
 
 # View Function logs
-az functionapp logs tail --name func-mba-fresh --resource-group rg-mba-prod
+az functionapp logs tail --name func-mba-fresh --resource-group rg-mba-prod --subscription "My AI Bartender"
+
+# Deploy the backend (Core Tools isn't installed). Zip = tracked backend/functions files + node_modules,
+# never local.settings.json; check drift first. Full steps: docs/DEPLOYMENT_STATUS.md -> Build & Deployment
+az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --subscription "My AI Bartender" --src deployment.zip
+
+# Backend tests (Jest), from backend/functions
+npm test
 ```
 
 ### Flutter (you MUST always do a clean build)
 
-```bash
-# Run on Android
-flutter run
+Use Flutter 3.35.5 by full path; the `flutter` on `PATH` (3.47.1) can't build this project.
 
-# Build release APK
-flutter build apk --release
+```powershell
+$flutter = 'C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat'
+
+# Run on Android
+& $flutter run
+
+# Clean release build for Google Play (build/app/outputs/bundle/release/app-release.aab)
+& $flutter clean
+& $flutter build appbundle --release
 
 # Run tests
-flutter test
+& $flutter test
 ```
 
 ---
 
-**Last Updated**: October 17, 2026
+**Last Updated**: October 18, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Voice AI outage fix — GA Realtime API migration (v1.2.2+36: backend hotfix deployed Oct 17, 2026; app update not yet released), then `docs/CONVERSION_PLAN.md`
-**Recent Changes**: Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1, app sends no `session.update` and handles GA event names. Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.
+**Primary Focus**: Ship v1.2.2+36 (Voice GA migration): iOS build and store submission, then merge PR #2; then `docs/CONVERSION_PLAN.md`
+**Recent Changes**: Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1 (deployed Oct 17, verified on iPhone and Android Oct 18), app sends no `session.update`, handles GA event names, and no longer shows "Error occurred" after a stop on iPhone. Android build toolchain restored (Flutter 3.35.5 + JDK 21). Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

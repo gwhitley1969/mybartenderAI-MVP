@@ -818,8 +818,8 @@ flutter build apk --release
   - `@azure/identity` - Managed Identity authentication
   - `@azure/cognitiveservices-computervision` - Vision AI
   - `applicationinsights` - Telemetry and monitoring
-- **Deployment Command**: `func azure functionapp publish func-mba-fresh`
-- **CI/CD**: GitHub Actions workflow (`.github/workflows/main_func-mba-fresh.yml`)
+- **Deployment Command**: `func azure functionapp publish func-mba-fresh`, or, where Azure Functions Core Tools isn't installed (the dev PC as of Oct 2026), `az functionapp deployment source config-zip -g rg-mba-prod -n func-mba-fresh --subscription "My AI Bartender" --src <zip>`. The app runs from package (`WEBSITE_RUN_FROM_PACKAGE=1`, no remote build), so the zip must contain the tracked `backend/functions` files plus `node_modules`, and never `local.settings.json`. See `DEPLOYMENT_STATUS.md` → Build & Deployment
+- **CI/CD**: None; backend deploys are manual. No workflow exists in `.github/workflows` (the last GitHub Actions deploy ran in October 2025, against the retired `func-cocktaildb2`), so merging to `main` does not deploy
 - **Secrets**: Environment variables and Key Vault references (no hardcoded keys)
 - **Access**:
   - Managed Identity for Azure services (Key Vault, Storage)

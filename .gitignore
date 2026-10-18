@@ -50,8 +50,18 @@ apps/backend/
 # Node / Azure Functions common
 node_modules/
 infrastructure/database/*.exe
-*.png
 nul
+
+# Images stay out of git (keeps screenshots out), except the mobile app's own:
+# a fresh clone needs the generated splash and icon PNGs to build a release
+*.png
+!mobile/app/assets/**/*.png
+!mobile/app/android/app/src/main/res/**/*.png
+!mobile/app/ios/Runner/Assets.xcassets/**/*.png
+# Legacy sizes flutter_launcher_icons writes but AppIcon's Contents.json doesn't use
+mobile/app/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-50x50@*.png
+mobile/app/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-57x57@*.png
+mobile/app/ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-72x72@*.png
 
 # Development artifacts & temp files
 *.db

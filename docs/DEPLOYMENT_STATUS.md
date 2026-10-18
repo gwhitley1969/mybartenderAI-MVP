@@ -2,13 +2,19 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: October 17, 2026
+**Last Updated**: October 18, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
 
 > **Open incident (Oct 17, 2026): Voice AI.** The backend GA fix below was deployed at 23:46 UTC; installed store builds get compat mode, and voice was verified working on iPhone and Android on Oct 18. The app update (v1.2.2+36) is not yet released. All other features are unaffected.
 
 ### Recent Updates (October 2026)
+
+- **Flutter 3.47.7 upgrade** (Oct 18) — **branch `claude/wonderful-hopper-0f2f25`: not merged or released, iOS not built yet.** Moves `mobile/app` from Flutter 3.35.5 / Dart 3.9.2 to **3.47.7 / Dart 3.13.5**, with Gradle 8.12 → **8.14.6**, AGP 8.9.1 → **8.13.2** and Kotlin 2.1.0 → **2.3.21**, the minimums Flutter 3.47's Gradle plugin enforces. The iOS minimum becomes **15.0** (Flutter 3.47's floor). iOS stays on CocoaPods, the Dart language version stays 3.9 (freezed 2.x output doesn't compile under 3.13), and no app dependency was upgraded. AGP 8.13 rejected `flutter_webrtc` 0.12.x and `share_plus` 7.x, which still compile against API 31/33, so `android/build.gradle.kts` compiles them against 36 instead; their code and native libraries are unchanged.
+  - Verified on Windows against a 3.35.5 baseline of `0f54b51`: analyzer 422 = 422 issues, the same ones; `flutter test` +31 −2 with the same tests; `voice_ai_service_test.dart` 9/9; backend Jest 31/31
+  - Clean signed bundle: 92.5 MB, SHA-256 `801168514ce026ec123c94f8980f7c12158ae9f491dd5d6838d5c8a70e11c4c1`, signer = the upload key below. Its manifest, permissions and 16 KB alignment match v1.2.2, and the WebRTC native library is byte-identical. It still carries versionCode 36, so it's a test build, not an upload
+  - Found along the way: the root `.gitignore`'s `*.png` keeps 22 generated Android PNGs (splash, adaptive-icon foreground) and 7 iOS PNGs out of git, so a fresh clone can't build a release; and the committed `ios/Podfile.lock` is stale
+  - **Remaining:** bump the version, build on the Mac, run the regression checklist on both platforms. Full record, decisions and checklist: `docs/FLUTTER_3_47_UPGRADE.md`
 
 - **Incident — Voice AI down: Azure retired the Preview Realtime API** (Oct 17): starting a voice session showed "Error occurred" / "Failed to initialize voice session" on iOS and Android; text chat was unaffected. `voice-session`'s ephemeral-token request (`POST {endpoint}/openai/realtimeapi/sessions?api-version=2025-04-01-preview`) returned `400 realtime_beta_access_required`: *"The Realtime preview API is no longer available for this request. Please migrate from the preview API to the v1 API."* Application Insights: 14 failures from 2 users (22:34–22:38 UTC); last success 2026-09-23 23:36 UTC, with no voice traffic in between, so the cutoff landed somewhere in that window (Microsoft deprecated the Preview on Apr 30, 2026). The `gpt-realtime-mini` deployment (2025-12-15), API key and quota were all fine.
 
@@ -1326,7 +1332,7 @@ PostgreSQL (users.entitlement updated)
 
 ### Mobile App (Android)
 
-**Toolchain (since Oct 17, 2026):** build releases with Flutter **3.35.5** (`C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`, by full path) and JDK 21 (`flutter config --jdk-dir`); the default `flutter` on `PATH` (3.47.1) can't build this project. Play uploads use `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab`. Details in the October 2026 entry.
+**Toolchain:** from the Flutter 3.47.7 upgrade on (`docs/FLUTTER_3_47_UPGRADE.md`), build with Flutter **3.47.7** (`C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat`, by full path) and JDK 21 (`flutter config --jdk-dir`). The project's Gradle 8.14.6 still can't run on Android Studio's bundled Java 25. The `flutter` on `PATH` is 3.47.1: it pins the same packages but lacks six patch releases. Commits up to v1.2.2+36 (`0f54b51`) build only with Flutter **3.35.5** (`C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`). A fresh clone or worktree first needs the gitignored generated PNGs and the signing files (`android/key.properties`, `android/app/upload-keystore.jks`) copied from the main checkout. Neither toolchain needs the `libs.jar` workaround below. Play uploads use `flutter build appbundle --release` → `build/app/outputs/bundle/release/app-release.aab`.
 
 ```bash
 # Development

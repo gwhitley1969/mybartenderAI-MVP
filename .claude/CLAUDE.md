@@ -348,7 +348,7 @@ Located in `kv-mybartenderai-prod`:
 - Store builds ≤ 1.2.1 on iPhone show "Error occurred" after a normal voice stop (cosmetic: the session ends and bills correctly). Fixed in v1.2.2: `flutter_webrtc` on iOS reports the app's own `close()` as `RTCPeerConnectionStateClosed`, which is no longer treated as an error
 - Voice sessions abandoned without a stop (phone locked, app backgrounded or closed) report no usage; the server bills them by fallback (30% of capped wall clock, via last-session-wins or the hourly cleanup)
 - `flutter test`: `test/services/apim_subscription_service_test.dart` and `test/widget_test.dart` fail to compile (pre-existing: wrong package import, missing generated mocks, removed `MyApp`)
-- A fresh clone or worktree can't build a release: the root `.gitignore`'s `*.png` keeps 22 generated Android PNGs (splash, adaptive-icon foreground) and 7 iOS PNGs out of git. Copy them, plus `android/key.properties` and `android/app/upload-keystore.jks` for signing, from the main checkout (list in `docs/FLUTTER_3_47_UPGRADE.md`)
+- A fresh clone or worktree builds an unsigned release until `android/key.properties` and `android/app/upload-keystore.jks` (both gitignored) are copied from the main checkout. The generated splash and icon PNGs are tracked since PR #3 (`b1351da`)
 - Android build: `android/build.gradle.kts` compiles plugin modules that ask for compileSdk < 34 (`flutter_webrtc` 0.12.x, `share_plus` 7.x) against 36, because AGP 8.13 rejects them otherwise. Remove the override once both plugins are upgraded
 
 ### Upcoming

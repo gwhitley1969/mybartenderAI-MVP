@@ -4,7 +4,7 @@ Upgrade record and regression checklist for `mobile/app`.
 Prepared 2026-10-18 by Claude Code on the Windows dev PC, on top of `main` at `0f54b51` (v1.2.2+36, PR #2 merged).
 
 > **Status (2026-10-18): built and tested on Windows. Not merged, not released, iOS not built yet.**
-> - Branch `claude/wonderful-hopper-0f2f25`. The app version is still `1.2.2+36`, which the hotfix bundle already uses, so bump it before any store upload.
+> - Branch `claude/wonderful-hopper-0f2f25`, up to date with `main` @ `128140c` (which adds the PNG fix, PR #3). The app version is still `1.2.2+36`, which the hotfix bundle already uses, so bump it before any store upload.
 > - Android: a clean, signed release bundle builds on Flutter 3.47.7 and is signed with the upload key. Analyzer, Flutter tests and backend tests match the 3.35.5 baseline exactly.
 > - iOS: the iOS 15 minimum and the CocoaPods setting are in the repo. Nothing has been built on the Mac yet.
 > - **Next:** the [regression checklist](#regression-checklist) on both platforms.
@@ -82,7 +82,7 @@ Baseline: unchanged `main` @ `0f54b51` on Flutter 3.35.5. After: this branch on 
 
 ## Pre-existing problems found (not fixed here)
 
-- **A fresh clone can't build a release.** Line 53 of the root `.gitignore` is `*.png`, apparently by accident, since it sits in the Node / Azure Functions section. So 22 generated Android PNGs never reached git: `android12splash` (×10), `splash` (×5), `ic_launcher_foreground` (×5) and `background` (×2). Tracked resource XML references all 22. On iOS, `LaunchBackground.imageset/background.png` never reached git either, and the launch screen uses it. Without that file Xcode only warns, and the launch screen ships without its background. Six AppIcon PNGs (50/57/72 pt) are also untracked, but the icon set doesn't reference them. The first build here failed at `:app:processReleaseResources` (`drawable/android12splash not found`) until the 22 Android files were copied from the main checkout, where they exist but are untracked. Fix: narrow the ignore rule and commit the referenced files.
+- **Fixed since: a fresh clone couldn't build a release.** Line 53 of the root `.gitignore` is `*.png` (in the Node / Azure Functions section). Because of it, 22 generated Android PNGs (`android12splash` ×10, `splash` ×5, `ic_launcher_foreground` ×5, `background` ×2) and the iOS `LaunchBackground.imageset/background.png` never reached git, although tracked resource XML and the launch screen use them. The first build here failed at `:app:processReleaseResources` (`drawable/android12splash not found`) until the 22 Android files were copied from the main checkout. [gwhitley1969/mybartenderAI-MVP#3](https://github.com/gwhitley1969/mybartenderAI-MVP/pull/3) (`b1351da`) now tracks the app's image folders and commits those 23 files. It's merged to `main` and into this branch, and the committed files are byte-identical to the ones the verified bundle was built with.
 - **`ios/Podfile.lock` in git is stale.** It still lists `purchases_flutter` 8.11.0, `msal_auth` 2.0.2 and `flutter_webrtc` 0.12.6. Commit the one `pod install` produces on the Mac.
 - `test/services/apim_subscription_service_test.dart` (imports `package:app/…`, has no mockito mocks) and `test/widget_test.dart` (`MyApp` no longer exists) don't compile.
 
@@ -93,7 +93,6 @@ Baseline: unchanged `main` @ `0f54b51` on Flutter 3.35.5. After: this branch on 
 - Swift Package Manager for iOS (delete the `config` line in `pubspec.yaml`).
 - UIScene lifecycle (iOS). Flutter 3.47 warns on every iOS build, and its tool states that UIScene is **required on iOS 27 and later**, so this one has a deadline. The custom `AppDelegate` (notification taps) can't be auto-migrated, and MSAL's redirect handling has to move to the scene delegate.
 - freezed 3, then raise the Dart language version.
-- Commit the gitignored generated PNGs.
 
 ---
 
@@ -105,14 +104,13 @@ Run this before the upgrade ships. The marked items cover areas the upgrade actu
 
 - [ ] Bump `version:` in `mobile/app/pubspec.yaml` (for example `1.2.3+37`). The hotfix bundle already uses `1.2.2+36`.
 - [ ] Windows: build with `C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat` (`flutter clean` first). The `flutter` on `PATH` is 3.47.1. It pins the same packages, but it lacks six patch releases of fixes.
-- [ ] Building from a fresh clone or worktree instead of the main checkout? First copy the 22 Android PNGs and the two signing files over from the main checkout (`git ls-files --others --ignored --exclude-standard mobile/app` there lists them).
+- [ ] Building from a fresh clone or worktree instead of the main checkout? First copy the two gitignored signing files from the main checkout (`android/key.properties`, `android/app/upload-keystore.jks`); without them the bundle builds unsigned.
 
 ### 1. Mac: build setup (iOS)
 
 - [ ] Install Flutter **3.47.7** exactly (`flutter --version`), the same version the Android build uses.
 - [ ] Xcode: Flutter 3.47 requires ≥ 15 and recommends ≥ 16. Use the version App Store Connect currently requires for uploads. CocoaPods ≥ 1.16.2 is recommended (`pod --version`).
 - [ ] `cd mobile/app && flutter clean && flutter pub get`, then `cd ios && pod repo update && pod install`. Expect `Podfile.lock` to change (it's stale), and commit it.
-- [ ] Confirm `ios/Runner/Assets.xcassets/LaunchBackground.imageset/background.png` exists. It's gitignored, so a fresh Mac clone doesn't have it; copy it from the PC's main checkout. Without it, Xcode only warns and the launch screen loses its background.
 - [ ] **`flutter build ios --release`**. Expected output: a warning that "UIScene lifecycle support will soon be required" (follow-up, ignore for now). There should be **no** "Updating minimum iOS deployment target" line, because the repo is already on 15.0.
 - [ ] Run `git status` in `mobile/app/ios`. Flutter's other iOS migrators may touch `project.pbxproj`, the Runner scheme or `ios/.gitignore`. Review and commit them, or report anything odd. Nothing SwiftPM-related should appear (`FlutterGeneratedPluginSwiftPackage`); if it does, the `pubspec.yaml` setting didn't take effect.
 - [ ] Archive in Xcode (Product → Archive). Watch for "compiling for iOS 14.0, but module … has a minimum deployment target of iOS 15.0". The Podfile change should prevent it.

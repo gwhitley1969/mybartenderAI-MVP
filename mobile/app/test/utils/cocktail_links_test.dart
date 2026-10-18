@@ -5,6 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'package:mybartenderai/src/utils/cocktail_links.dart';
 
 void main() {
+  // Front Door serves this path, and the App Link filter claims it.
+  test('cocktailShareUrl is the /cocktail/{id} link', () {
+    expect(cocktailShareUrl('17005'),
+        'https://share.mybartenderai.com/cocktail/17005');
+  });
+
   group('cocktailDeepLinkRedirect', () {
     const mapped = <String, String>{
       // The custom scheme puts "cocktail" in the host, so the path is "/17005".
@@ -59,6 +65,18 @@ void main() {
             ),
           ],
         );
+
+    testWidgets('a shared link opens the cocktail', (tester) async {
+      tester.binding.platformDispatcher.defaultRouteNameTestValue =
+          cocktailShareUrl('17005');
+      addTearDown(
+          tester.binding.platformDispatcher.clearDefaultRouteNameTestValue);
+
+      await tester.pumpWidget(MaterialApp.router(routerConfig: buildRouter()));
+      await tester.pumpAndSettle();
+
+      expect(find.text('cocktail 17005'), findsOneWidget);
+    });
 
     testWidgets('a custom-scheme link opens the cocktail on cold start',
         (tester) async {

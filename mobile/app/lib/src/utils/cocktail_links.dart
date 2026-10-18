@@ -13,6 +13,11 @@ library;
 
 const String _shareHost = 'share.mybartenderai.com';
 
+/// The link the app shares for a cocktail. Front Door's route-cocktail
+/// serves its web preview to people without the app.
+String cocktailShareUrl(String cocktailId) =>
+    'https://$_shareHost/cocktail/${Uri.encodeComponent(cocktailId)}';
+
 /// Returns the `/cocktail/{id}` location for a link the routes can't match
 /// on their own, or null when [uri] needs no redirect.
 String? cocktailDeepLinkRedirect(Uri uri) {

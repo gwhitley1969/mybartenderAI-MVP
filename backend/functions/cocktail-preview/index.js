@@ -4,7 +4,8 @@ const { getPool } = require('../shared/db/postgresPool');
  * cocktail-preview function
  * Generates HTML preview pages with Open Graph tags for social sharing
  * Route: GET /cocktail/{id}
- * URL: https://share.mybartenderai.com/api/cocktail/{id}
+ * URL: https://share.mybartenderai.com/cocktail/{id} (Front Door route-cocktail)
+ *      https://share.mybartenderai.com/api/cocktail/{id} (route-api, links shared up to v1.2.2)
  */
 
 async function getCocktailById(cocktailId) {
@@ -95,7 +96,8 @@ function openInAppLinks(cocktailId) {
 }
 
 function generatePreviewPage(cocktail) {
-    const shareUrl = `https://share.mybartenderai.com/api/cocktail/${cocktail.id}`;
+    // Canonical link (Front Door route-cocktail); /api/cocktail/{id} serves the same page.
+    const shareUrl = `https://share.mybartenderai.com/cocktail/${cocktail.id}`;
     const appLinks = openInAppLinks(cocktail.id);
     const imageUrl = cocktail.imageUrl || 'https://mbacocktaildb3.blob.core.windows.net/images/default-cocktail.jpg';
     const description = escapeHtml(generateDescription(cocktail));

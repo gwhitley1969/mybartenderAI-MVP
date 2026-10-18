@@ -41,6 +41,13 @@ function openInAppAttributes(html) {
     );
 }
 
+test('og:url is the /cocktail/{id} share link', async () => {
+    const html = await previewPage('11007');
+
+    expect(html.match(/<meta property="og:url" content="([^"]*)">/)[1])
+        .toBe('https://share.mybartenderai.com/cocktail/11007');
+});
+
 describe('Open in the app link', () => {
     test('Android opens the /cocktail App Link in the app, or the Play Store without it', async () => {
         const link = openInAppAttributes(await previewPage('11007'));

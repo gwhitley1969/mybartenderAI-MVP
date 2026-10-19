@@ -2,6 +2,7 @@ import 'dart:io' show File, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -47,6 +48,7 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
             appBar: AppBar(
               backgroundColor: AppColors.backgroundPrimary,
               elevation: 0,
+              leading: _backButton(),
             ),
             body: Center(
               child: Text(
@@ -77,10 +79,7 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
                 expandedHeight: 300,
                 pinned: true,
                 backgroundColor: AppColors.backgroundPrimary,
-                leading: IconButton(
-                  icon: Icon(Icons.arrow_back, color: AppColors.primaryPurple),
-                  onPressed: () => Navigator.pop(context),
-                ),
+                leading: _backButton(),
                 actions: [
                   // Share button - filled purple for discoverability
                   Builder(
@@ -218,6 +217,7 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
         appBar: AppBar(
           backgroundColor: AppColors.backgroundPrimary,
           elevation: 0,
+          leading: _backButton(),
         ),
         body: Center(
           child: Text(
@@ -228,6 +228,20 @@ class _CocktailDetailScreenState extends ConsumerState<CocktailDetailScreen> {
       ),
     );
   }
+
+  /// A shared link opens this screen as the only page. Popping it would
+  /// leave an empty navigator (a blank screen), so go home instead.
+  Widget _backButton() => IconButton(
+        icon: Icon(Icons.arrow_back, color: AppColors.primaryPurple),
+        onPressed: () {
+          final navigator = Navigator.of(context);
+          if (navigator.canPop()) {
+            navigator.pop();
+          } else {
+            context.go('/');
+          }
+        },
+      );
 
   // ── Hero image with tap-to-add for custom cocktails ─────────
 

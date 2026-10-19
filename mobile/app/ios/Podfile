@@ -1,5 +1,5 @@
-# Set minimum iOS platform for MSAL compatibility (requires iOS 14.0+)
-platform :ios, '14.0'
+# Minimum iOS platform: 15.0 is Flutter 3.47's floor (MSAL alone needs 14.0+)
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -43,9 +43,10 @@ post_install do |installer|
     # CRITICAL: Force consistent IPHONEOS_DEPLOYMENT_TARGET across all pods
     # This fixes flutter_secure_storage crash on cold start (Issue #794, #901)
     # Without this, pods may be compiled for different iOS versions causing
-    # Swift runtime symbol mismatches and EXC_BAD_ACCESS crashes
+    # Swift runtime symbol mismatches and EXC_BAD_ACCESS crashes.
+    # Keep this equal to the `platform :ios` version at the top of this file.
     target.build_configurations.each do |config|
-      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
 
       # Enable permissions for permission_handler package
       # See: https://pub.dev/packages/permission_handler#setup

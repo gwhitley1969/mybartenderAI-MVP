@@ -19,7 +19,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 version: 1.2.2+36
 
 environment:
+  # The lower bound sets the Dart *language* version (3.9). Keep it: language 3.13
+  # rejects the `final` constructor parameters that freezed 2.x generates, so
+  # raising it needs a freezed 3 migration first.
   sdk: ^3.9.2
+  # Build with Flutter 3.47.7 (Dart 3.13.5). This floor makes an older
+  # Flutter fail fast at `pub get` instead of re-pinning pubspec.lock.
+  flutter: ">=3.47.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -122,6 +128,12 @@ dev_dependencies:
 
 # The following section is specific to Flutter packages.
 flutter:
+
+  config:
+    # Keep iOS plugins on CocoaPods, as shipped through v1.2.2 (Flutter 3.35.5
+    # had Swift Package Manager off). Flutter 3.47 turns it on by default and
+    # would rewrite the Xcode project; moving to SwiftPM is a separate step.
+    enable-swift-package-manager: false
 
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in

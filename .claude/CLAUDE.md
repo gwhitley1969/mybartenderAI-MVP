@@ -226,8 +226,8 @@ Located in `kv-mybartenderai-prod`:
 - **Languages**: Dart/Flutter, PowerShell, Azure Bicep
 - **Node.js**: Required for Azure Functions and tooling
 - **Azure CLI**: For infrastructure deployment. App resources are in subscription **`My AI Bartender`**; the CLI default on the dev PC is a different subscription (and tenant), so pass `--subscription "My AI Bartender"` on every command
-- **Flutter SDK**: **3.35.5** for this project, run by full path: `C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`. The `flutter` on `PATH` is 3.47.1, which can't build this project and silently migrates `analysis_options.yaml`, `pubspec.lock` and `android/gradle.properties`
-- **JDK 21** (Microsoft OpenJDK), selected with `flutter config --jdk-dir`; Android Studio's bundled JBR 25 can't run the project's Gradle 8.12
+- **Flutter SDK**: **3.47.7** for this project, run by full path: `C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat` (Dart 3.13.5; Gradle 8.14.6, AGP 8.13.2, Kotlin 2.3.21). The `flutter` on `PATH` is 3.47.1: it pins the same packages but lacks six patch releases, so don't use it for releases. Commits up to v1.2.2+36 (`0f54b51`) need Flutter 3.35.5 (`C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`). `pubspec.yaml`'s `flutter: ">=3.47.0"` floor makes an older Flutter fail at `pub get`
+- **JDK 21** (Microsoft OpenJDK), selected with `flutter config --jdk-dir`; Android Studio's bundled JBR 25 can't run Gradle 8.14.6 (that needs Gradle 9.1+)
 - **Azure Functions Core Tools**: not installed on the dev PC; deploy the backend with Azure CLI zip deploy (see Quick Commands)
 
 ### Key Scripts & Templates
@@ -337,7 +337,8 @@ Located in `kv-mybartenderai-prod`:
 
 ### In Progress
 
-- 🔄 v1.2.2+36 release (Voice GA migration + iPhone stop fix): backend deployed and verified on iPhone and Android; signed Android bundle built (Flutter 3.35.5); iOS build and store submission pending; PR #2 (`fix/voice-ga-realtime-api`) open against `main`
+- 🔄 v1.2.2+36 release (Voice GA migration + iPhone stop fix): backend deployed and verified on iPhone and Android; signed Android bundle built (Flutter 3.35.5); iOS build and store submission pending; PR #2 (`fix/voice-ga-realtime-api`) merged to `main` Oct 18
+- 🔄 Flutter 3.47.7 upgrade (branch `claude/wonderful-hopper-0f2f25`): builds, tests and a signed Android bundle verified on Windows; next: version bump, Mac build, regression checklist in `docs/FLUTTER_3_47_UPGRADE.md`. The iOS minimum becomes 15.0
 - 🔄 Taste Profile feature (UI design)
 - 🔄 iOS TestFlight testing (we're in production now)
 - 🔄 Android Play Store deployment beta testing (we're in production now)
@@ -347,6 +348,8 @@ Located in `kv-mybartenderai-prod`:
 - Store builds ≤ 1.2.1 on iPhone show "Error occurred" after a normal voice stop (cosmetic: the session ends and bills correctly). Fixed in v1.2.2: `flutter_webrtc` on iOS reports the app's own `close()` as `RTCPeerConnectionStateClosed`, which is no longer treated as an error
 - Voice sessions abandoned without a stop (phone locked, app backgrounded or closed) report no usage; the server bills them by fallback (30% of capped wall clock, via last-session-wins or the hourly cleanup)
 - `flutter test`: `test/services/apim_subscription_service_test.dart` and `test/widget_test.dart` fail to compile (pre-existing: wrong package import, missing generated mocks, removed `MyApp`)
+- A fresh clone or worktree builds an unsigned release until `android/key.properties` and `android/app/upload-keystore.jks` (both gitignored) are copied from the main checkout. The generated splash and icon PNGs are tracked since PR #3 (`b1351da`)
+- Android build: `android/build.gradle.kts` compiles plugin modules that ask for compileSdk < 34 (`flutter_webrtc` 0.12.x, `share_plus` 7.x) against 36, because AGP 8.13 rejects them otherwise. Remove the override once both plugins are upgraded
 
 ### Upcoming
 
@@ -397,6 +400,7 @@ Refer to these files in the repository:
 
 - `docs/ARCHITECTURE.md`: Detailed architecture documentation (authoritative)
 - `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog (includes backend deploy steps and the Android build toolchain)
+- `docs/FLUTTER_3_47_UPGRADE.md`: Flutter 3.35.5 → 3.47.7 upgrade: versions, decisions, verification, follow-ups (AGP 9, plugin upgrades, SwiftPM, UIScene) and the two-platform regression checklist
 - `docs/VOICE_AI_DEPLOYED.md`: Voice AI architecture, including the GA Realtime API migration, client modes and voice app settings
 - `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
 - `docs/DELETE_USER.md`: Account deletion implementation (Apple Guideline 5.1.1(v))
@@ -446,10 +450,10 @@ npm test
 
 ### Flutter (you MUST always do a clean build)
 
-Use Flutter 3.35.5 by full path; the `flutter` on `PATH` (3.47.1) can't build this project.
+Use Flutter 3.47.7 by full path; the `flutter` on `PATH` is 3.47.1. Commits up to v1.2.2+36 (`0f54b51`) need 3.35.5 (`C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat`).
 
 ```powershell
-$flutter = 'C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat'
+$flutter = 'C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat'
 
 # Run on Android
 & $flutter run
@@ -466,5 +470,5 @@ $flutter = 'C:\src\flutter_windows_3.35.5-stable\flutter\bin\flutter.bat'
 
 **Last Updated**: October 18, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Ship v1.2.2+36 (Voice GA migration): iOS build and store submission, then merge PR #2; then `docs/CONVERSION_PLAN.md`
-**Recent Changes**: Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1 (deployed Oct 17, verified on iPhone and Android Oct 18), app sends no `session.update`, handles GA event names, and no longer shows "Error occurred" after a stop on iPhone. Android build toolchain restored (Flutter 3.35.5 + JDK 21). Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.
+**Primary Focus**: Ship v1.2.2+36 (Voice GA migration): iOS build and store submission; regression-test the Flutter 3.47.7 upgrade (`docs/FLUTTER_3_47_UPGRADE.md`); then `docs/CONVERSION_PLAN.md`
+**Recent Changes**: Flutter 3.35.5 → 3.47.7 upgrade on branch `claude/wonderful-hopper-0f2f25` (Oct 18): Gradle 8.14.6, AGP 8.13.2, Kotlin 2.3.21, iOS minimum 15.0, CocoaPods kept; not merged or released yet. Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1 (deployed Oct 17, verified on iPhone and Android Oct 18), app sends no `session.update`, handles GA event names, and no longer shows "Error occurred" after a stop on iPhone. Android build toolchain restored (Flutter 3.35.5 + JDK 21). Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

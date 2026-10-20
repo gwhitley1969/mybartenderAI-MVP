@@ -8,6 +8,7 @@ import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/models.dart';
+import '../utils/cocktail_links.dart';
 import '../widgets/shareable_recipe_card.dart';
 import 'image_cache_service.dart';
 
@@ -186,8 +187,7 @@ class RecipeCardShareService {
 
     // For standard cocktails, include the share URL
     if (!cocktail.isCustom) {
-      buffer.writeln(
-          'https://share.mybartenderai.com/api/cocktail/${cocktail.id}');
+      buffer.writeln(cocktailShareUrl(cocktail.id));
       buffer.writeln();
     }
 

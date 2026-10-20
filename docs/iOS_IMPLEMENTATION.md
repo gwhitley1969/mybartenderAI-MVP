@@ -212,11 +212,14 @@ CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;
 
 ### Prerequisites
 
-- Xcode 15+ with Command Line Tools
-- CocoaPods (`gem install cocoapods`)
+- Xcode 15+ with Command Line Tools (Flutter 3.47 requires 15 and recommends 16; App Store uploads need the Xcode version App Store Connect currently requires)
+- CocoaPods (`gem install cocoapods`); Flutter 3.47 recommends 1.16.2+
 - Valid Apple Developer account
 - Developer Mode enabled on physical device (iOS 16+)
-- Flutter matching the Android release build: **3.35.5** as of v1.2.2 (check with `flutter --version`), so both platforms ship the same framework. Flutter 3.47.x hasn't been regression-tested with this project, and on the Windows PC it can't build the Android app at all (see `DEPLOYMENT_STATUS.md` → Android build toolchain)
+- Flutter matching the Android release build, so both platforms ship the same framework (check with `flutter --version`):
+  - **3.47.7** from the Flutter 3.47.7 upgrade on. That upgrade raises the app's minimum iOS to **15.0** and keeps plugins on CocoaPods (`enable-swift-package-manager: false` in `pubspec.yaml`). The first build prints a "UIScene lifecycle support will soon be required" warning; that's expected (follow-up). Mac steps and the regression checklist: `docs/FLUTTER_3_47_UPGRADE.md`
+  - **3.35.5** for commits up to v1.2.2+36 (`0f54b51`)
+- After `pod install`, commit `ios/Podfile.lock`. The copy in git predates v1.2.1 (it still lists `purchases_flutter` 8.11.0)
 
 ### Clean Build
 

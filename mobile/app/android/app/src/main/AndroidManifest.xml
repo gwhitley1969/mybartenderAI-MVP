@@ -56,14 +56,16 @@
                       android:host="cocktail" />
             </intent-filter>
 
-            <!-- HTTPS App Links (autoVerify requires assetlinks.json) -->
+            <!-- HTTPS App Links (autoVerify requires assetlinks.json).
+                 /api/cocktail/ is the share URL used up to v1.2.2. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https"
-                      android:host="share.mybartenderai.com"
-                      android:pathPrefix="/cocktail" />
+                      android:host="share.mybartenderai.com" />
+                <data android:pathPrefix="/cocktail/" />
+                <data android:pathPrefix="/api/cocktail/" />
             </intent-filter>
         </activity>
 

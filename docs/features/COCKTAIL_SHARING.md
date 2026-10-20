@@ -15,9 +15,9 @@ https://share.mybartenderai.com/cocktail/{cocktailId}
 
 Example: `https://share.mybartenderai.com/cocktail/17005`
 
-Builds up to v1.2.2 shared `https://share.mybartenderai.com/api/cocktail/{cocktailId}`. Both paths serve the same preview page, and the app opens both. The app builds the URL in one place: `cocktailShareUrl()` in `mobile/app/lib/src/utils/cocktail_links.dart`.
+Builds up to v1.2.1 shared `https://share.mybartenderai.com/api/cocktail/{cocktailId}`. Both paths serve the same preview page, and the app opens both. The app builds the URL in one place: `cocktailShareUrl()` in `mobile/app/lib/src/utils/cocktail_links.dart`.
 
-> **Rollout in progress (October 2026):** Front Door `route-cocktail` has served `/cocktail/{id}` since October 18, 2026. The app starts sharing it in v1.2.3; until then it shares `/api/cocktail/{id}`, and the deployed preview page still names `/api/cocktail/{id}` as its `og:url`. See [Rollout](#rollout-shared-links-open-the-app).
+> **Rollout (October 2026):** Front Door `route-cocktail` has served `/cocktail/{id}` since October 18, 2026, and the preview page with the Open button and the canonical `og:url` has been live since October 20, 2026. The app shares `/cocktail/{id}` from v1.2.2 (built October 20, 2026; store release pending); installed builds up to v1.2.1 still share `/api/cocktail/{id}`, which serves the same page. See [Rollout](#rollout-shared-links-open-the-app).
 
 ### Request Flow
 
@@ -96,7 +96,7 @@ The function:
 
 ### Opening the App
 
-**Android App Links.** The manifest's `autoVerify` intent filter claims `https://share.mybartenderai.com` with the path prefixes `/cocktail/` and `/api/cocktail/` (the second from v1.2.3, so links shared by older builds open the app too). A tapped link opens the app directly only once Android has verified the domain, which needs `https://share.mybartenderai.com/.well-known/assetlinks.json` (Front Door `route-well-known` → APIM → `well-known-assetlinks` function) to list the key the installed build is signed with. It lists one SHA-256 fingerprint, the Play App Signing key (confirmed in Play Console on October 18, 2026), so only Play-installed builds verify; debug and sideloaded upload-key builds don't.
+**Android App Links.** The manifest's `autoVerify` intent filter claims `https://share.mybartenderai.com` with the path prefixes `/cocktail/` and `/api/cocktail/` (the second from v1.2.2, so links shared by older builds open the app too). A tapped link opens the app directly only once Android has verified the domain, which needs `https://share.mybartenderai.com/.well-known/assetlinks.json` (Front Door `route-well-known` → APIM → `well-known-assetlinks` function) to list the key the installed build is signed with. It lists one SHA-256 fingerprint, the Play App Signing key (confirmed in Play Console on October 18, 2026), so only Play-installed builds verify; debug and sideloaded upload-key builds don't.
 
 **iOS.** No Universal Links yet: the app has no Associated Domains entitlement and the domain serves no `apple-app-site-association`. A tapped link opens the preview page in Safari.
 
@@ -116,28 +116,28 @@ Before October 2026 the page tried a hidden `mybartender://` iframe from a `<hea
 | `mybartender://cocktail/17005` | `/17005` | mapped to `/cocktail/17005` |
 | `mybartender:///cocktail/17005` | `/cocktail/17005` | matches `/cocktail/:id` |
 
-Without the mapping (v1.2.2 and earlier) the second and third forms show GoRouter's "Page Not Found".
+Without the mapping (v1.2.1 and earlier) the second and third forms show GoRouter's "Page Not Found".
 
 A link replaces the navigation stack, so the detail screen is the only page. Its back arrow pops when it can and otherwise goes home (popping the only page left a blank screen). As for notification taps, `/cocktail/:id` skips the age and sign-in redirects but not the subscription gate for signed-in users.
 
 ## Rollout: Shared Links Open the App
 
-Status on October 18, 2026: steps 1 and 3 done; the code for steps 4-5 is on branch `claude/zealous-galileo-c073fe`. Agreed order, each step with Gene's OK:
+Status on October 20, 2026: steps 1, 3 and 4 done, and step 5's Android bundle is built; the store releases and the device check remain. The order changed on October 20: Gene chose to ship this branch in v1.2.2 together with the Flutter 3.47.7 upgrade, so both platforms release the same code from `main`. Each step with Gene's OK:
 
 1. **App Links verification** (done, BUG-014 in `docs/BUG_FIXES.md`): `route-well-known` origin path `/api/.well-known`, applied October 18, 2026. At 15:52 UTC `https://share.mybartenderai.com/.well-known/assetlinks.json` returned 200 and Google's checker listed the app's statement:
    ```
    https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls
    ```
-2. **iOS v1.2.2+36 first**: build and submit it from `main` before this branch merges. `main`'s app code is what the Android v1.2.2+36 bundle was built from; merging first would ship different code on iOS.
+2. **iOS v1.2.2+36 first** (superseded October 20, 2026): the plan was to release v1.2.2 from `main` before this branch merged, so both platforms would ship the same code. Instead the branch merged first (PR #7), the Android bundle was rebuilt from `main`, and both platforms ship it in v1.2.2.
 3. **Front Door `route-cocktail`** (done): created October 18, 2026 at 19:29 UTC with the command below and live at the edge from 19:51 UTC. It matches `route-api` in every setting except the pattern and origin path, and the other four routes were unchanged. Checked at 19:51 UTC: `/cocktail/17005` 200 (A True Amaretto Sour, five tries), `/cocktail/11007` 200 (Margarita), an unknown id gets the function's 404 page, and `/api/cocktail/17005`, `/.well-known/assetlinks.json` and `/` answer as before. It could go before step 2 because it only replaces the static website's 404 for `/cocktail/*`. Same settings as `route-api`, caching off:
    ```bash
    az afd route create --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-cocktail --patterns-to-match "[/cocktail/*]" --origin-group og-apim --origin-path "/api/cocktail" --formatted-custom-domains "[{id:/subscriptions/a30b74bc-d8dd-4564-8356-2269a68a9e18/resourceGroups/rg-mba-prod/providers/Microsoft.Cdn/profiles/fd-mba-share/customDomains/share-mybartenderai-com}]" --supported-protocols "[Https]" --forwarding-protocol HttpsOnly --https-redirect Enabled --link-to-default-domain Enabled --enabled-state Enabled
    ```
    Verify (allow time for Front Door to propagate): `curl -s https://share.mybartenderai.com/cocktail/17005` returns 200 with `<title>A True Amaretto Sour - My AI Bartender</title>`.
    Rollback: `az afd route delete --subscription "My AI Bartender" -g rg-mba-prod --profile-name fd-mba-share --endpoint-name mba-share --route-name route-cocktail --yes`
-4. **After step 2: push, PR, merge, then deploy the backend** (`cocktail-preview`: Open button, canonical `og:url`). Needs step 3 too: otherwise Facebook scrapes the `og:url` and gets the 404 page.
-5. **App release v1.2.3** (share URL, App Link paths, link mapping, back arrow). Needs step 3: otherwise people without the app get the 404 page. The Flutter 3.47 upgrade (PR #4) merges after this branch, so its regression pass covers the link handling.
-6. **Device check** on a Play-installed v1.2.3 (Play signs with the key `assetlinks.json` lists):
+4. **Merge, then deploy the backend** (done): merged to `main` by PR #7 (`68400c9`) on October 20, 2026; `cocktail-preview` (Open button, canonical `og:url`) deployed at 17:18 UTC, package `20261020171645.zip`. `/cocktail/17005` and `/api/cocktail/17005` serve the new page with `og:url` `https://share.mybartenderai.com/cocktail/17005`. Needed step 3 too: otherwise Facebook scrapes the `og:url` and gets the 404 page.
+5. **App release v1.2.2+36** (share URL, App Link paths, link mapping, back arrow), together with the Flutter 3.47.7 upgrade: Android bundle built from `main` on October 20, 2026 after a sideloaded test on Gene's phone; Play upload and the iOS build pending. Needs step 3: otherwise people without the app get the 404 page. The upgrade's regression pass covers the link handling.
+6. **Device check** on a Play-installed v1.2.2 (Play signs with the key `assetlinks.json` lists):
    ```bash
    adb shell pm get-app-links ai.mybartender.mybartenderai
    adb shell pm verify-app-links --re-verify ai.mybartender.mybartenderai
@@ -189,11 +189,11 @@ Status on October 18, 2026: steps 1 and 3 done; the code for steps 4-5 is on bra
 **Solution**: Verify operation exists on correct APIM (apim-mba-002, not apim-mba-001)
 
 ### Issue: Shared link opens the browser, not the app (Android)
-**Cause**: The domain isn't verified for the installed app, or the link's path isn't claimed by the App Link filter. Up to v1.2.2 the app shared `/api/cocktail/{id}` while the filter claimed only `/cocktail`, so shared links never opened the app.
+**Cause**: The domain isn't verified for the installed app, or the link's path isn't claimed by the App Link filter. Up to v1.2.1 the app shared `/api/cocktail/{id}` while the filter claimed only `/cocktail`, so shared links never opened the app.
 **Solution**: Check `adb shell pm get-app-links ai.mybartender.mybartenderai` and the asset links file (Rollout step 1). A link opened in another app's built-in browser may stay there; the page's Open button covers that case.
 
 ### Issue: App opens on "Page Not Found"
-**Cause**: GoRouter matches the URI path only, so `mybartender://cocktail/{id}` (path `/{id}`) and `/api/cocktail/{id}` match no route in builds up to v1.2.2.
+**Cause**: GoRouter matches the URI path only, so `mybartender://cocktail/{id}` (path `/{id}`) and `/api/cocktail/{id}` match no route in builds up to v1.2.1.
 **Solution**: `cocktailDeepLinkRedirect()` maps them to `/cocktail/:id`.
 
 ### Testing Layers
@@ -367,7 +367,7 @@ Test URL: `https://share.mybartenderai.com/api/cocktail/16943` (A Gilligan's Isl
 
 - **Initial sharing fix**: November 30, 2025
 - **Enhanced preview page**: December 1, 2025
-- **Shared links open the app**: code and Front Door `route-cocktail` October 18, 2026; backend deploy and v1.2.3 pending (see [Rollout](#rollout-shared-links-open-the-app))
+- **Shared links open the app**: code and Front Door `route-cocktail` October 18, 2026; backend deployed October 20, 2026; ships in v1.2.2 (store release pending) (see [Rollout](#rollout-shared-links-open-the-app))
 
 ## Key Learnings
 

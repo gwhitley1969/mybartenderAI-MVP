@@ -55,6 +55,15 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             }
+            // RevenueCat's Amazon Appstore module ships consumer rules with -dontoptimize,
+            // which turns R8 optimization off for the whole app (Play Console's "DEX code
+            // optimization" showed Optimization 0%). The app doesn't use Amazon, so its rules
+            // are ignored here and proguard-rules.pro re-declares them without -dontoptimize.
+            optimization {
+                keepRules {
+                    ignoreFrom("com.revenuecat.purchases:purchases-store-amazon")
+                }
+            }
         }
     }
 }

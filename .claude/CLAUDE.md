@@ -337,8 +337,9 @@ Located in `kv-mybartenderai-prod`:
 
 ### In Progress
 
-- 🔄 v1.2.2+36 release (Voice GA migration, iPhone stop fix, share links, Flutter 3.47.7): all on `main` since PR #7 (`68400c9`, Oct 20); signed Android bundle built from `main` with Flutter 3.47.7 after a device test; `cocktail-preview` deployed Oct 20; Play upload, iOS build and store submission pending
+- 🔄 v1.2.2+36 release (Voice GA migration, iPhone stop fix, share links, Flutter 3.47.7): all on `main` since PR #7 (`68400c9`, Oct 20); signed Android bundle built from `main` with Flutter 3.47.7 after a device test; `cocktail-preview` deployed Oct 20; uploaded to Play (production) Oct 20; iOS build and store submission pending
 - 🔄 Flutter 3.47.7 upgrade: merged to `main` by PR #7 and shipping in v1.2.2+36; next: Mac build and the regression checklist (mainly iPhone) in `docs/FLUTTER_3_47_UPGRADE.md`. The iOS minimum becomes 15.0
+- 🔄 v1.2.3+37: R8 fix for Play's "DEX code optimization" warning (Optimization 0%, Obfuscation and Shrinking 22%; fix by Feb 2027), device-tested on Android; next: bundle from `main` and Play upload
 - 🔄 Taste Profile feature (UI design)
 - 🔄 iOS TestFlight testing (we're in production now)
 - 🔄 Android Play Store deployment beta testing (we're in production now)
@@ -350,6 +351,7 @@ Located in `kv-mybartenderai-prod`:
 - `flutter test`: `test/services/apim_subscription_service_test.dart` and `test/widget_test.dart` fail to compile (pre-existing: wrong package import, missing generated mocks, removed `MyApp`)
 - A fresh clone or worktree builds an unsigned release until `android/key.properties` and `android/app/upload-keystore.jks` (both gitignored) are copied from the main checkout. The generated splash and icon PNGs are tracked since PR #3 (`b1351da`)
 - Android build: `android/build.gradle.kts` compiles plugin modules that ask for compileSdk < 34 (`flutter_webrtc` 0.12.x, `share_plus` 7.x) against 36, because AGP 8.13 rejects them otherwise. Remove the override once both plugins are upgraded
+- Android R8: `android/app/build.gradle.kts` ignores the consumer rules of `purchases-store-amazon` (`keepRules.ignoreFrom`), because their `-dontoptimize` turned optimization off app-wide. Keep `proguard-rules.pro` narrow: wholesale `-keep class <library>.** { *; }` rules sink Play's "DEX code optimization" grade (below 25% can limit publishing)
 
 ### Upcoming
 

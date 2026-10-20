@@ -102,7 +102,7 @@ Run this before the upgrade ships. The marked items cover areas the upgrade actu
 
 ### 0. Before testing
 
-- [ ] Bump `version:` in `mobile/app/pubspec.yaml` (for example `1.2.3+37`). The hotfix bundle already uses `1.2.2+36`.
+- [x] Version: no bump. The upgrade ships in v1.2.2+36 together with the voice fix and share links (PR #7, Oct 20, 2026); the earlier 3.35.5 bundle that used 1.2.2+36 was never uploaded.
 - [ ] Windows: build with `C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat` (`flutter clean` first). The `flutter` on `PATH` is 3.47.1. It pins the same packages, but it lacks six patch releases of fixes.
 - [ ] Building from a fresh clone or worktree instead of the main checkout? First copy the two gitignored signing files from the main checkout (`android/key.properties`, `android/app/upload-keystore.jks`); without them the bundle builds unsigned.
 

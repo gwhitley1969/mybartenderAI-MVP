@@ -337,8 +337,8 @@ Located in `kv-mybartenderai-prod`:
 
 ### In Progress
 
-- 🔄 v1.2.2+36 release (Voice GA migration + iPhone stop fix): backend deployed and verified on iPhone and Android; signed Android bundle built (Flutter 3.35.5); iOS build and store submission pending; PR #2 (`fix/voice-ga-realtime-api`) merged to `main` Oct 18
-- 🔄 Flutter 3.47.7 upgrade (branch `claude/wonderful-hopper-0f2f25`): builds, tests and a signed Android bundle verified on Windows; next: version bump, Mac build, regression checklist in `docs/FLUTTER_3_47_UPGRADE.md`. The iOS minimum becomes 15.0
+- 🔄 v1.2.2+36 release (Voice GA migration, iPhone stop fix, share links, Flutter 3.47.7): all on `main` since PR #7 (`68400c9`, Oct 20); signed Android bundle built from `main` with Flutter 3.47.7 after a device test; `cocktail-preview` deployed Oct 20; Play upload, iOS build and store submission pending
+- 🔄 Flutter 3.47.7 upgrade: merged to `main` by PR #7 and shipping in v1.2.2+36; next: Mac build and the regression checklist (mainly iPhone) in `docs/FLUTTER_3_47_UPGRADE.md`. The iOS minimum becomes 15.0
 - 🔄 Taste Profile feature (UI design)
 - 🔄 iOS TestFlight testing (we're in production now)
 - 🔄 Android Play Store deployment beta testing (we're in production now)
@@ -468,7 +468,7 @@ $flutter = 'C:\src\flutter_windows_3.47.7-stable\flutter\bin\flutter.bat'
 
 ---
 
-**Last Updated**: October 18, 2026
+**Last Updated**: October 20, 2026
 **Project Phase**: Released Product
-**Primary Focus**: Ship v1.2.2+36 (Voice GA migration): iOS build and store submission; regression-test the Flutter 3.47.7 upgrade (`docs/FLUTTER_3_47_UPGRADE.md`); then `docs/CONVERSION_PLAN.md`
-**Recent Changes**: Flutter 3.35.5 → 3.47.7 upgrade on branch `claude/wonderful-hopper-0f2f25` (Oct 18): Gradle 8.14.6, AGP 8.13.2, Kotlin 2.3.21, iOS minimum 15.0, CocoaPods kept; not merged or released yet. Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1 (deployed Oct 17, verified on iPhone and Android Oct 18), app sends no `session.update`, handles GA event names, and no longer shows "Error occurred" after a stop on iPhone. Android build toolchain restored (Flutter 3.35.5 + JDK 21). Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.
+**Primary Focus**: Ship v1.2.2+36 (Voice GA, share links, Flutter 3.47.7): upload the Android bundle, build and submit iOS, run the regression checklist (`docs/FLUTTER_3_47_UPGRADE.md`); then `docs/CONVERSION_PLAN.md`
+**Recent Changes**: Release v1.2.2+36 assembled on `main` (PR #7, Oct 20): share links (canonical `/cocktail/{id}` links that open the app; the preview page's Open button, deployed Oct 20) and the Flutter 3.35.5 → 3.47.7 upgrade (Gradle 8.14.6, AGP 8.13.2, Kotlin 2.3.21, iOS minimum 15.0, CocoaPods kept); Android bundle built from `main` and device-tested, not released yet. Voice AI moved from the retired Preview Realtime API to GA (v1.2.2+36) — backend `client_secrets` / `calls` endpoints with a compat mode for store builds ≤ 1.2.1 (deployed Oct 17, verified on iPhone and Android Oct 18), app sends no `session.update`, handles GA event names, and no longer shows "Error occurred" after a stop on iPhone. Android build toolchain restored (Flutter 3.35.5 + JDK 21). Google Play Billing 8 compliance (v1.2.1+35) — removed `in_app_purchase`, unified all purchases on RevenueCat 10.4.3 (Billing 8.3.0), fixed a pre-existing bug where Android voice-minute purchases never worked. Hard paywall across entire app (v1.2.0+33) — router-level subscription gate, dedicated `/paywall` route, server-side kill switch. Pricing reduction + trial harmonization (v1.1.1+32), new logo/icon rebrand (v1.1.0+31), in-app review system.

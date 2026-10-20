@@ -1,10 +1,7 @@
-# Flutter wrapper classes
--keep class io.flutter.app.** { *; }
--keep class io.flutter.plugin.** { *; }
--keep class io.flutter.util.** { *; }
--keep class io.flutter.view.** { *; }
--keep class io.flutter.** { *; }
--keep class io.flutter.plugins.** { *; }
+# Keep rules here should be narrow. Don't add wholesale "-keep class <package>.** { *; }"
+# rules for libraries that ship their own consumer rules (AndroidX, Flutter, RevenueCat,
+# Play Billing): they stop R8 from shrinking, obfuscating and optimizing that code, and
+# Play Console grades all three ("DEX code optimization"; below 25% can limit publishing).
 
 # SharedPreferences - explicit keep rules
 -keep class io.flutter.plugins.sharedpreferences.** { *; }
@@ -18,27 +15,26 @@
 -keep class com.it_nomads.fluttersecurestorage.** { *; }
 -dontwarn com.it_nomads.fluttersecurestorage.**
 
-# AndroidX / Jetpack
--keep class androidx.** { *; }
+# AndroidX / Android framework: the libraries ship their own consumer rules
 -dontwarn androidx.**
--keep class android.** { *; }
 -dontwarn android.**
 
 # Permission Handler plugin - keep all classes to prevent R8 stripping
 -keep class com.baseflow.permissionhandler.** { *; }
 -dontwarn com.baseflow.permissionhandler.**
 
-# RevenueCat / Purchases Flutter
--keep class com.revenuecat.purchases.** { *; }
+# RevenueCat / Purchases Flutter: the SDK's own consumer rules keep com.revenuecat.**
 -dontwarn com.revenuecat.purchases.**
+
+# RevenueCat's Amazon Appstore module (purchases-store-amazon). build.gradle.kts ignores
+# its consumer rules because they include -dontoptimize; these are the rest of them.
+-keep class com.amazon.** { *; }
+-dontwarn com.amazon.**
 
 # Google Play Billing
 # Legacy AIDL package (pre-Billing-Library) — retained for safety
 -keep class com.android.vending.billing.** { *; }
-# Play Billing Library 8.x — pulled in transitively by purchases_flutter.
-# The AAR ships consumer rules, but R8 runs on release builds here
-# (FlutterPlugin sets isMinifyEnabled=true) so keep these explicit.
--keep class com.android.billingclient.** { *; }
+# Play Billing Library 8.x ships its own consumer rules
 -dontwarn com.android.billingclient.**
 
 # WebRTC

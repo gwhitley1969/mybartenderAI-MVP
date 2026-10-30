@@ -197,12 +197,10 @@ mybartenderAI-MVP/
 - `users-me` - User profile endpoint (GET /api/v1/users/me)
 - `validate-age` - Age validation (POST /api/validate-age)
 
-**Data & Storage Functions (6)**
+**Data & Storage Functions (4)**
 
-- `snapshots-latest` - Get latest snapshot (GET /api/snapshots/latest)
-- `snapshots-latest-mi` - Snapshot with managed identity (GET /api/v1/snapshots/latest-mi)
-- `download-images` - Download cocktail images (POST /api/v1/admin/download-images)
-- `download-images-mi` - Images with managed identity (POST /api/v1/admin/download-images-mi)
+- `snapshots-latest` - Get latest snapshot (GET /api/v1/snapshots/latest)
+- `download-images` - Download cocktail images (POST /api/download-images)
 - `sync-cocktaildb` - Cocktail DB sync (TIMER DISABLED)
 - `sync-cocktaildb-mi` - Cocktail sync with managed identity (TIMER DISABLED)
 
@@ -223,11 +221,10 @@ mybartenderAI-MVP/
 
 - `voice-purchase` - **Deprecated** (v1.2.1+35). Voice-minute purchases now go through the RevenueCat SDK on both platforms and are credited by the `subscription-webhook` `NON_RENEWING_PURCHASE` handler. Endpoint remains deployed as a rollback path (POST /api/v1/voice/purchase)
 
-**Testing & Utilities (4)**
+**Testing & Utilities (3)**
 
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
 - `test-mi-access` - Managed Identity test (GET /api/test/mi-access)
-- `test-write` - Blob write test (GET /api/test/write)
 - `rotate-keys-timer` - Scheduled key rotation (timer)
 
 **Programming Model**: All functions use Azure Functions v4 with code-centric registration in `index.js`. Complex functions delegate to v3-style modules as needed.

@@ -232,7 +232,7 @@ The mobile app adds these tables to the downloaded snapshot:
 |-----------|----------|---------|
 | `snapshots-latest` | `/backend/functions/snapshots-latest/` | API endpoint for snapshot metadata |
 | `snapshotMetadataService.js` | `/backend/functions/services/` | Read/write snapshot metadata in PostgreSQL |
-| `snapshotStorageService.js` | `/backend/functions/services/` | Upload blobs, generate SAS URLs |
+| `snapshotStorageService.js` | `/backend/functions/services/` | Sign snapshot download links (user delegation SAS, managed identity) |
 | `rebuild-sqlite-snapshot.js` | `/` (root) | Manual script to generate SQLite snapshots |
 
 ### Mobile Components

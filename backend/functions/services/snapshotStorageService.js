@@ -1,71 +1,88 @@
-"use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateSnapshotSas = exports.uploadSnapshotArtifacts = void 0;
-const storage_blob_1 = require("@azure/storage-blob");
-const path_1 = __importDefault(require("path"));
-const getRequiredEnv = (key) => {
-    const value = process.env[key];
-    if (!value) {
-        throw new Error(`${key} environment variable is required.`);
-    }
-    return value;
-};
-const getContainerClient = () => {
-    const connectionString = getRequiredEnv("BLOB_STORAGE_CONNECTION_STRING");
-    const containerName = process.env.SNAPSHOT_CONTAINER_NAME ?? "snapshots";
-    const blobServiceClient = storage_blob_1.BlobServiceClient.fromConnectionString(connectionString);
-    return blobServiceClient.getContainerClient(containerName);
-};
-const getSharedKeyCredential = () => {
-    const connectionString = getRequiredEnv("BLOB_STORAGE_CONNECTION_STRING");
-    const parts = Object.fromEntries(connectionString.split(";").map((segment) => {
-        const [key, value] = segment.split("=");
-        return [key, value];
-    }));
-    const accountName = parts.AccountName;
-    const accountKey = parts.AccountKey;
-    if (!accountName || !accountKey) {
-        throw new Error('BLOB_STORAGE_CONNECTION_STRING must include AccountName and AccountKey.');
-    }
-    return new storage_blob_1.StorageSharedKeyCredential(accountName, accountKey);
-};
-const uploadSnapshotArtifacts = async (args) => {
-    const containerClient = getContainerClient();
-    await containerClient.createIfNotExists();
-    const blobPath = path_1.default.posix.join('snapshots', 'sqlite', args.schemaVersion, `${args.snapshotVersion}.db.zst`);
-    const blobClient = containerClient.getBlockBlobClient(blobPath);
-    await blobClient.uploadData(args.compressed, {
-        blobHTTPHeaders: {
-            blobContentType: 'application/octet-stream',
-        },
-    });
-    const shaPath = `${blobPath}.sha256`;
-    const shaBlobClient = containerClient.getBlockBlobClient(shaPath);
-    await shaBlobClient.uploadData(Buffer.from(args.sha256, 'utf-8'), {
-        blobHTTPHeaders: {
-            blobContentType: 'text/plain',
-        },
-    });
-    return {
-        blobPath,
-        sizeBytes: args.compressed.byteLength,
+// Signs read-only download links for snapshot blobs in mbacocktaildb3.
+//
+// Uses the Function App's managed identity (no account key): the link is a
+// user delegation SAS. The identity needs a data role on the storage account
+// that grants blob read and generateUserDelegationKey; Storage Blob Data
+// Contributor covers both. See docs/STORAGE_MANAGED_IDENTITY.md.
+//
+// Snapshots are written by rebuild-sqlite-snapshot.js from a developer
+// machine, not by the Function App.
+const { DefaultAzureCredential } = require('@azure/identity');
+const {
+    BlobServiceClient,
+    BlobSASPermissions,
+    SASProtocol,
+    generateBlobSASQueryParameters
+} = require('@azure/storage-blob');
+
+const DEFAULT_ACCOUNT_NAME = 'mbacocktaildb3';
+const DEFAULT_CONTAINER_NAME = 'snapshots';
+const CLOCK_SKEW_MS = 5 * 60 * 1000;
+// One key signs many links; fetch a new one well before it runs out.
+const KEY_LIFETIME_MS = 6 * 60 * 60 * 1000;
+
+const createSnapshotSasGenerator = ({
+    blobServiceClient,
+    accountName,
+    containerName,
+    now = () => Date.now()
+}) => {
+    let cachedKey = null;
+
+    const getKey = async (neededUntil) => {
+        if (cachedKey && cachedKey.expiresOn.getTime() >= neededUntil) {
+            return cachedKey.promise;
+        }
+        const startsOn = new Date(now() - CLOCK_SKEW_MS);
+        const expiresOn = new Date(now() + KEY_LIFETIME_MS);
+        const promise = blobServiceClient.getUserDelegationKey(startsOn, expiresOn);
+        cachedKey = { expiresOn, promise };
+        try {
+            return await promise;
+        } catch (error) {
+            cachedKey = null;
+            throw error;
+        }
+    };
+
+    return async (blobPath, expiresInMinutes = Number(process.env.SNAPSHOT_SAS_TTL_MINUTES ?? '15')) => {
+        const startsOn = new Date(now() - CLOCK_SKEW_MS);
+        const expiresOn = new Date(now() + expiresInMinutes * 60 * 1000);
+        const userDelegationKey = await getKey(expiresOn.getTime());
+
+        const sas = generateBlobSASQueryParameters({
+            containerName,
+            blobName: blobPath,
+            permissions: BlobSASPermissions.parse('r'),
+            protocol: SASProtocol.Https,
+            startsOn,
+            expiresOn
+        }, userDelegationKey, accountName);
+
+        const blobUrl = blobServiceClient
+            .getContainerClient(containerName)
+            .getBlockBlobClient(blobPath)
+            .url;
+        return `${blobUrl}?${sas.toString()}`;
     };
 };
-exports.uploadSnapshotArtifacts = uploadSnapshotArtifacts;
-const generateSnapshotSas = (blobPath, expiresInMinutes = Number(process.env.SNAPSHOT_SAS_TTL_MINUTES ?? '15')) => {
-    const containerClient = getContainerClient();
-    const credential = getSharedKeyCredential();
-    const expiresOn = new Date(Date.now() + expiresInMinutes * 60 * 1000);
-    const client = containerClient.getBlockBlobClient(blobPath);
-    const sas = (0, storage_blob_1.generateBlobSASQueryParameters)({
-        containerName: containerClient.containerName,
-        blobName: blobPath,
-        permissions: storage_blob_1.BlobSASPermissions.parse('r'),
-        expiresOn,
-    }, credential);
-    return `${client.url}?${sas.toString()}`;
+
+let defaultGenerator = null;
+
+const generateSnapshotSas = (blobPath, expiresInMinutes) => {
+    if (!defaultGenerator) {
+        const accountName = process.env.STORAGE_ACCOUNT_NAME || DEFAULT_ACCOUNT_NAME;
+        const credential = new DefaultAzureCredential({
+            // Set only when the app uses a user-assigned identity.
+            managedIdentityClientId: process.env.AZURE_CLIENT_ID || undefined
+        });
+        defaultGenerator = createSnapshotSasGenerator({
+            blobServiceClient: new BlobServiceClient(`https://${accountName}.blob.core.windows.net`, credential),
+            accountName,
+            containerName: process.env.SNAPSHOT_CONTAINER_NAME || DEFAULT_CONTAINER_NAME
+        });
+    }
+    return defaultGenerator(blobPath, expiresInMinutes);
 };
-exports.generateSnapshotSas = generateSnapshotSas;
+
+module.exports = { generateSnapshotSas, createSnapshotSasGenerator };

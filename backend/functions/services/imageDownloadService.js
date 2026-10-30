@@ -5,10 +5,7 @@ const { URL } = require('url');
 
 // Get storage account name
 const getStorageAccountName = () => {
-    if (!process.env.STORAGE_ACCOUNT_NAME) {
-        throw new Error('STORAGE_ACCOUNT_NAME environment variable is required when using Managed Identity.');
-    }
-    return process.env.STORAGE_ACCOUNT_NAME;
+    return process.env.STORAGE_ACCOUNT_NAME || 'mbacocktaildb3';
 };
 
 // Lazy initialization of BlobServiceClient with Managed Identity
@@ -17,8 +14,8 @@ const getBlobServiceClient = () => {
     if (!blobServiceClient) {
         const accountName = getStorageAccountName();
         const credential = new DefaultAzureCredential({
-            // Optional: specify the managed identity client ID if needed
-            // managedIdentityClientId: '94d9cf74-99a3-49d5-9be4-98ce2eae1d33'
+            // Set only when the app uses a user-assigned identity.
+            managedIdentityClientId: process.env.AZURE_CLIENT_ID || undefined
         });
         
         blobServiceClient = new BlobServiceClient(

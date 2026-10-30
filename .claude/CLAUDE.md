@@ -251,7 +251,7 @@ Located in `kv-mybartenderai-prod`:
 - **Authentication**: Managed Identity for Key Vault and Storage; JWT-only for API requests
 - **Storage Access**: Managed Identities (System-Assigned)
 
-**Deployed Functions (36 total):**
+**Deployed Functions (33 total):**
 
 - `ask-bartender`, `ask-bartender-simple`, `ask-bartender-test`: GPT-4.1-mini cocktail recommendations
 - `recommend`: AI-powered cocktail suggestions
@@ -260,8 +260,8 @@ Located in `kv-mybartenderai-prod`:
 - `voice-session`: Voice AI using GPT-realtime-mini via Azure OpenAI Realtime API, GA protocol (Pro tier)
 - `voice-purchase`, `voice-quota`, `voice-usage`, `voice-realtime-test`, `voice-session-cleanup`: Voice AI management
 - `subscription-config`, `subscription-status`, `subscription-webhook`: RevenueCat subscription system
-- `snapshots-latest`, `snapshots-latest-mi`: JSON snapshot distribution
-- `download-images`, `download-images-mi`: Image asset management
+- `snapshots-latest`: snapshot distribution (user delegation SAS signed by the managed identity; see `docs/STORAGE_MANAGED_IDENTITY.md`)
+- `download-images`: Image asset management
 - `sync-cocktaildb`, `sync-cocktaildb-mi`: Database sync (TIMERS DISABLED)
 - `social-inbox`, `social-invite`, `social-outbox`, `social-share-internal`: Social features
 - `auth-exchange`, `auth-rotate`: Token management
@@ -273,7 +273,7 @@ Located in `kv-mybartenderai-prod`:
 - `speech-token`: Speech service token exchange
 - `voice-bartender`: Legacy voice (Azure Speech Services)
 - `rotate-keys-timer`: Automated key rotation
-- `test-keyvault`, `test-mi-access`, `test-write`: Diagnostic endpoints
+- `test-keyvault`, `test-mi-access`: Diagnostic endpoints
 
 
 
@@ -332,7 +332,7 @@ Located in `kv-mybartenderai-prod`:
 
 **Backend:**
 
-- ✅ All 36 API endpoints deployed and operational
+- ✅ All 33 API endpoints deployed and operational
 - ✅ Entitlement-based quota enforcement in PostgreSQL
 
 ### In Progress
@@ -403,6 +403,7 @@ Refer to these files in the repository:
 - `docs/ARCHITECTURE.md`: Detailed architecture documentation (authoritative)
 - `docs/DEPLOYMENT_STATUS.md`: Current deployment state and changelog (includes backend deploy steps and the Android build toolchain)
 - `docs/FLUTTER_3_47_UPGRADE.md`: Flutter 3.35.5 → 3.47.7 upgrade: versions, decisions, verification, follow-ups (AGP 9, plugin upgrades, SwiftPM, UIScene) and the two-platform regression checklist
+- `docs/STORAGE_MANAGED_IDENTITY.md`: How the Function App reaches `mbacocktaildb3` with its managed identity (user delegation SAS for snapshot links), the role it needs, and the steps to retire `BLOB_STORAGE_CONNECTION_STRING`
 - `docs/VOICE_AI_DEPLOYED.md`: Voice AI architecture, including the GA Realtime API migration, client modes and voice app settings
 - `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
 - `docs/DELETE_USER.md`: Account deletion implementation (Apple Guideline 5.1.1(v))

@@ -4,7 +4,7 @@
 
 - Flutter app (feature-first clean architecture; Riverpod state; GoRouter) - Android and iOS
 - Azure API Management (`apim-mba-002`) as API gateway for entitlement management and security
-- **Azure Functions v4 Programming Model** - 36 functions with code-centric registration
+- **Azure Functions v4 Programming Model** - 33 functions with code-centric registration
 - **Node.js 22 runtime** on Windows Premium Consumption plan
 - **Official Azure OpenAI SDK** (@azure/openai) for all AI features (except for "**Scan My Bar**", uses **Anthropic's Haiku**)
 - Azure PostgreSQL for authoritative recipe corpus with AI enhancements
@@ -163,9 +163,9 @@ sequenceDiagram
 
 ### Overview
 
-All 36 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
+All 33 functions use the Azure Functions v4 programming model with code-centric registration in a single `index.js` file. The migration from v3 to v4 was completed on November 20, 2025.
 
-### Function Catalog (36 Total)
+### Function Catalog (33 Total)
 
 **Core & Health (1)**
 - `health` - Health check endpoint (GET /api/health)
@@ -187,11 +187,9 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
 - `users-me` - User profile endpoint (GET /api/v1/users/me)
 - `validate-age` - Age validation (POST /api/validate-age)
 
-**Data & Storage Functions (6)**
-- `snapshots-latest` - Get latest snapshot (GET /api/snapshots/latest)
-- `snapshots-latest-mi` - Snapshot with managed identity (GET /api/v1/snapshots/latest-mi)
-- `download-images` - Download cocktail images (POST /api/v1/admin/download-images)
-- `download-images-mi` - Images with managed identity (POST /api/v1/admin/download-images-mi)
+**Data & Storage Functions (4)**
+- `snapshots-latest` - Get latest snapshot (GET /api/v1/snapshots/latest); signs the download link with a user delegation SAS from the managed identity (see `STORAGE_MANAGED_IDENTITY.md`)
+- `download-images` - Download cocktail images into blob storage with the managed identity (POST /api/download-images)
 - `sync-cocktaildb` - CocktailDB sync (DISABLED - using local PostgreSQL as master)
 - `sync-cocktaildb-mi` - CocktailDB sync with managed identity (DISABLED)
 
@@ -217,10 +215,9 @@ All 36 functions use the Azure Functions v4 programming model with code-centric 
   - Served at `https://share.mybartenderai.com/.well-known/assetlinks.json` via Front Door `route-well-known` (origin path `/api/.well-known`)
   - Check it the way Android does: `https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://share.mybartenderai.com&relation=delegate_permission/common.handle_all_urls` should list the statement with no `errorCode`
 
-**Testing & Utilities (5)**
+**Testing & Utilities (4)**
 - `test-keyvault` - Key Vault access test (GET /api/test/keyvault)
-- `test-mi-access` - Managed Identity test (GET /api/test/mi-access)
-- `test-write` - Blob write test (GET /api/test/write)
+- `test-mi-access` - Managed identity storage check, including a user delegation key (GET /api/test/mi-access)
 - `rotate-keys-timer` - Scheduled key rotation (timer)
 - `voice-session-cleanup` - Hourly stale voice session expiry (timer)
 
@@ -263,7 +260,7 @@ const result = await client.getChatCompletions(deployment, messages, options);
 ```
 
 **Migration Status:**
-- ✅ 36 functions deployed and operational
+- ✅ 33 functions deployed and operational
 - ⚠️ 1 function (speech-token) has configuration issue unrelated to migration
 
 ## AI Model & Cost Strategy
@@ -411,10 +408,8 @@ All authentication and key management functions include comprehensive monitoring
 
 - **Timer Function** `sync-cocktaildb` (v4, DISABLED)
 - **Timer Function** `sync-cocktaildb-mi` (v4, DISABLED)
-- **HTTP Function** `GET /api/snapshots/latest` (v4, operational)
-- **HTTP Function** `GET /api/v1/snapshots/latest-mi` (v4, Managed Identity variant)
-- **HTTP Function** `POST /api/v1/admin/download-images` (v4, image management)
-- **HTTP Function** `POST /api/v1/admin/download-images-mi` (v4, Managed Identity variant)
+- **HTTP Function** `GET /api/v1/snapshots/latest` (v4, operational; user delegation SAS via managed identity)
+- **HTTP Function** `POST /api/download-images` (v4, image management via managed identity)
 - **PostgreSQL**: Authoritative data with AI enhancements
   - Connection string format: `postgresql://user:pass@host/db?sslmode=require` (URI format required by pg library)
   - Accessed via Key Vault secret with Managed Identity
@@ -691,7 +686,7 @@ sequenceDiagram
   - JWT-only authentication (APIM validates JWT via policy)
   - Server-side entitlement validation in PostgreSQL
   - Rate limiting based on user entitlement
-  - **Azure Functions v4 Programming Model**: All 36 functions deployed
+  - **Azure Functions v4 Programming Model**: All 33 functions deployed
   - **Official Azure OpenAI SDK**: All AI features using @azure/openai
   - **RevenueCat Subscriptions**: Webhook-based subscription management
 - **Storage Access**: Managed Identity with Storage Blob Data Contributor role

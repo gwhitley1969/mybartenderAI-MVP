@@ -19,7 +19,7 @@ module.exports = async function (context, req) {
                 },
             };
         }
-        const signedUrl = (0, snapshotStorageService_1.generateSnapshotSas)(metadata.blobPath);
+        const signedUrl = await (0, snapshotStorageService_1.generateSnapshotSas)(metadata.blobPath);
         return {
             status: 200,
             headers: {
@@ -36,7 +36,7 @@ module.exports = async function (context, req) {
             },
         };
     } catch (error) {
-        context.log.error('[snapshots-latest] Error:', error);
+        context.error('[snapshots-latest] Error:', error);
         return {
             status: 500,
             headers: {
@@ -45,7 +45,6 @@ module.exports = async function (context, req) {
             jsonBody: {
                 code: 'internal_error',
                 message: 'Failed to retrieve snapshot metadata.',
-                error: error.message,
                 traceId: context.invocationId,
             },
         };

@@ -1,8 +1,8 @@
 const { getPool } = require('../shared/db/postgresPool');
-const { batchDownloadImages } = require('../services/imageDownloadServiceMI');
+const { batchDownloadImages } = require('../services/imageDownloadService');
 
 module.exports = async function (context, req) {
-    context.log('[download-images-mi] Starting image download process with Managed Identity');
+    context.log('[download-images] Starting image download process with Managed Identity');
     
     try {
         // Get cocktails without local images
@@ -18,12 +18,12 @@ module.exports = async function (context, req) {
         const result = await pool.query(query);
         const cocktails = result.rows;
         
-        context.log(`[download-images-mi] Found ${cocktails.length} cocktails needing image download`);
+        context.log(`[download-images] Found ${cocktails.length} cocktails needing image download`);
         
         if (cocktails.length === 0) {
-            context.res = {
+            return {
                 status: 200,
-                body: {
+                jsonBody: {
                     message: 'No images to download',
                     totalCocktails: 0,
                     downloaded: 0,
@@ -31,7 +31,6 @@ module.exports = async function (context, req) {
                     alreadyExists: 0
                 }
             };
-            return;
         }
         
         // Download images in batches using Managed Identity
@@ -60,15 +59,15 @@ module.exports = async function (context, req) {
             results: downloadResults
         };
         
-        context.log(`[download-images-mi] Download complete: ${summary.downloaded} new, ${summary.alreadyExists} existing, ${summary.failed} failed`);
+        context.log(`[download-images] Download complete: ${summary.downloaded} new, ${summary.alreadyExists} existing, ${summary.failed} failed`);
         
-        context.res = {
+        return {
             status: 200,
-            body: summary
+            jsonBody: summary
         };
         
     } catch (error) {
-        context.log.error('[download-images-mi] Error:', error);
+        context.error('[download-images] Error:', error);
         
         let errorMessage = 'Failed to download images';
         let errorCode = 'download_failed';
@@ -76,14 +75,11 @@ module.exports = async function (context, req) {
         if (error.message?.includes('DefaultAzureCredential') || error.message?.includes('ManagedIdentityCredential')) {
             errorMessage = 'Managed Identity authentication failed. Ensure the identity has proper blob storage roles.';
             errorCode = 'auth_failed';
-        } else if (error.message?.includes('STORAGE_ACCOUNT_NAME')) {
-            errorMessage = 'Storage account name not configured.';
-            errorCode = 'missing_configuration';
         }
         
-        context.res = {
+        return {
             status: 500,
-            body: {
+            jsonBody: {
                 error: errorCode,
                 message: errorMessage,
                 details: process.env.NODE_ENV === 'development' ? error.message : undefined

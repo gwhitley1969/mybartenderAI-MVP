@@ -51,6 +51,10 @@ The service caches one user delegation key for 6 hours, so most requests make no
    $r = Invoke-RestMethod https://share.mybartenderai.com/api/v1/snapshots/latest
    $r.signedUrl -match 'skoid='                               # True: user delegation SAS (account-key links have no skoid)
    (Invoke-WebRequest $r.signedUrl -Method Head).StatusCode   # 200
+   # The app downloads through the same Dio client as its API calls, so the request also carries
+   # "Authorization: Bearer <Entra ID token>". Mimic that (run it once before deploying too, against
+   # today's account-key link, and expect the same result):
+   (Invoke-WebRequest $r.signedUrl -Method Head -Headers @{ Authorization = 'Bearer x' }).StatusCode
    ```
    Then do a fresh install (or clear app data) on one phone and let the initial sync finish.
 

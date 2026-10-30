@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/models.dart';
 import '../utils/cocktail_links.dart';
 import '../widgets/shareable_recipe_card.dart';
+import 'analytics_service.dart';
 import 'image_cache_service.dart';
 
 /// Orchestrates recipe card image generation and sharing.
@@ -154,6 +155,7 @@ class RecipeCardShareService {
         sharePositionOrigin: sharePositionOrigin,
       );
 
+      _logShare(cocktail, result);
       return result;
     } catch (e, stackTrace) {
       loadingBar.close();
@@ -170,12 +172,20 @@ class RecipeCardShareService {
           subject: subject,
           sharePositionOrigin: sharePositionOrigin,
         );
+        _logShare(cocktail, result);
         return result;
       } catch (fallbackError) {
         debugPrint('[RecipeCardShare] Text fallback also failed: $fallbackError');
         return null;
       }
     }
+  }
+
+  /// Some Android share targets report `unavailable` rather than `success`,
+  /// so only an explicit dismiss is left out.
+  void _logShare(Cocktail cocktail, ShareResult result) {
+    if (result.status == ShareResultStatus.dismissed) return;
+    AnalyticsService.instance.logRecipeShared(cocktailId: cocktail.id);
   }
 
   /// Build the text that accompanies the shared image.

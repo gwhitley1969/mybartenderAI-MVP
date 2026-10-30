@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/analytics_service.dart';
 import '../services/background_token_service.dart';
 import '../services/notification_service.dart';
 
@@ -97,6 +98,10 @@ Future<void> bootstrap(
   List<Override> overrides = const [],
 }) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Firebase Analytics (Google Ads conversion events). Android only, and a
+  // no-op until google-services.json is added. Never throws.
+  await AnalyticsService.instance.initialize();
 
   // NOTE: APIM subscription key validation REMOVED
   // Using JWT-only authentication - APIM validates JWT token

@@ -6,6 +6,8 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../providers/auth_provider.dart';
+import '../../services/analytics_service.dart';
+import '../../services/subscription_service.dart';
 import '../../providers/backend_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../theme/app_colors.dart';
@@ -110,6 +112,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
       developer.log(
           'event=PaywallShown source=router_redirect trialEligible=$_showTrialCta',
           name: 'Analytics');
+      AnalyticsService.instance.logPaywallView(trialEligible: _showTrialCta);
     }
 
     final offeringsAsync = ref.watch(subscriptionOfferingsProvider);
@@ -538,6 +541,11 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
         developer.log(
             'event=PaywallPurchaseCompleted packageId=${package.identifier}',
             name: 'Analytics');
+        AnalyticsService.instance.logSubscriptionPurchase(
+          package: package,
+          customerInfo: result,
+          entitlementId: SubscriptionService.paidEntitlementId,
+        );
         // Force downstream providers to re-read; router redirect handles nav.
         ref.invalidate(subscriptionStatusProvider);
         ref.invalidate(backendEntitlementProvider);

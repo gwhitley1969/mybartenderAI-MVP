@@ -8,6 +8,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Firebase (Google Analytics for Firebase, for Google Ads conversion tracking).
+// The plugin is applied only when google-services.json is present, so a build
+// without it still works and analytics stays off. Download the file from the
+// Firebase console (docs/GOOGLE_ADS_CONVERSION_TRACKING.md, step 1).
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+} else {
+    logger.quiet("google-services.json not found: building without Firebase Analytics")
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {

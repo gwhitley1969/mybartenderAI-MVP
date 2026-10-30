@@ -10,6 +10,7 @@ import '../../api/create_studio_api.dart';
 import '../../exceptions/entitlement_exception.dart';
 import '../../models/models.dart';
 import '../../providers/providers.dart';
+import '../../services/analytics_service.dart';
 import '../../services/cocktail_photo_service.dart';
 import '../../services/review_service.dart';
 import '../../theme/theme.dart';
@@ -852,6 +853,7 @@ class _EditCocktailScreenState extends ConsumerState<EditCocktailScreen> {
         await db.updateCustomCocktail(cocktail);
       } else {
         await db.insertCocktail(cocktail);
+        AnalyticsService.instance.logRecipeCreated();
       }
 
       // Record win moment and defer prompt to HomeScreen

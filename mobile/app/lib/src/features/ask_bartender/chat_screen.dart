@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/ask_bartender_api.dart';
 import '../../providers/inventory_provider.dart';
+import '../../services/analytics_service.dart';
 import '../../services/review_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -128,6 +129,7 @@ class _AskBartenderScreenState extends ConsumerState<AskBartenderScreen> {
         _isLoading = false;
         _successfulResponses++;
       });
+      AnalyticsService.instance.logAiChatReply();
 
       // Record win moment after 3 meaningful chat exchanges
       if (_successfulResponses >= 3) {

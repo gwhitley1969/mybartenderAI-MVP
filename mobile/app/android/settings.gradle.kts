@@ -21,6 +21,9 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.13.2" apply false
     id("org.jetbrains.kotlin.android") version "2.3.21" apply false
+    // Firebase config from android/app/google-services.json. Version pinned by
+    // firebase_core (its pubspec's google_services_gradle_plugin_version).
+    id("com.google.gms.google-services") version "4.4.4" apply false
 }
 
 include(":app")

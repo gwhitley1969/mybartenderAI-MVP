@@ -106,6 +106,11 @@ dependencies:
   # Background tasks for token refresh keepalive
   workmanager: ^0.9.0
 
+  # Google Analytics for Firebase: conversion events for Google Ads App campaigns
+  # (docs/GOOGLE_ADS_CONVERSION_TRACKING.md). A no-op until Firebase is configured.
+  firebase_core: ^5.1.0
+  firebase_analytics: ^13.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

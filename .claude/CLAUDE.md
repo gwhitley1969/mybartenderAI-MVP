@@ -340,6 +340,7 @@ Located in `kv-mybartenderai-prod`:
 - 🔄 v1.2.2+36 release (Voice GA migration, iPhone stop fix, share links, Flutter 3.47.7): all on `main` since PR #7 (`68400c9`, Oct 20); signed Android bundle built from `main` with Flutter 3.47.7 after a device test; `cocktail-preview` deployed Oct 20; uploaded to Play (production) Oct 20; iOS build and store submission pending
 - 🔄 Flutter 3.47.7 upgrade: merged to `main` by PR #7 and shipping in v1.2.2+36; next: Mac build and the regression checklist (mainly iPhone) in `docs/FLUTTER_3_47_UPGRADE.md`. The iOS minimum becomes 15.0
 - 🔄 v1.2.3+37: R8 fix for Play's "DEX code optimization" warning (Optimization 0%, Obfuscation and Shrinking 22%; fix by Feb 2027), device-tested on Android; next: bundle from `main` and Play upload
+- 🔄 Google Ads conversion tracking: Firebase Analytics (GA4) events for App campaigns (`sign_up`, `trial_start`, …; `lib/src/services/analytics_service.dart`), Android only and a no-op until `android/app/google-services.json` is added. Console steps, Play AD_ID / Data safety and privacy policy updates: `docs/GOOGLE_ADS_CONVERSION_TRACKING.md`. Event names are imported by Google Ads, so don't rename them
 - 🔄 Taste Profile feature (UI design)
 - 🔄 iOS TestFlight testing (we're in production now)
 - 🔄 Android Play Store deployment beta testing (we're in production now)
@@ -406,6 +407,7 @@ Refer to these files in the repository:
 - `docs/VOICE_AI_DEPLOYED.md`: Voice AI architecture, including the GA Realtime API migration, client modes and voice app settings
 - `docs/SUBSCRIPTION_DEPLOYMENT.md`: Subscription system architecture, schema, and endpoints
 - `docs/DELETE_USER.md`: Account deletion implementation (Apple Guideline 5.1.1(v))
+- `docs/GOOGLE_ADS_CONVERSION_TRACKING.md`: Google Ads App campaign conversion events (Firebase / GA4), RevenueCat → GA4, console and Play Console steps
 - `docs/REVENUECAT_PLAN.md`: RevenueCat setup checklist (Google Play + App Store)
 - `docs/USER_SUBSCRIPTION_MANAGEMENT.md`: PostgreSQL admin guide for user/subscription management
 - `README.md`: Project overview and setup instructions (may be outdated)

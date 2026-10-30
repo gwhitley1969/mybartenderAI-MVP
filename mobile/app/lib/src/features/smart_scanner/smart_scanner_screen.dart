@@ -9,6 +9,7 @@ import '../../providers/inventory_provider.dart';
 import '../../providers/review_provider.dart';
 import '../../providers/subscription_provider.dart';
 import '../../providers/vision_provider.dart';
+import '../../services/analytics_service.dart';
 import '../../services/review_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
@@ -113,6 +114,8 @@ class _SmartScannerScreenState extends ConsumerState<SmartScannerScreen> {
 
       // Invalidate the inventory provider to refresh
       ref.invalidate(inventoryProvider);
+      AnalyticsService.instance
+          .logBarScanComplete(itemsAdded: _selectedIngredients.length);
 
       // Show success message
       if (mounted) {

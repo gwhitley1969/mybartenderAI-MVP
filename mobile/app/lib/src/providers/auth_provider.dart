@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/auth_state.dart';
 import '../models/user.dart';
+import '../services/analytics_service.dart';
 import '../services/app_lifecycle_service.dart';
 import '../services/review_service.dart';
 import '../services/auth_service.dart';
@@ -149,6 +151,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         developer.log('Sign in successful: ${user.email}', name: 'AuthNotifier');
         // Initialize RevenueCat with Entra sub as App User ID, email as attribute
         await _initializeSubscription(user.id, email: user.email, displayName: user.displayName);
+        unawaited(AnalyticsService.instance.logSignIn());
         state = AuthState.authenticated(user);
       } else {
         developer.log('Sign in cancelled', name: 'AuthNotifier');
@@ -171,6 +174,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         developer.log('Sign up successful: ${user.email}', name: 'AuthNotifier');
         // Initialize RevenueCat with Entra sub as App User ID, email as attribute
         await _initializeSubscription(user.id, email: user.email, displayName: user.displayName);
+        unawaited(AnalyticsService.instance.logSignIn());
         state = AuthState.authenticated(user);
       } else {
         developer.log('Sign up cancelled', name: 'AuthNotifier');
@@ -231,6 +235,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } catch (e) {
         developer.log('RevenueCat logout during account deletion (non-fatal): $e', name: 'AuthNotifier');
       }
+
+      await AnalyticsService.instance.resetAfterAccountDeletion();
 
       developer.log('Account deletion complete', name: 'AuthNotifier');
       state = const AuthState.unauthenticated();

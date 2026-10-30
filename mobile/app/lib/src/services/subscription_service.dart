@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import 'analytics_service.dart';
 import 'backend_service.dart';
 
 /// Subscription status from RevenueCat
@@ -49,6 +50,7 @@ class SubscriptionService {
 
   // Entitlement identifier (must match RevenueCat dashboard)
   static const String _paidEntitlement = 'paid';
+  static String get paidEntitlementId => _paidEntitlement;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -120,6 +122,19 @@ class SubscriptionService {
       }
       if (displayName != null && displayName.isNotEmpty) {
         await Purchases.setDisplayName(displayName);
+      }
+
+      // The $firebaseAppInstanceId attribute lets RevenueCat's Google Analytics integration
+      // send trial conversions and renewals (which happen server-side, often
+      // with the app closed) to the same GA4 app instance.
+      // Non-fatal: analytics must never block RevenueCat setup.
+      try {
+        final firebaseAppInstanceId = await AnalyticsService.instance.appInstanceId;
+        if (firebaseAppInstanceId != null) {
+          await Purchases.setFirebaseAppInstanceId(firebaseAppInstanceId);
+        }
+      } catch (e) {
+        debugPrint('SubscriptionService: setFirebaseAppInstanceId failed: $e');
       }
 
       // Listen for customer info updates

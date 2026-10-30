@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../services/analytics_service.dart';
 import '../services/review_service.dart';
 import '../services/voice_ai_service.dart';
 import 'backend_provider.dart';
@@ -94,6 +95,11 @@ class VoiceAINotifier extends StateNotifier<VoiceAISessionState> {
     // Capture duration before ending (it resets after endSession)
     final duration = _service.sessionDuration;
     await _service.endSession();
+
+    if (duration > 0) {
+      AnalyticsService.instance
+          .logVoiceSessionComplete(durationSeconds: duration);
+    }
 
     // Record voice win moment if session was long enough (>= 45s)
     if (duration >= 45) {

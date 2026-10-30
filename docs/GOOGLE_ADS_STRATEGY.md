@@ -103,20 +103,24 @@ Play linking alone has gaps for us. It measures installs and in-app purchases, b
 
 ### 4c. App instrumentation (code change, separate PR)
 
-Add the Firebase Analytics SDK only (no Firebase backend; Azure stays the backend):
+The implementation is owned by a separate change. See `docs/GOOGLE_ADS_CONVERSION_TRACKING.md` for the details. It adds the Firebase Analytics SDK only (GA4 via `firebase_analytics`; no Firebase backend, Azure stays the backend), Android first. The events, and how this plan uses them in Google Ads:
 
-- `firebase_core` and `firebase_analytics` in `pubspec.yaml`, plus `google-services.json` (Android) and `GoogleService-Info.plist` (iOS, for later). Check the current versions with Context7 when implementing.
-- Log these events (the paywall's `developer.log` lines show exactly where):
+| Event | When it fires | Google Ads use |
+|---|---|---|
+| `first_open` | automatic | secondary (observation only) |
+| `sign_up` (`method=entra_external_id`) | first interactive sign-in **on this install** (the 21+ check runs inside the Entra flow) | **primary at launch** |
+| `login` | every interactive sign-in | not imported |
+| `paywall_view` (`trial_eligible`) | `/paywall` shown | secondary |
+| `trial_start` (`plan`, `product_id`, `currency`, `price`; **no `value`**) | the purchase result's `paid` entitlement has `periodType == trial` | **primary in phase 2** |
+| `purchase` (with `value`, `currency`) | initial purchase, renewals and trial conversions, sent server side by RevenueCat's GA integration | phase 3 (tROAS) value event |
+| `ai_chat_reply`, `bar_scan_complete`, `voice_session_complete`, `recipe_created`, `share` | engagement | secondary only (quality checks, never bid on) |
 
-| Event | When | Fire from | Google Ads use |
-|---|---|---|---|
-| `first_open` | automatic | SDK | secondary (observation only) |
-| `sign_up` | first successful sign-in on a new account (age check passed) | auth flow, after Entra sign-in | **primary at launch** |
-| `paywall_view` | `/paywall` shown | `PaywallShown` site | secondary |
-| `trial_start` | purchase completed with an intro or trial period | `PaywallPurchaseCompleted` site when `_showTrialCta` was true | **primary in phase 2** |
-| `purchase` (with `value`, `currency`) | trial converts or a direct paid purchase | RevenueCat to Firebase integration (server side) | phase 3 (tROAS) |
+Points that affect bidding:
 
-- **RevenueCat**: turn on the [Firebase integration](https://www.revenuecat.com/docs/integrations/third-party-integrations/firebase-integration) and call `Purchases.setFirebaseAppInstanceID(...)` after Firebase starts. It sends `rc_trial_start`, `purchase` (renewals carry `is_trial_conversion: true`), `rc_cancellation` and `rc_expiration` with revenue. Pick **one** source for trial start as the Google Ads primary conversion (the client-side `trial_start` is faster; `rc_trial_start` is more trustworthy) and keep the other secondary, so trials aren't counted twice.
+- **`sign_up` means first sign-in on this install, not a new account.** Entra uses one flow for sign-up and sign-in, so the app can't tell them apart. A returning subscriber who reinstalls from an ad also counts. That's acceptable for a phase 1 proxy, but compare `sign_up` with `trial_start` before trusting its CPA.
+- **`trial_start` carries no value**, on purpose: a trial earns nothing until it converts. For value bidding, set a **static conversion value** on the `trial_start` conversion action in Google Ads (section 5c), or bid on RevenueCat's `purchase`.
+- **Import one source per conversion.** Use the client `trial_start` as the trial primary; leave RevenueCat's `rc_trial_start` unimported or secondary. For purchases, import **only** RevenueCat's `purchase`. Leave the SDK's automatic `in_app_purchase` / `app_store_subscription_convert` and the Play-linked "Google Play in-app purchase" action secondary, or purchases get counted 2 or 3 times.
+- **Check attribution on `purchase` before relying on it.** It arrives through the GA4 Measurement Protocol, and Google Ads attributes those events only when they match SDK-collected device IDs. Confirm that paid-campaign purchases show up in Google Ads before moving to tROAS.
 - **Compliance follow-ups** (they block a release if forgotten):
   - Play Console **Data safety**: add "App interactions" and "Device or other IDs" (advertising ID), collected and shared for analytics and advertising.
   - `com.google.android.gms.permission.AD_ID`: Firebase Analytics adds it through manifest merge. Answer the Play Console "Advertising ID" declaration as **Yes**.
@@ -166,7 +170,7 @@ Budget rules from [Google's App campaign best practices](https://support.google.
 | Phase 2 to 3 | ≥ 10 trial starts a day sustained, `purchase` values arriving from RevenueCat (net of Google's fee) **or** a per-plan predicted value on `trial_start`. Conversion window set to capture about 90% of value (under 30 days; the 7-day trial plus first charge fits) |
 | Any, fallback | Phase 1 can't exceed 5 `sign_up`s a day after 3 weeks at $30/day: test Install volume with "users likely to perform an in-app action", or pause paid and work on the listing (section 7) |
 
-**Value-based shortcut (phase 3 without waiting for renewals)**: send `trial_start` with a predicted value by plan, for example annual trial ≈ $33.99 × trial-to-paid rate and monthly trial ≈ $13.50 × trial-to-paid rate. That lets tROAS favor users who pick annual. Update the values quarterly from RevenueCat data.
+**Value-based shortcut (phase 3 without waiting for renewals)**: the app sends `trial_start` without a value, so give it a predicted value in Google Ads. One way is a **static value on the conversion action** (blended, about $7 under the section 2 assumptions). Another is **two GA4 conversion events split on the `plan` parameter**, each with its own static value: annual trial ≈ $33.99 × trial-to-paid rate, monthly trial ≈ $13.50 × trial-to-paid rate. The split lets tROAS favor users who pick annual. Update the values quarterly from RevenueCat data.
 
 ### 5d. Learning-phase rules
 

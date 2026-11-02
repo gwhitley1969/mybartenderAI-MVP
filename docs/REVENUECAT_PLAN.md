@@ -239,6 +239,18 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 - Verified working: Two production INITIAL_PURCHASE events processed successfully
 - RevenueCat dashboard shows "Sent" status for webhook events
 
+### 3G. Apple Ads (AdServices) Attribution
+
+**Status**: app code on branch `claude/apple-ads-attribution` (Nov 2, 2026); dashboard integration not connected yet
+
+Ties trials and subscriptions to the Apple Ads campaign, ad group and keyword that drove the install. Without it, RevenueCat shows Apple Ads customers as Organic.
+
+- **App** (`subscription_service.dart`): on iOS, `Purchases.enableAdServicesAttributionTokenCollection()` runs right after `Purchases.configure()`. Standard attribution only, so there is **no** App Tracking Transparency prompt (App Privacy stays "does not track"). A failure is logged and never breaks sign-in. Android makes no call.
+- **Dashboard**: Integrations → Apple AdServices → Add Apple Search Ads integration → **Sign in with Apple** in the Advanced section, choosing **Read Only**. The Apple Ads user who authorizes must be an Account Admin or Campaign Group Manager. Use Advanced because the campaigns run on Apple Ads Advanced; the Basic setting would leave campaign, ad group and keyword names out. The current sign-in method needs no API key or certificate.
+- **Only new installs** of an App Store build containing this code are attributed. RevenueCat asks Apple within 24 hours of receiving the token; allow up to 7 days for data to appear.
+- Since September 2026, Apple returns no attribution for ad groups that use **age or gender targeting**.
+- Because `configure` runs only after sign-in, installs that never sign in aren't attributed.
+
 ---
 
 ## Phase 4: Azure Infrastructure — Store iOS API Key

@@ -374,9 +374,10 @@ RevenueCat uses the user's **Entra `sub` claim** (opaque GUID) as the App User I
 
 **RevenueCat initialization** (`subscription_service.dart`):
 1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no `appUserID`)
-2. `Purchases.logIn(userId)` — identifies user by Entra sub (always available)
-3. `Purchases.setEmail(email)` — sets `$email` subscriber attribute when email is available
-4. `Purchases.setDisplayName(name)` — sets `$displayName` subscriber attribute
+2. `Purchases.enableAdServicesAttributionTokenCollection()` — iOS only; sends the Apple Ads attribution token (no ATT prompt; failures are logged, never thrown). See `REVENUECAT_PLAN.md` §3G
+3. `Purchases.logIn(userId)` — identifies user by Entra sub (always available)
+4. `Purchases.setEmail(email)` — sets `$email` subscriber attribute when email is available
+5. `Purchases.setDisplayName(name)` — sets `$displayName` subscriber attribute
 
 **Why Entra sub, not email**: Email extraction fails for Google-federated CIAM users (all 6 layers return empty). Using the Entra sub ensures ALL users can subscribe. Email is still valuable for dashboard searchability — that's handled by the `$email` subscriber attribute, which RevenueCat's Ctrl+K search indexes.
 

@@ -545,7 +545,7 @@ RevenueCat identifies subscribers by their **real email address** (e.g., `paulaw
 **Email retrieval**: Entra External ID (CIAM) tokens do not include email claims even when configured as optional claims. The Flutter app calls Microsoft Graph API `GET /me` during sign-in to fetch the real email from the user's profile (`auth_service.dart` → `_fetchEmailFromGraph()`).
 
 **Initialization pattern** (`subscription_service.dart`):
-1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no appUserID)
+1. `Purchases.configure(PurchasesConfiguration(apiKey))` — anonymous (no appUserID), then on iOS `Purchases.enableAdServicesAttributionTokenCollection()` for Apple Ads attribution (no ATT prompt; see `REVENUECAT_PLAN.md` §3G)
 2. `Purchases.logIn(normalizedEmail)` — identifies user by email, triggers Transfer Behavior for existing subscribers
 3. `Purchases.setEmail()` + `Purchases.setDisplayName()` — subscriber attributes for dashboard
 

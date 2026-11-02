@@ -99,6 +99,9 @@ class SubscriptionService {
         PurchasesConfiguration(_revenueCatApiKey!),
       );
 
+      // Apple Ads attribution (iOS only, never throws)
+      await enableAppleAdsAttribution(isIOS: Platform.isIOS);
+
       // Enable debug logs in debug mode
       if (kDebugMode) {
         await Purchases.setLogLevel(LogLevel.debug);
@@ -133,6 +136,24 @@ class SubscriptionService {
     } catch (e) {
       debugPrint('SubscriptionService: Initialization error: $e');
       rethrow;
+    }
+  }
+
+  /// Send Apple's AdServices attribution token to RevenueCat, so trials and
+  /// subscriptions can be tied to the Apple Ads campaign, ad group and keyword
+  /// that drove the install. Call right after [Purchases.configure].
+  ///
+  /// Standard attribution only: it needs no App Tracking Transparency prompt,
+  /// so do NOT add one (App Privacy says the app does not track).
+  /// iOS only, and it never throws, so a failure can't break sign-in.
+  @visibleForTesting
+  static Future<void> enableAppleAdsAttribution({required bool isIOS}) async {
+    if (!isIOS) return;
+    try {
+      await Purchases.enableAdServicesAttributionTokenCollection();
+      debugPrint('SubscriptionService: Apple Ads (AdServices) attribution enabled');
+    } catch (e) {
+      debugPrint('SubscriptionService: Apple Ads attribution not enabled: $e');
     }
   }
 

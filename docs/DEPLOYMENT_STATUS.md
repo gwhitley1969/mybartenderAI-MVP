@@ -2,11 +2,20 @@
 
 ## Current Status: Released Product
 
-**Last Updated**: October 20, 2026
+**Last Updated**: November 2, 2026
 
 The My AI Bartender mobile app and Azure backend are fully operational and in production. All core features are implemented and tested on both Android and iOS platforms, including the RevenueCat subscription system, Today's Special daily notifications, and (as of v1.2.0+33) a full-app hard paywall.
 
 > **Open incident (Oct 17, 2026): Voice AI.** The backend GA fix below was deployed at 23:46 UTC; installed store builds get compat mode, and voice was verified working on iPhone and Android on Oct 18. The app update (v1.2.2+36) is built from `main` (Oct 20) but not yet released. All other features are unaffected.
+
+### Recent Updates (November 2026)
+
+- **Version 1.2.4+38 — iOS release with Apple Ads attribution** (Nov 2) — **submitted for App Review on Nov 2.** The only app change since iOS 1.2.3 (37) is PR #16 (`2d8c919`): on iOS, `Purchases.enableAdServicesAttributionTokenCollection()` runs right after `Purchases.configure()`, with no App Tracking Transparency prompt (see `REVENUECAT_PLAN.md` §3G). PRs #14 and #12 changed only docs and `Podfile.lock`
+  - **Build:** a clean `flutter build ipa --release --build-name=1.2.4 --build-number=38` on the Mac from `main` (`a22bdb9`), with Flutter 3.47.7, Xcode 26.2 and CocoaPods 1.16.2. The flags were needed because `pubspec.yaml` still read `1.2.3+37`; this entry's PR bumps it to `1.2.4+38` to match
+  - **IPA:** `My AI Bartender.ipa`, 44,768,265 bytes, SHA-256 `e42fcc11c598acfad8de2387778ec493a09551c50336338c37cbd6bd012609ac`. Signed `Apple Distribution: Xtend-AI, LLC (4ML27KY869)` with the Team Store provisioning profile (expires Oct 30, 2027), `get-task-allow` false, iOS 15.0 minimum, `ITSAppUsesNonExemptEncryption` false. Entitlements match 1.2.3 (37). The attribution code is in `App.framework`, and `RevenueCat.framework` links AdServices
+  - **Upload:** Gene uploaded the IPA with Transporter and submitted it for review in App Store Connect
+  - Version `1.2.3 → 1.2.4`, not only build `37 → 38`: 1.2.3 is closed in App Store Connect, so a new submission needs a higher version as well as a higher build number
+  - **Android:** the 1.2.3+37 bundle from Oct 20 is unaffected. The next Android build from `main` will be 1.2.4 (38), and it makes no attribution call
 
 ### Recent Updates (October 2026)
 

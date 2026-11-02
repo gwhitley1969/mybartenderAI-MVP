@@ -241,7 +241,7 @@ Subscriptions (`pro_monthly`, `pro_annual`) are already created. Only the consum
 
 ### 3G. Apple Ads (AdServices) Attribution
 
-**Status**: dashboard integration CONNECTED (Nov 2, 2026): Basic and Advanced both "Done". The app code ships with the next iOS release; no attribution data until then
+**Status**: dashboard integration CONNECTED (Nov 2, 2026): Basic and Advanced both "Done". The app code ships in iOS 1.2.4 (38), submitted for App Review on Nov 2, 2026; no attribution data until it is live
 
 Ties trials and subscriptions to the Apple Ads campaign, ad group and keyword that drove the install. Without it, RevenueCat shows Apple Ads customers as Organic.
 
